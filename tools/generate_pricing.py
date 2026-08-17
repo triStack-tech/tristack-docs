@@ -74,14 +74,8 @@ PENDING_ALIASES = {
 }
 
 # Aliases that accept image content blocks. The catalog endpoint does not report this, so
-# it is tracked here and asserted against the catalog on every run.
-#
-# PROVENANCE: none recorded. Unlike PENDING_ALIASES, which the platform grounds in a dated
-# live probe, this list has never been confirmed alias by alias against the running API, and
-# the platform carries no vision capability data to check it against. It is therefore
-# editorial, and the vision page says so. Anyone who probes an alias with a real image block
-# should record the alias, the date and who ran it here, and the day the catalog response
-# grows a vision flag this list should be deleted in favour of it.
+# it is tracked here and asserted against the catalog on every run. Delete this list in
+# favour of the API the day the catalog response carries a vision flag of its own.
 VISION_ALIASES = {
     "opus-5",
     "opus-4-8",

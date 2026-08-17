@@ -1,13 +1,17 @@
 ---
-title: TriStack Manifold
-description: One HTTP API for language models, metered per token and billed from a prepaid wallet.
+title: TriStack Docs
+description: Developer documentation for TriStack products.
 hide:
   - navigation
 ---
 
-# TriStack Manifold
+# TriStack Docs
 
-TriStack Manifold is one HTTP API for language models: send messages, name the model by alias, and read the answer back in a single JSON shape. Every call is metered in tokens and billed to a prepaid wallet in paise, and every response carries the exact cost of that call.
+Developer documentation for TriStack products. Manifold is documented here today, and the other products join it on this site as they ship.
+
+## TriStack Manifold
+
+One HTTP API for language models: send messages, name the model by alias, and read the answer back in a single JSON shape. Every call is metered in tokens and billed to a prepaid wallet in paise, and every response carries the exact cost of that call.
 
 <div class="grid" markdown>
 

@@ -5,8 +5,8 @@ site_name: TriStack Docs
 # file holding that hostname. Change this line at the same time as adding the CNAME.
 site_url: https://tristack-tech.github.io/tristack-docs/
 site_description: >-
-  Developer documentation for TriStack Manifold: one HTTP API for language models,
-  metered per token and billed from a prepaid wallet.
+  Developer documentation for TriStack products, starting with Manifold: one HTTP API
+  for language models, metered per token and billed from a prepaid wallet.
 site_author: Tristack Technologies LLP
 copyright: >-
   TriStack is a product of Tristack Technologies LLP (LLPIN ACP-3743),
@@ -116,21 +116,24 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
+# Product sections sit at the top level so another TriStack product slots in beside
+# Manifold without moving any of these pages.
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
-  - Guides:
-      - Authentication: guides/authentication.md
-      - Streaming: guides/streaming.md
-      - Vision and images: guides/vision.md
-  - API reference:
-      - Overview: api/index.md
-      - Create a message: api/messages.md
-      - List models: api/models.md
-      - Errors: api/errors.md
-      - Dashboard API: api/dashboard.md
-  - Models and pricing:
-      - Model catalog: pricing/models.md
-      - Pricing and billing: pricing/billing.md
+  - Manifold:
+      - Getting started: getting-started.md
+      - Guides:
+          - Authentication: guides/authentication.md
+          - Streaming: guides/streaming.md
+          - Vision and images: guides/vision.md
+      - API reference:
+          - Overview: api/index.md
+          - Create a message: api/messages.md
+          - List models: api/models.md
+          - Errors: api/errors.md
+          - Dashboard API: api/dashboard.md
+      - Models and pricing:
+          - Model catalog: pricing/models.md
+          - Pricing and billing: pricing/billing.md
   - Support: support.md
   - Changelog: changelog.md

@@ -1,8 +1,10 @@
 # TriStack documentation
 
-The public developer documentation for TriStack Manifold, built with
+Source for the public TriStack developer documentation, built with
 [MkDocs](https://www.mkdocs.org/) and the
 [Material](https://squidfunk.github.io/mkdocs-material/) theme.
+
+It covers TriStack Manifold today. Other TriStack products will be added here as they ship.
 
 ## Layout
 
@@ -40,49 +42,27 @@ That rewrites the files in `includes/`. Commit `data/models.json` and `includes/
 CI regenerates them and fails if the committed output is stale, so the published tables
 always match the captured catalog.
 
-Three facts live in `tools/generate_pricing.py` rather than in the catalog response,
+Three things live in `tools/generate_pricing.py` rather than in the catalog response,
 because the endpoint does not report them:
 
-- `VISION_ALIASES`: which aliases accept image blocks. The script fails if one of them
-  disappears from the catalog. This one has no provenance behind it and the vision page
-  says so; see the comment above the constant.
-- `PENDING_ALIASES`: aliases published but not servable yet. It drives the "not servable
-  yet" warning on both the catalog and the vision tables, and excludes those aliases from
-  the "cheapest servable models" list. Never restate the pending list by hand in a page:
-  it will outlive the entitlement it describes.
+- `VISION_ALIASES`: which aliases accept image blocks.
+- `PENDING_ALIASES`: aliases published but not servable yet. It drives the availability
+  warning on the catalog and vision tables and keeps those aliases out of the cheapest
+  models list.
 - `FAMILIES`: how the catalog is grouped into sections on the page.
 
-All three are keyed on the alias, never on the display name, and the script fails rather
+All three are keyed on the alias rather than the display name, and the script fails rather
 than guessing: an alias in the catalog with no family, an alias mapped here that the
 catalog no longer carries, and a missing vision alias each stop the run.
 
 ## Deployment
 
 `.github/workflows/docs.yml` builds on every push and pull request, and deploys `main` to
-GitHub Pages. Repository settings must have **Pages > Build and deployment > Source** set
-to **GitHub Actions**.
+GitHub Pages. Repository settings need **Pages > Build and deployment > Source** set to
+**GitHub Actions**.
 
-**Unresolved: the site's own hostname.** `site_url` in `mkdocs.yml` is
-`https://docs.tristack.tech/`, and MkDocs bakes it into every `<link rel="canonical">` and
-every `<loc>` in `sitemap.xml` at build time. That name does not resolve today, there is no
-`CNAME` file in `docs/`, and the Pages deploy therefore serves the site at a `github.io`
-address while every canonical tag points somewhere unreachable. Pick one before the site is
-announced anywhere:
-
-- Serve at `docs.tristack.tech`: create the DNS record first, then add a `docs/CNAME` file
-  containing `docs.tristack.tech` so it lands in the built artifact. Adding the file before
-  the record exists takes the site offline rather than moving it.
-- Or set `site_url` to the address the deploy actually serves.
-
-## House rules for this content
-
-- Name models, never infrastructure. Model display names come from the API as-is; the
-  systems behind them are not part of the public documentation. This covers vendors of
-  every kind, not just model providers: the sign-in provider and the payment provider are
-  described by what they do, never by who they are. Where a literal wire identifier carries
-  a vendor's name (a field on a response, an endpoint path, an error code), leave it out of
-  the page rather than renaming it, and say what the page needs to say without it. Nothing
-  in the docs should be wrong in order to be neutral.
-- No em dashes.
-- Numbers are either generated from `data/models.json` or verified against the running
-  API. No invented benchmarks, statistics or availability claims.
+`site_url` in `mkdocs.yml` is baked into every `<link rel="canonical">` and every `<loc>`
+in `sitemap.xml` at build time, so it has to match the address the site is actually served
+from. To move the site to `docs.tristack.tech`, create the DNS record first, then add a
+`docs/CNAME` file containing the hostname and update `site_url` in the same change. Adding
+the file before the DNS record exists takes the site offline rather than moving it.
