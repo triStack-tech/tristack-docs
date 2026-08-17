@@ -13,8 +13,8 @@ mkdocs.yml            Site configuration, theme, navigation
 docs/                 The pages
 includes/             Generated markdown fragments, pulled in with the snippets syntax
 data/models.json      A captured GET /v1/manifold/models response
-tools/                The generator that turns data/models.json into includes/
-.github/workflows/    Build on every push, deploy to GitHub Pages from main
+tools/                The capture and the generator that turns it into includes/
+.github/workflows/    Build and deploy, and the weekly catalog refresh
 ```
 
 ## Working on it locally
@@ -32,15 +32,21 @@ mkdocs build --strict   # what CI runs; fails on broken links and stray files
 
 Every price on the site comes from `data/models.json`. Nothing is typed by hand.
 
+`.github/workflows/catalog-refresh.yml` captures the catalog every Monday and opens a
+pull request listing what moved: models added, removed, renamed or reprised. If nothing
+moved it opens nothing. Run it on demand from the Actions tab. It needs one repository
+secret, `TRISTACK_CATALOG_API_KEY`, holding an API key from the dashboard (Settings >
+Secrets and variables > Actions > New repository secret).
+
+The same refresh by hand, for a local run:
+
 ```bash
-curl -s https://api.tristack.tech/v1/manifold/models \
-  -H "Authorization: Bearer $TRISTACK_API_KEY" > data/models.json
+TRISTACK_API_KEY=... python tools/fetch_catalog.py
 python tools/generate_pricing.py
 ```
 
-That rewrites the files in `includes/`. Commit `data/models.json` and `includes/` together.
-CI regenerates them and fails if the committed output is stale, so the published tables
-always match the captured catalog.
+Commit `includes/` with `data/models.json`. CI regenerates both and fails if the
+committed output is stale, so the published tables always match the capture.
 
 A few things the catalog response does not report are tracked in
 `tools/generate_pricing.py`, documented at the constants themselves. The script fails

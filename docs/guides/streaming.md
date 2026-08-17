@@ -125,6 +125,11 @@ what already reached you.
 
 ## Complete consumers
 
+The wire format is server-sent events, but a browser `EventSource` cannot call this
+endpoint: it only issues `GET`, and it cannot set request headers, so neither the API key
+nor the JSON body has anywhere to go. Use `fetch`, `httpx`, or any client that can stream
+the response of a `POST`, as below.
+
 === "Python"
 
     ```python
@@ -160,7 +165,8 @@ what already reached you.
                     response.read()
                     failure = response.json()
                     raise RuntimeError(
-                        f"{response.status_code} {failure.get('code')}: {failure.get('error')}"
+                        f"{response.status_code} {failure.get('code', '-')}: "
+                        f"{failure.get('error') or failure.get('title')}"
                     )
 
                 event = None
@@ -230,7 +236,9 @@ what already reached you.
       if (!response.ok) {
         // A failure before the first event is plain JSON, not SSE.
         const failure = await response.json();
-        throw new Error(`${response.status} ${failure.code}: ${failure.error}`);
+        throw new Error(
+          `${response.status} ${failure.code ?? "-"}: ${failure.error ?? failure.title}`,
+        );
       }
 
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();

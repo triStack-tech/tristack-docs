@@ -16,8 +16,12 @@ wording can change between releases, so never match on it.
 
 ## Manifold codes
 
-Everything `POST /v1/manifold/messages` and `GET /v1/manifold/models` can answer with. The
+Everything `POST /v1/manifold/messages` can answer with. The
 [dashboard API](#dashboard-api-codes) has a handful of its own, further down.
+
+`GET /v1/manifold/models` answers only `invalid_api_key` and `project_archived`: it does
+no body, model, wallet or provider work. It also returns the full catalog on a project
+where Manifold is switched off, so it is not a readiness check for `messages`.
 
 | Status | `code` | Meaning | What to do |
 |---|---|---|---|
@@ -34,6 +38,13 @@ Everything `POST /v1/manifold/messages` and `GET /v1/manifold/models` can answer
 | 429 | none | Rate limit on one of the two limited surfaces, listed under [rate limits](index.md#rate-limits). The body is empty. | Slow down. Manifold itself is not rate limited. |
 | 404 | none | `{ "error": "Unknown API route" }`. The path does not exist. | Check the URL. Manifold lives at `/v1/manifold/...`, the dashboard API at `/api/v1/...`. |
 
+A body the server cannot parse at all is refused before validation runs, and its `400`
+carries neither `error` nor `code`: it is a problem-details object with `title` and an
+`errors` object keyed by JSON path. Malformed JSON, an empty body and a field of the wrong
+JSON type (`"content": 42`, `"messages": {}`, `"max_tokens": true`) all land there, as does
+a malformed `projectId`, `from` or `to` on `GET /api/v1/usage`. Treat any `400` without a
+`code` as a malformed request and do not retry it.
+
 One code never appears in a response body:
 
 | `code` | Where it appears | Meaning |
@@ -49,9 +60,9 @@ can return.
 |---|---|---|---|
 | 403 | `email_unverified` | Top-up | The account's email address is not verified yet. Verify it and retry. |
 | 400 | `below_minimum_topup` | Top-up | The amount is under the minimum of 10000 paise. |
-| 400 | `invalid_status` | `GET /api/v1/usage` | `?status=` is not one of `all`, `succeeded`, `failed`, `provider_error`. |
+| 400 | `invalid_status` | `GET /api/v1/usage` | `?status=` does not canonicalize to one of `all`, `succeeded`, `failed`, `provider_error`. Matching is case-insensitive and ignores `_` and `-`, so `provider_error`, `ProviderError` and `provider-error` are the same value. An absent or blank value means no filter. |
 | 400 | `invalid_range` | `GET /api/v1/usage` | `from` is after `to`. |
-| 400 | `invalid_name`, `invalid_email`, `invalid_message` | [`POST /api/v1/contact`](../support.md#the-contact-endpoint) | The field is missing or too long. |
+| 400 | `invalid_name`, `invalid_email`, `invalid_message` | [`POST /api/v1/contact`](../support.md#the-contact-endpoint) | The field is missing or too long. `invalid_email` additionally requires a bare, parseable address, so a `Name <addr>` form is rejected. |
 
 Not every dashboard failure carries a `code`: the account endpoints answer several
 validation and conflict cases with `error` alone, among them a short password, an address
@@ -62,22 +73,28 @@ the status as the signal.
 
 ## What each error costs
 
-| Outcome | Wallet | Appears in usage |
-|---|---|---|
-| `invalid_api_key`, `project_archived`, `manifold_disabled`, `invalid_request`, `unknown_model` | Untouched. Rejected before any hold. | No |
-| `insufficient_balance` | Untouched. The hold could not be placed. | Yes, at 0 paise, recorded at most once per project per minute |
-| `provider_throttled`, `provider_rejected`, `model_access_denied`, `provider_error` | Hold released in full. Nothing charged. | Yes, at 0 paise |
-| `client_aborted` before any output | Hold released in full. | Yes, at 0 paise |
-| `client_aborted` after some output | Settled at the whole input estimate plus the delivered output. | Yes, with a real cost |
-| Success | Settled at real token usage. | Yes |
+| Outcome | Wallet | Appears in usage | Usage `status` |
+|---|---|---|---|
+| `invalid_api_key`, `project_archived`, `manifold_disabled`, `invalid_request`, `unknown_model` | Untouched. Rejected before any hold. | No | none |
+| `insufficient_balance` | Untouched. The hold could not be placed. | Yes, at 0 paise, recorded at most once per project per minute | `Failed` |
+| `provider_throttled`, `provider_rejected`, `model_access_denied`, `provider_error` | Hold released in full. Nothing charged. | Yes, at 0 paise | `ProviderError` |
+| `client_aborted` before any output | Hold released in full. | Yes, at 0 paise | `Failed` |
+| `client_aborted` after some output | Settled at the whole input estimate plus the delivered output. | Yes, with a real cost | `Failed` |
+| Success | Settled at real token usage. | Yes | `Succeeded` |
 
 Every failure above is free except one: an abort after part of a stream arrived. That is
 the point of holding an estimate and settling afterwards rather than charging up front.
 
-One wrinkle in finding those rows again. An abort that arrives *after* the model reported
-its usage settles at that real usage and is recorded as a **success**, because the call
-did complete; only an abort that beat the usage event is recorded as
-`client_aborted`. Filtering usage on `status=failed` will not show the first kind.
+Two wrinkles in finding those rows again.
+
+An abort that arrives *after* the model reported its usage settles at that real usage and
+is recorded as a **success**, because the call did complete; only an abort that beat the
+usage event is recorded as `client_aborted`.
+
+And `?status=failed` is narrower than it sounds: it matches the stored `Failed` status
+only, which is `insufficient_balance` and `client_aborted`. Every provider failure is
+stored as `ProviderError` and is excluded. To see everything that went wrong, leave the
+filter off, or make a second call with `?status=provider_error`.
 
 ## Troubleshooting
 
@@ -157,10 +174,10 @@ truncated reply never reaches your users as if it were whole. See
 
 ### Nothing shows up in usage
 
-Requests rejected before the wallet hold (`invalid_api_key`, `manifold_disabled`,
-`invalid_request`, `unknown_model`) are answered but not recorded. If a client is failing
-loudly and usage is empty, the failure is in that group: look at the HTTP responses your
-client is getting rather than at the dashboard.
+Requests rejected before the wallet hold (`invalid_api_key`, `project_archived`,
+`manifold_disabled`, `invalid_request`, `unknown_model`) are answered but not recorded. If
+a client is failing loudly and usage is empty, the failure is in that group: look at the
+HTTP responses your client is getting rather than at the dashboard.
 
 `insufficient_balance` is recorded at most once per project per minute, so a retry loop
 against an empty wallet shows up as a handful of rows rather than thousands.

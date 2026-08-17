@@ -9,8 +9,8 @@ site_description: >-
   for language models, metered per token and billed from a prepaid wallet.
 site_author: Tristack Technologies LLP
 copyright: >-
-  TriStack is a product of Tristack Technologies LLP (LLPIN ACP-3743),
-  B-35, Vinoba Kunj Apartments, Sector 9, Rohini, Delhi 110085, India.
+  Tristack Technologies LLP (LLPIN ACP-3743), B-35, Vinoba Kunj Apartments,
+  Sector 9, Rohini, Delhi 110085, India.
 
 docs_dir: docs
 site_dir: site
@@ -18,8 +18,8 @@ site_dir: site
 theme:
   name: material
   language: en
-  logo: assets/logo.svg
-  favicon: assets/favicon.svg
+  logo: assets/wordmark.svg
+  favicon: assets/favicon.ico
   # Setting this to false stops the theme pulling webfonts from a third-party host on
   # every page load, which would put an outside vendor in the shipped HTML and hand it
   # every reader's IP address. The system font stack is used instead.

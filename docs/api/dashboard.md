@@ -73,14 +73,14 @@ A project object:
 ```
 
 `status` is `Active` or `Archived`. The `relay*` flags belong to products that are not
-live yet; ignore them.
+live yet: they are accepted and stored by `PATCH`, but nothing reads them today.
 
 | Endpoint | Body | Returns |
 |---|---|---|
 | `GET /api/v1/projects` | none | Every project on the account. |
 | `POST /api/v1/projects` | `{ "name": "production" }`, 1 to 128 characters | The created project. |
 | `GET /api/v1/projects/{id}` | none | One project. `404` if it is not yours. |
-| `PATCH /api/v1/projects/{id}` | any of `name`, `manifoldEnabled`, `archived` | The updated project. Omitted fields are unchanged. |
+| `PATCH /api/v1/projects/{id}` | any of `name`, `manifoldEnabled`, `archived`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled` | The updated project. Omitted fields are unchanged. |
 
 Enabling Manifold on a project is a `PATCH`:
 
@@ -179,6 +179,12 @@ the only place three error codes appear:
 | 400 | `below_minimum_topup` | The amount is under `minTopUpPaise`. |
 | 503 | not documented | The server has no payment integration configured. It carries a `code`, but branch on the status instead: it is an operator problem, not one a client can classify further. |
 
+`"credited"` and `"pending"` are what `POST /api/v1/wallet/topup/confirm` answers once the
+signature verifies. Before that it has two other answers: `400` with `error` alone when the
+signature does not verify, and a bodiless `401` when the token carries no usable subject.
+Neither is a pending payment. Both are caller bugs, so do not read a non-2xx here as
+`"pending"` and do not retry it.
+
 `confirm` is belt and braces rather than the thing that credits you: a webhook and an
 hourly reconciliation sweep settle the same top-up independently, and crediting is
 idempotent, so `"pending"` means "not yet", never "lost".
@@ -231,8 +237,21 @@ it.
 | Query | Notes |
 |---|---|
 | `projectId` | Narrow to one project. A project that is not yours returns an empty result, never someone else's data. |
-| `status` | `all` (default), `succeeded`, `failed` or `provider_error`. Anything else answers `400 invalid_status`. |
+| `status` | `all` (default), `succeeded`, `failed` or `provider_error`. Matching is case-insensitive and ignores `_` and `-`, so `ProviderError` and `provider-error` work too; anything that does not canonicalize to one of the four answers `400 invalid_status`. |
 | `from`, `to` | Timestamps. Default: the last 30 days. `from > to` answers `400 invalid_range`. |
+
+A `projectId` that is not a uuid, or a `from`/`to` that is not a timestamp, is rejected by
+the framework before the endpoint runs: a `400` carrying `title` and `errors`, with no
+`code`. See [the error envelope](index.md#error-envelope).
+
+!!! warning "`status=failed` is narrower than the `failed*` response fields"
+
+    The filter matches the stored status exactly, and provider failures are stored as
+    `ProviderError`, not `Failed`. So `?status=failed` returns balance rejections and
+    aborts only, while the `failed*` fields described [below](#the-fields) count every
+    non-success, `provider_error` included. The same field therefore means different
+    things with and without the filter. For a complete failure picture, leave `status`
+    off.
 
 !!! warning "The query parameter and the response field are spelled differently"
 
@@ -331,7 +350,7 @@ The response aggregates requests by day, project, model and outcome:
 |---|---|
 | `from`, `to`, `projectId`, `status` | The window and filters that were applied, echoed back. A bare `to` date covers the whole of that day. |
 | `total*` | `Requests`, `InputTokens`, `OutputTokens`, `CostPaise` across every outcome. |
-| `succeeded*`, `failed*` | The same four numbers each, split by outcome. `failed*` covers everything that is not a success, `provider_error` included. |
+| `succeeded*`, `failed*` | The same four numbers each, split by outcome. `failed*` covers everything that is not a success, `provider_error` included. That is wider than the `?status=failed` filter, which matches the stored `Failed` status only. |
 
 | Array | One entry per | Fields |
 |---|---|---|
@@ -354,10 +373,14 @@ What matters when you read it:
   plain description, when it was last seen, and per-project and per-model counts. That is
   the fastest way to find out what is going wrong.
 - **Rejections before the wallet hold are not here.** `invalid_request`, `unknown_model`,
-  `manifold_disabled` and `invalid_api_key` are answered but not recorded.
+  `manifold_disabled`, `invalid_api_key` and `project_archived` are answered but not
+  recorded.
+
+Leave `status` off to see every failure at once: `failures` already groups them by code,
+and the filter would hide whichever group you did not ask for.
 
 ```bash
-curl -s "https://api.tristack.tech/api/v1/usage?status=failed" \
+curl -s "https://api.tristack.tech/api/v1/usage" \
   -H "Authorization: Bearer $TRISTACK_JWT" | jq '.failures'
 ```
 

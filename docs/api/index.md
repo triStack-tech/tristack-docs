@@ -49,7 +49,7 @@ never mistaken for a broken response body.
 
 ## Error envelope
 
-Every error is JSON with the same two fields:
+Errors that carry a body use the same envelope:
 
 ```json
 { "error": "The wallet balance cannot cover the estimated cost of this request.",
@@ -59,7 +59,22 @@ Every error is JSON with the same two fields:
 | Field | Type | Notes |
 |---|---|---|
 | `error` | string | A human-readable sentence. Wording can change: do not match on it. |
-| `code` | string | A stable `snake_case` identifier. Branch on this. |
+| `code` | string, optional | A stable `snake_case` identifier. Branch on this where it is present. |
+
+Not every error has both, so read the body defensively rather than assuming the two keys
+are there:
+
+- A `429` rate-limit rejection and the unauthenticated `401` challenge on `/api/v1/...`
+  have **no body at all**. Calling `.json()` on one throws.
+- The `404` for an unknown route, most dashboard `404`s and several dashboard `401`s carry
+  `error` alone.
+- A `400` from a body the server could not parse carries `title` and an `errors` object
+  instead, and no `code`.
+- An unexpected server error answers `500 { "error", "detail", "traceId" }`, with `detail`
+  only outside production.
+
+Branch on `code` and fall back to the HTTP status: that is the only rule that survives all
+of these shapes.
 
 Two errors add a field:
 

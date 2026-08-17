@@ -5,10 +5,12 @@ Input:  data/models.json  (the response body, saved verbatim)
 Output: includes/*.md     (markdown fragments pulled into the pages by pymdownx.snippets)
 
 Every number on the model and pricing pages comes from here, so the published tables
-cannot drift from the catalog they were captured from. Refresh with:
+cannot drift from the catalog they were captured from.
 
-    curl -s -H "Authorization: Bearer $TRISTACK_API_KEY" \\
-        https://api.tristack.tech/v1/manifold/models > data/models.json
+The weekly Catalog refresh workflow captures the catalog and runs this, opening a pull
+request when anything moved. To do the same locally:
+
+    TRISTACK_API_KEY=... python tools/fetch_catalog.py
     python tools/generate_pricing.py
 """
 

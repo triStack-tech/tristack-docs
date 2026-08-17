@@ -11,7 +11,8 @@ Sends a conversation to a model and returns its reply, either as one JSON body o
 [stream of events](../guides/streaming.md).
 
 - **Auth:** API key, as `Authorization: Bearer tsk_live_...` or `X-Api-Key`.
-- **Content type:** `application/json`, with `snake_case` field names.
+- **Content type:** `application/json`, with `snake_case` field names, with one exception:
+  the `402` body carries `requiredPaise`.
 
 ## Request
 
@@ -42,6 +43,10 @@ Sends a conversation to a model and returns its reply, either as one JSON body o
 | `top_p` | number | no | model default | Passed through untouched. |
 | `stop_sequences` | array of strings | no | none | Generation stops as soon as one of these is produced, and `stop_reason` comes back as `stop_sequence`. |
 | `stream` | boolean | no | `false` | `true` switches the response to server-sent events. See [streaming](../guides/streaming.md). |
+
+Fields not listed here are ignored rather than rejected. There is no `top_k`, no tool use
+and no response-format control today, so sending them changes nothing and nothing in the
+response says so.
 
 `temperature` and `top_p` ranges differ between models, and the API does not narrow them.
 A value the model refuses comes back as `400 provider_rejected` with the model's own
@@ -104,6 +109,11 @@ When `content` is an array, each entry is a typed block.
     | `source.media_type` | string | yes | `image/png`, `image/jpeg`, `image/jpg`, `image/gif` or `image/webp`. |
     | `source.data` | string | yes | Raw base64. No `data:` URI prefix, no newlines needed. |
     | `source.type` | string | no | Accepted and ignored. The bytes are always read from `source.data` as raw base64, so a non-base64 source is rejected as `400 invalid_request` on `source.data`. |
+
+    There is a ceiling on the whole request, not on one block: a body over roughly 28 MB
+    is refused before the endpoint sees it, with a bare `413` that carries neither `error`
+    nor `code`. Base64 is about 4 characters for every 3 bytes, so keep the total encoded
+    across all blocks under about 20 MB and downscale before encoding.
 
     Only vision-capable models accept image blocks. See
     [vision and images](../guides/vision.md).
@@ -168,8 +178,10 @@ Knowing the order tells you what a given error rules out.
    `403 model_access_denied` or `502 provider_error`, and the hold is released.
 
 Steps 1 to 4 reject before any money moves, and those rejections are not recorded in your
-usage figures. From step 5 onward the request exists in the ledger, even if it ends up
-costing 0 paise.
+usage figures. A step 5 rejection moves no money either: the hold never lands, so there is
+no ledger entry, and the usage row is written at most once per project per minute, which
+means a retry loop against an empty wallet leaves a handful of rows rather than one per
+attempt. From step 6 onward every request is recorded, even if it ends up costing 0 paise.
 
 ## Errors
 
@@ -185,6 +197,13 @@ costing 0 paise.
 | 400 | `provider_rejected` | The model refused the request: an unsupported parameter value, or an image sent to a text-only model. | Read `error` and adjust. |
 | 403 | `model_access_denied` | The alias is in the catalog but not servable on this deployment yet. | Use another alias. Branch on `code`, not `error`: that sentence describes the deployment's configuration and is not actionable from a client. |
 | 502 | `provider_error` | The call failed after being accepted. The hold is released. | Retry once, then fall back to another model. |
+
+A body that cannot be parsed at all never reaches that validation, and its `400` has a
+different shape. Malformed JSON, an empty body, or a field carrying the wrong JSON type
+(`"content": 5`, `"stream": "true"`, a fractional `max_tokens`) is refused before the
+endpoint runs and answers `400` with `title` and an `errors` object keyed by JSON path,
+carrying no `code` and no `error`. Read `code` defensively, as the examples below do, and
+treat a `400` without one as a malformed body: it will never succeed on a retry.
 
 Full descriptions are on the [errors page](errors.md).
 
@@ -231,8 +250,12 @@ Full descriptions are on the [errors page](errors.md).
             timeout=120,
         )
         if response.status_code != 200:
+            # A body the server could not parse answers 400 with `title`, not `error`/`code`.
             failure = response.json()
-            raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+            raise RuntimeError(
+                f"{response.status_code} {failure.get('code', '-')}: "
+                f"{failure.get('error') or failure.get('title')}"
+            )
 
         body = response.json()
         return "".join(block["text"] for block in body["content"])
@@ -265,7 +288,8 @@ Full descriptions are on the [errors page](errors.md).
 
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(`${response.status} ${body.code}: ${body.error}`);
+        // A body the server could not parse answers 400 with `title`, not `error`/`code`.
+        throw new Error(`${response.status} ${body.code ?? "-"}: ${body.error ?? body.title}`);
       }
 
       return body.content.map((block) => block.text).join("");
@@ -350,7 +374,9 @@ Full descriptions are on the [errors page](errors.md).
     });
 
     const body = await response.json();
-    if (!response.ok) throw new Error(`${response.status} ${body.code}: ${body.error}`);
+    if (!response.ok) {
+      throw new Error(`${response.status} ${body.code ?? "-"}: ${body.error ?? body.title}`);
+    }
     console.log(body.content[0].text, body.stop_reason);
     ```
 
@@ -381,9 +407,13 @@ Full descriptions are on the [errors page](errors.md).
                 return response.json()
 
             failure = response.json()
+            # No "code" means the body never parsed: nothing to retry.
             code = failure.get("code", "")
             if code not in RETRYABLE or attempt == attempts - 1:
-                raise RuntimeError(f"{response.status_code} {code}: {failure.get('error')}")
+                raise RuntimeError(
+                    f"{response.status_code} {code or '-'}: "
+                    f"{failure.get('error') or failure.get('title')}"
+                )
 
             # Exponential backoff with jitter. A throttled or failed call costs nothing,
             # so retrying is free apart from the latency.
@@ -414,8 +444,9 @@ Full descriptions are on the [errors page](errors.md).
         const body = await response.json();
         if (response.ok) return body;
 
+        // No `code` means the body never parsed: nothing to retry.
         if (!RETRYABLE.has(body.code) || attempt === attempts - 1) {
-          throw new Error(`${response.status} ${body.code}: ${body.error}`);
+          throw new Error(`${response.status} ${body.code ?? "-"}: ${body.error ?? body.title}`);
         }
 
         // Exponential backoff with jitter; a failed call is not billed.

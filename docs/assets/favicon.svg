@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TriStack">
-  <rect width="32" height="32" rx="7" fill="#059669"/>
-  <path d="M6.5 23C6.5 14.7 10.8 10 16 10s9.5 4.7 9.5 13" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
-  <path d="M11.2 23c0-4.4 2.1-6.9 4.8-6.9s4.8 2.5 4.8 6.9" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round"/>
-</svg>

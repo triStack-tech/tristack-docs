@@ -1,0 +1,115 @@
+# Keeps the published prices honest without anyone remembering to do it.
+#
+# Once a week this captures GET /v1/manifold/models, regenerates includes/, and opens a
+# pull request describing exactly what moved. When the catalog has not changed it opens
+# nothing and says so in the run summary.
+#
+# The key comes from the TRISTACK_CATALOG_API_KEY repository secret:
+#   Settings > Secrets and variables > Actions > New repository secret
+#   Name:  TRISTACK_CATALOG_API_KEY
+#   Value: an API key from the dashboard
+# Without it the fetch step stops with that instruction rather than half-writing a capture.
+#
+# The site is built here, before the pull request is opened, because a pull request opened
+# with the workflow token does not start another workflow: docs.yml will not run on it, so
+# the strict build and the table check have to happen in this job for the branch to be known
+# good. docs.yml still gates every human push, including a hand edit of includes/.
+
+name: Catalog refresh
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC. Off the hour so it is not queued behind everyone else's job.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh the pricing tables
+    # A fork inherits the schedule but not the secret, so it would fail every Monday.
+    if: github.repository == 'triStack-tech/tristack-docs'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Keep the committed catalog to compare against
+        run: cp data/models.json "$RUNNER_TEMP/models.before.json"
+
+      - name: Capture the catalog
+        env:
+          TRISTACK_API_KEY: ${{ secrets.TRISTACK_CATALOG_API_KEY }}
+        run: python tools/fetch_catalog.py --out data/models.json
+
+      - name: Regenerate the pricing tables
+        id: generate
+        run: python tools/generate_pricing.py
+
+      - name: Explain a rejected catalog
+        if: failure() && steps.generate.outcome == 'failure'
+        run: |
+          {
+            echo "### The generator rejected the new catalog"
+            echo
+            echo "It carries something \`tools/generate_pricing.py\` does not map yet."
+            echo "A new alias needs a family in \`FAMILIES\`, and a decision on whether it"
+            echo "belongs in \`VISION_ALIASES\` or \`PENDING_ALIASES\`. Add it there, then"
+            echo "run this workflow again."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Say what moved
+        id: diff
+        run: python tools/catalog_diff.py "$RUNNER_TEMP/models.before.json" data/models.json
+
+      - name: Stop here when the catalog has not moved
+        if: steps.diff.outputs.changed != 'true'
+        run: |
+          # A table that changed without the summary noticing would mean the summary is
+          # blind to a field the pages use, and blind is worse than wrong here.
+          if ! git diff --quiet -- includes/; then
+            echo "includes/ changed but the summary reported nothing:" >&2
+            git diff -- includes/ >&2
+            exit 1
+          fi
+          echo "The catalog has not moved. No pull request opened." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the site
+        if: steps.diff.outputs.changed == 'true'
+        run: mkdocs build --strict
+
+      - name: Check the published tables against the catalog
+        if: steps.diff.outputs.changed == 'true'
+        run: python tools/verify_tables.py
+
+      - name: Open a pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: catalog-refresh
+          base: main
+          # The capture and everything generated from it, and nothing else.
+          add-paths: |
+            data/models.json
+            includes/
+          commit-message: ${{ steps.diff.outputs.title }}
+          title: ${{ steps.diff.outputs.title }}
+          body: ${{ steps.diff.outputs.body }}
+          delete-branch: true

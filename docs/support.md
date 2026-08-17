@@ -17,9 +17,9 @@ An answer is only as fast as the detail in the question. Include:
 - **The `code`** from the error envelope, and the HTTP status.
 - **The alias** you called and roughly when.
 
-What not to send: your API key, or a password. Nobody at TriStack needs either, and a key
-pasted into an email should be revoked rather than explained. The dashboard shows each key
-by prefix and last 4 characters, which is enough to identify one.
+What not to send: your API key, or a password. Nobody at Tristack Technologies LLP needs
+either, and a key pasted into an email should be revoked rather than explained. The
+dashboard shows each key by prefix and last 4 characters, which is enough to identify one.
 
 ## Answers that are already written down
 
@@ -71,3 +71,12 @@ field has its own code when it fails:
 
 For anything about an actual call, email is better than the form. The form has no place to
 put a request id, and the request id is what makes the answer specific.
+
+## Who you are writing to
+
+TriStack Manifold is a product of Tristack Technologies LLP (LLPIN ACP-3743), registered
+office B-35, Vinoba Kunj Apartments, Sector 9, Rohini, Delhi 110085, India.
+
+There are two ways in, and they are the two on this page: the email address above, and the
+contact form on [tristack.tech](https://tristack.tech), which posts to the endpoint
+documented in the previous section. Neither carries a published response time.
