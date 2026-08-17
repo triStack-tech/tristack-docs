@@ -1,6 +1,6 @@
 ---
 title: Changelog
-description: Changes to the TriStack API and to this documentation.
+description: Changes to the Tristack API and to this documentation.
 ---
 
 # Changelog
@@ -14,7 +14,7 @@ recognise.
 
 ## 2026-08-17
 
-First public release of the documentation, describing TriStack Manifold as it runs today.
+First public release of the documentation, describing Tristack Manifold as it runs today.
 
 **API surface**
 

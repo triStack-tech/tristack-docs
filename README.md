@@ -1,10 +1,10 @@
-# TriStack documentation
+# Tristack documentation
 
-Source for the public TriStack developer documentation, built with
+Source for the public Tristack developer documentation, built with
 [MkDocs](https://www.mkdocs.org/) and the
 [Material](https://squidfunk.github.io/mkdocs-material/) theme.
 
-It covers TriStack Manifold today. Other TriStack products will be added here as they ship.
+It covers Tristack Manifold today. Other Tristack products will be added here as they ship.
 
 ## Layout
 

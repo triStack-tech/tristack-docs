@@ -1,6 +1,6 @@
 ---
 title: API overview
-description: Base URL, conventions, error envelope and the endpoint index for the TriStack API.
+description: Base URL, conventions, error envelope and the endpoint index for the Tristack API.
 ---
 
 # API overview

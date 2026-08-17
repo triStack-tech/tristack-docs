@@ -223,7 +223,7 @@ available balance.
 | `Hold` | An estimate reserved before a call. |
 | `Debit` | The settled cost of a call. If that cost is more than the wallet has left, the debit is capped at the balance and `description` says so, which is the one case where it is smaller than the `cost.paise` the call reported. |
 | `HoldRelease` | The hold returned in full. The settled cost is taken separately, on the `Debit` line with the same `reference`. |
-| `Grant` | Credit added by TriStack. |
+| `Grant` | Credit added by Tristack Technologies LLP. |
 | `Reversal` | A correction. |
 
 `amountPaise` is always positive: the direction is implied by `type`. `reference` carries

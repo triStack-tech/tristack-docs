@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: The TriStack error codes, with the HTTP status, cause and fix for each, and what each one costs.
+description: The Tristack error codes, with the HTTP status, cause and fix for each, and what each one costs.
 ---
 
 # Errors

@@ -121,7 +121,7 @@ attached.
 ## Building a browser or mobile client
 
 Put your own endpoint in front. Your app authenticates your user with your own session,
-your backend holds the TriStack key, and your backend calls Manifold. That also gives you
+your backend holds the Tristack key, and your backend calls Manifold. That also gives you
 the place to enforce per-user limits, which the API key alone cannot express.
 
 ## Dashboard API authentication

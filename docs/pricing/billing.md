@@ -89,7 +89,7 @@ balance that covers one call comfortably can still refuse the tenth.
 The response on the [home page](../index.md) is a real one. Here is the money behind it.
 
 The request: `nova-micro`, `max_tokens: 1024`, one user message reading
-`Say hello from TriStack.` (24 characters).
+`Say hello from Tristack.` (24 characters).
 
 `nova-micro` is priced at **0.035 USD per million input tokens** and **0.14 USD per
 million output tokens**, converted at **90 INR per USD**.
@@ -116,7 +116,7 @@ million output tokens**, converted at **90 INR per USD**.
   "id": "mfr_9f7922159e6dab6a72166e1f",
   "model": "nova-micro",
   "role": "assistant",
-  "content": [{ "type": "text", "text": "Hello from TriStack!" }],
+  "content": [{ "type": "text", "text": "Hello from Tristack!" }],
   "stop_reason": "end_turn",
   "usage": { "input_tokens": 10, "output_tokens": 6 },
   "cost": { "paise": 1 }

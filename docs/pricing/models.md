@@ -1,6 +1,6 @@
 ---
 title: Model catalog
-description: Every TriStack alias with its price in USD per million tokens and in paise per 1000 tokens.
+description: Every Tristack alias with its price in USD per million tokens and in paise per 1000 tokens.
 ---
 
 # Model catalog
@@ -95,10 +95,9 @@ The affected rows are flagged in the tables below.
 
 The tables on this page are generated from a captured `GET /v1/manifold/models` response
 that ships with the documentation source, so they cannot drift from the catalog they were
-captured from:
+captured from.
 
-```bash
-curl -s https://api.tristack.tech/v1/manifold/models \
-  -H "Authorization: Bearer $TRISTACK_API_KEY" > data/models.json
-python tools/generate_pricing.py
-```
+That capture is refreshed on a schedule rather than by hand, and every change to it lands
+as a reviewed commit, so a price shown here is one that was checked against the catalog
+before it was published. If a rate on this page disagrees with what a response charges you,
+the response is right and the page is stale: please [tell us](../support.md).

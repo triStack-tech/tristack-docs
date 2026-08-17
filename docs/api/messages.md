@@ -21,7 +21,7 @@ Sends a conversation to a model and returns its reply, either as one JSON body o
   "model": "nova-micro",
   "system": "You answer in one sentence.",
   "messages": [
-    { "role": "user", "content": "Say hello from TriStack." }
+    { "role": "user", "content": "Say hello from Tristack." }
   ],
   "max_tokens": 1024,
   "temperature": 0.7,
@@ -127,7 +127,7 @@ Any other `type` value answers `400 invalid_request`.
   "id": "mfr_9f7922159e6dab6a72166e1f",
   "model": "nova-micro",
   "role": "assistant",
-  "content": [{ "type": "text", "text": "Hello from TriStack!" }],
+  "content": [{ "type": "text", "text": "Hello from Tristack!" }],
   "stop_reason": "end_turn",
   "usage": { "input_tokens": 10, "output_tokens": 6 },
   "cost": { "paise": 1 }
@@ -221,7 +221,7 @@ Full descriptions are on the [errors page](errors.md).
         "model": "nova-micro",
         "max_tokens": 1024,
         "messages": [
-          { "role": "user", "content": "Say hello from TriStack." }
+          { "role": "user", "content": "Say hello from Tristack." }
         ]
       }'
     ```
@@ -261,7 +261,7 @@ Full descriptions are on the [errors page](errors.md).
         return "".join(block["text"] for block in body["content"])
 
 
-    print(ask("Say hello from TriStack."))
+    print(ask("Say hello from Tristack."))
     ```
 
 === "Node"
@@ -295,7 +295,7 @@ Full descriptions are on the [errors page](errors.md).
       return body.content.map((block) => block.text).join("");
     }
 
-    console.log(await ask("Say hello from TriStack."));
+    console.log(await ask("Say hello from Tristack."));
     ```
 
 ### System prompt, multi-turn, and stop sequences

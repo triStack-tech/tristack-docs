@@ -74,7 +74,10 @@ put a request id, and the request id is what makes the answer specific.
 
 ## Who you are writing to
 
-TriStack Manifold is a product of Tristack Technologies LLP (LLPIN ACP-3743), registered
+Tristack is a technology company. We build and operate our own software products, and we
+help businesses build theirs.
+
+Tristack Manifold is a product of Tristack Technologies LLP (LLPIN ACP-3743), registered
 office B-35, Vinoba Kunj Apartments, Sector 9, Rohini, Delhi 110085, India.
 
 There are two ways in, and they are the two on this page: the email address above, and the

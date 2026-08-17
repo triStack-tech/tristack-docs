@@ -42,7 +42,7 @@ event: content_block_delta
 data: {"index":0,"delta":{"type":"text_delta","text":"Hello"}}
 
 event: content_block_delta
-data: {"index":0,"delta":{"type":"text_delta","text":" from TriStack"}}
+data: {"index":0,"delta":{"type":"text_delta","text":" from Tristack"}}
 
 event: message_delta
 data: {"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":6},"cost":{"paise":1}}

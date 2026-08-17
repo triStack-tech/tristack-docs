@@ -124,7 +124,7 @@ costs 1 paise.
         "model": "nova-micro",
         "max_tokens": 1024,
         "messages": [
-          { "role": "user", "content": "Say hello from TriStack." }
+          { "role": "user", "content": "Say hello from Tristack." }
         ]
       }'
     ```
@@ -143,7 +143,7 @@ costs 1 paise.
         json={
             "model": "nova-micro",
             "max_tokens": 1024,
-            "messages": [{"role": "user", "content": "Say hello from TriStack."}],
+            "messages": [{"role": "user", "content": "Say hello from Tristack."}],
         },
         timeout=60,
     )
@@ -172,7 +172,7 @@ costs 1 paise.
       body: JSON.stringify({
         model: "nova-micro",
         max_tokens: 1024,
-        messages: [{ role: "user", content: "Say hello from TriStack." }],
+        messages: [{ role: "user", content: "Say hello from Tristack." }],
       }),
     });
 
@@ -193,7 +193,7 @@ A successful response:
   "id": "mfr_9f7922159e6dab6a72166e1f",
   "model": "nova-micro",
   "role": "assistant",
-  "content": [{ "type": "text", "text": "Hello from TriStack!" }],
+  "content": [{ "type": "text", "text": "Hello from Tristack!" }],
   "stop_reason": "end_turn",
   "usage": { "input_tokens": 10, "output_tokens": 6 },
   "cost": { "paise": 1 }

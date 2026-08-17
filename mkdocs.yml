@@ -1,11 +1,11 @@
-site_name: TriStack Docs
+site_name: Tristack Docs
 # Canonical URLs and the sitemap are built from this, so it has to be a name that
 # actually resolves. Switching to https://docs.tristack.tech/ needs two things done
 # in this order: a DNS CNAME for docs -> tristack-tech.github.io, then a docs/CNAME
 # file holding that hostname. Change this line at the same time as adding the CNAME.
 site_url: https://tristack-tech.github.io/tristack-docs/
 site_description: >-
-  Developer documentation for TriStack products, starting with Manifold: one HTTP API
+  Developer documentation for Tristack products, starting with Manifold: one HTTP API
   for language models, metered per token and billed from a prepaid wallet.
 site_author: Tristack Technologies LLP
 copyright: >-
@@ -116,7 +116,7 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
-# Product sections sit at the top level so another TriStack product slots in beside
+# Product sections sit at the top level so another Tristack product slots in beside
 # Manifold without moving any of these pages.
 nav:
   - Home: index.md
