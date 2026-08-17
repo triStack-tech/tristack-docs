@@ -1,0 +1,21 @@
+# Build output
+/site/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Never commit a key. data/models.json is a public catalog response and is tracked
+# deliberately; anything else that lands here is not.
+.env
+.env.*
+*.key

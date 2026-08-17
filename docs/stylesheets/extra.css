@@ -1,0 +1,97 @@
+/* TriStack docs theme: emerald on a slate neutral scale, matching the platform UI. */
+
+:root {
+  --ts-emerald-400: #34d399;
+  --ts-emerald-500: #10b981;
+  --ts-emerald-600: #059669;
+  --ts-emerald-700: #047857;
+  --ts-slate-900: #0f172a;
+}
+
+/* Light scheme */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--ts-emerald-600);
+  --md-primary-fg-color--light: var(--ts-emerald-500);
+  --md-primary-fg-color--dark: var(--ts-emerald-700);
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-accent-fg-color: var(--ts-emerald-700);
+  --md-accent-fg-color--transparent: rgba(4, 120, 87, 0.1);
+
+  --md-typeset-a-color: var(--ts-emerald-700);
+  --md-footer-bg-color: var(--ts-slate-900);
+  --md-footer-bg-color--dark: #0b1220;
+}
+
+/* Dark scheme: obsidian slate, emerald kept bright enough to read on it. */
+[data-md-color-scheme="slate"] {
+  --md-hue: 215;
+
+  --md-primary-fg-color: #0d1424;
+  --md-primary-fg-color--light: #16203a;
+  --md-primary-fg-color--dark: #080d18;
+  --md-primary-bg-color: #e6edf7;
+  --md-primary-bg-color--light: rgba(230, 237, 247, 0.7);
+
+  --md-accent-fg-color: var(--ts-emerald-400);
+  --md-accent-fg-color--transparent: rgba(52, 211, 153, 0.1);
+
+  --md-typeset-a-color: var(--ts-emerald-400);
+  --md-footer-bg-color: #080d18;
+  --md-footer-bg-color--dark: #05090f;
+}
+
+/* The header is near-black in the slate scheme, so the emerald identity moves to the
+   active tab. */
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+  color: var(--ts-emerald-400);
+}
+
+/* Tables: numbers read better right-aligned and monospaced. */
+.md-typeset table:not([class]) th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.md-typeset table:not([class]) td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+
+.md-typeset table:not([class]) code {
+  white-space: nowrap;
+}
+
+/* Grid cards on the home page. */
+.md-typeset .grid.cards > ul > li {
+  border-radius: 0.5rem;
+  transition: border-color 200ms, box-shadow 200ms;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: none;
+}
+
+/* HTTP method badges used in the API reference headings. */
+.ts-method {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.2rem;
+  font-family: var(--md-code-font-family);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: 0.12em;
+  color: #ffffff;
+  background: var(--ts-emerald-600);
+}
+
+.ts-method--get {
+  background: #0f766e;
+}
+
+/* Slightly tighter code blocks inside tabbed examples. */
+.md-typeset .tabbed-content > .highlight:first-child > pre > code {
+  padding-top: 0.6rem;
+}
