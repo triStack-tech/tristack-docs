@@ -10,9 +10,14 @@
 
 /* Light scheme */
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: var(--ts-emerald-600);
-  --md-primary-fg-color--light: var(--ts-emerald-500);
-  --md-primary-fg-color--dark: var(--ts-emerald-700);
+  /* The header bar stays the brand's dark navy in both themes. The wordmark is a flat
+     SVG served through an img tag, so it cannot read these variables and its colours are
+     baked in; a header that changed colour with the theme would leave the logo legible in
+     one and washed out in the other. Navy in both also matches the header on
+     tristack.tech, so the two properties read as one brand. */
+  --md-primary-fg-color: #0d1424;
+  --md-primary-fg-color--light: #16203a;
+  --md-primary-fg-color--dark: #080d18;
   --md-primary-bg-color: #ffffff;
   --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
 
