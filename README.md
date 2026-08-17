@@ -42,27 +42,11 @@ That rewrites the files in `includes/`. Commit `data/models.json` and `includes/
 CI regenerates them and fails if the committed output is stale, so the published tables
 always match the captured catalog.
 
-Three things live in `tools/generate_pricing.py` rather than in the catalog response,
-because the endpoint does not report them:
-
-- `VISION_ALIASES`: which aliases accept image blocks.
-- `PENDING_ALIASES`: aliases published but not servable yet. It drives the availability
-  warning on the catalog and vision tables and keeps those aliases out of the cheapest
-  models list.
-- `FAMILIES`: how the catalog is grouped into sections on the page.
-
-All three are keyed on the alias rather than the display name, and the script fails rather
-than guessing: an alias in the catalog with no family, an alias mapped here that the
-catalog no longer carries, and a missing vision alias each stop the run.
+A few things the catalog response does not report are tracked in
+`tools/generate_pricing.py`, documented at the constants themselves. The script fails
+rather than guessing when they fall out of step with the catalog.
 
 ## Deployment
 
 `.github/workflows/docs.yml` builds on every push and pull request, and deploys `main` to
-GitHub Pages. Repository settings need **Pages > Build and deployment > Source** set to
-**GitHub Actions**.
-
-`site_url` in `mkdocs.yml` is baked into every `<link rel="canonical">` and every `<loc>`
-in `sitemap.xml` at build time, so it has to match the address the site is actually served
-from. To move the site to `docs.tristack.tech`, create the DNS record first, then add a
-`docs/CNAME` file containing the hostname and update `site_url` in the same change. Adding
-the file before the DNS record exists takes the site offline rather than moving it.
+GitHub Pages, which is set to build from GitHub Actions.
