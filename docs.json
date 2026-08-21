@@ -10,7 +10,7 @@
   },
   "favicon": "/assets/favicon.ico",
   "logo": {
-    "light": "/assets/wordmark.svg",
+    "light": "/assets/wordmark-light.svg",
     "dark": "/assets/wordmark.svg",
     "href": "https://tristack.tech"
   },
@@ -87,7 +87,9 @@
         "groups": [
           {
             "group": "Changelog",
-            "pages": ["changelog"]
+            "pages": [
+              "changelog"
+            ]
           }
         ]
       }
@@ -95,8 +97,14 @@
   },
   "navbar": {
     "links": [
-      { "label": "Support", "href": "mailto:support@tristack.tech" },
-      { "label": "Status", "href": "https://api.tristack.tech/health" }
+      {
+        "label": "Support",
+        "href": "mailto:support@tristack.tech"
+      },
+      {
+        "label": "Status",
+        "href": "https://api.tristack.tech/health"
+      }
     ],
     "primary": {
       "type": "button",
@@ -109,15 +117,27 @@
       {
         "header": "Products",
         "items": [
-          { "label": "Manifold", "href": "/manifold/index" },
-          { "label": "Relay Voice", "href": "/relay-voice/index" }
+          {
+            "label": "Manifold",
+            "href": "/manifold/index"
+          },
+          {
+            "label": "Relay Voice",
+            "href": "/relay-voice/index"
+          }
         ]
       },
       {
         "header": "Company",
         "items": [
-          { "label": "Tristack", "href": "https://tristack.tech" },
-          { "label": "Support", "href": "mailto:support@tristack.tech" }
+          {
+            "label": "Tristack",
+            "href": "https://tristack.tech"
+          },
+          {
+            "label": "Support",
+            "href": "mailto:support@tristack.tech"
+          }
         ]
       }
     ]

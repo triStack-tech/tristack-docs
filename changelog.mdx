@@ -12,6 +12,34 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-08-21" description="Manifold prices corrected to the published rate">
+
+  <Warning>
+    **Manifold prices went up by about 11 percent.** Relay Voice is unaffected, and no past
+    usage was re-billed.
+  </Warning>
+
+  Manifold converts a model's USD rate to paise at a fixed rate plus a 10 percent margin.
+  The published rate is **100 INR per USD**, but the deployment was running an older
+  **90 INR per USD** left over from before that rate was set, so calls were being billed
+  about 9 percent under the published price. The deployment now uses 100, which is what
+  `GET /v1/manifold/models` has always been the authority for.
+
+  The tables on these pages were wrong in the other direction. They were generated from a
+  capture taken before the margin existed, so they listed prices about 10 percent under
+  what was actually charged. They have been regenerated and now match the endpoint.
+
+  What this means for you:
+
+  - `nova-micro` input moves from 0.35 to **0.38** paise per 1000 tokens, output from 1.39
+    to **1.54**. Other models move by the same proportion.
+  - Read `GET /v1/manifold/models` if you display or budget against prices. It reports
+    `usdToInr` and the per-1000-token paise for every model your key can call, and it is
+    the authority. These tables are a snapshot.
+  - Nothing about the request or response shape changed.
+
+</Update>
+
 <Update label="2026-08-21" description="Relay Voice documented, pages reorganised">
 
   Relay Voice is documented here for the first time, and these pages were rebuilt around
