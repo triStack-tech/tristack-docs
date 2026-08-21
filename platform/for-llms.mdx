@@ -36,13 +36,13 @@ thing by hand, along with shortcuts that open the current page in an assistant.
 ## Fetching a page from a script
 
 ```bash Read one page as markdown
-curl -sL https://<your-docs-domain>/relay-voice/quickstart.md
+curl -sL https://docs.tristack.tech/relay-voice/quickstart.md
 ```
 
 ```python Pull the index, then the pages you need
 import re, urllib.request
 
-BASE = "https://<your-docs-domain>"
+BASE = "https://docs.tristack.tech"
 
 index = urllib.request.urlopen(f"{BASE}/llms.txt").read().decode()
 paths = re.findall(r"\((/[^)]+)\)", index)

@@ -21,9 +21,8 @@ The MkDocs site that used to be published here has been deleted, along with `mkd
 prices from before the margin existed, roughly 10 percent under what the API actually
 billed, and keeping a second set of pages accurate in parallel is how that happened.
 
-Anything still pointing at <https://tristack-tech.github.io/tristack-docs/> needs
-repointing at the Mintlify address, including the links on the marketing site and the Docs
-link in the dashboard.
+The published address is <https://docs.tristack.tech>. The dashboard's Docs link already
+points there; the marketing site's links are the remaining ones to check.
 
 ## Working on it locally
 
