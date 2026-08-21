@@ -8,11 +8,26 @@
     "light": "#34d399",
     "dark": "#047857"
   },
-  "favicon": "/assets/favicon.ico",
+  "favicon": {
+    "light": "/assets/favicon-light.svg",
+    "dark": "/assets/favicon-dark.svg"
+  },
   "logo": {
     "light": "/assets/wordmark-light.svg",
     "dark": "/assets/wordmark.svg",
     "href": "https://tristack.tech"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "claude",
+      "chatgpt",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "navigation": {
     "tabs": [
@@ -57,6 +72,7 @@
               "platform/projects-and-keys",
               "platform/wallet",
               "platform/errors",
+              "platform/for-llms",
               "platform/support"
             ]
           }

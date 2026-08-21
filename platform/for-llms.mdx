@@ -1,0 +1,102 @@
+---
+title: "Reading these docs with an LLM"
+description: "Machine-readable versions of every page: llms.txt, raw markdown at any URL, the MCP server, and the few facts an agent should never take from a page."
+sidebarTitle: "For LLMs and agents"
+icon: "robot"
+---
+
+Every page here is published in a form a model can read directly, without scraping HTML.
+
+## Machine-readable endpoints
+
+<ResponseField name="/llms.txt" type="text/plain">
+  An index of the whole site: every page, its title and its description, as a flat list.
+  Small enough to drop into a prompt whole. Use it to decide which pages to fetch.
+</ResponseField>
+
+<ResponseField name="/llms-full.txt" type="text/plain">
+  Every page's full text concatenated into one document. Use it when you want the entire
+  documentation set in context and can afford the tokens.
+</ResponseField>
+
+<ResponseField name="any page, with .md appended" type="text/markdown">
+  Append `.md` to any documentation URL to get that page's markdown source instead of the
+  rendered page. `/relay-voice/quickstart` becomes `/relay-voice/quickstart.md`. This is
+  the cheapest way to read one page precisely.
+</ResponseField>
+
+<ResponseField name="/mcp" type="MCP server">
+  These docs are also served as an MCP server, so an assistant that speaks MCP can search
+  and read them as a tool rather than being pasted their contents.
+</ResponseField>
+
+The **Copy page** and **View as Markdown** controls at the top of every page do the same
+thing by hand, along with shortcuts that open the current page in an assistant.
+
+## Fetching a page from a script
+
+```bash Read one page as markdown
+curl -sL https://<your-docs-domain>/relay-voice/quickstart.md
+```
+
+```python Pull the index, then the pages you need
+import re, urllib.request
+
+BASE = "https://<your-docs-domain>"
+
+index = urllib.request.urlopen(f"{BASE}/llms.txt").read().decode()
+paths = re.findall(r"\((/[^)]+)\)", index)
+
+for path in paths:
+    if path.startswith("/relay-voice"):
+        page = urllib.request.urlopen(f"{BASE}{path}.md").read().decode()
+        print(path, len(page), "chars")
+```
+
+## What an agent should not take from a page
+
+These docs are written to be accurate on the day they are generated, but three things move
+underneath them. If you are writing code that depends on any of these, read the API rather
+than the page.
+
+<Warning>
+  **Prices.** The tables here are a snapshot. `GET /v1/manifold/models` reports `usdToInr`
+  and the live per-1000-token paise for every model, and it answers **per key**, so it also
+  tells you which models that key may actually call. It is the authority; these pages are
+  not. Manifold prices changed on 2026-08-21, which is exactly the kind of move a cached
+  page would miss.
+</Warning>
+
+<Warning>
+  **The model list.** A project's allowlist narrows what its keys can call, and the platform
+  can switch a model off. A model named on these pages is not necessarily callable by your
+  key. Read the catalog endpoint at startup rather than hardcoding an alias list.
+</Warning>
+
+<Warning>
+  **Phone numbers in examples.** Every recipient in these docs is a placeholder:
+  `XXXXXXXXXX`, `YYYYYYYYYY`, `ZZZZZZZZZZ`. They are not dialable and are not real numbers.
+  Never pass one through to a live request, and never invent a plausible Indian mobile to
+  fill the gap: a well-formed number belongs to a real person who did not agree to be
+  called. Substitute a number the caller actually supplied, or stop and ask for one.
+</Warning>
+
+## Facts worth carrying in context
+
+If you are summarising this site for a model, these are the load-bearing ones:
+
+| Fact | Value |
+|---|---|
+| Base URL | `https://api.tristack.tech` |
+| Auth | `Authorization: Bearer tsk_live_…`, or `X-Api-Key` |
+| Money | every amount is an integer in **paise**; Rs 1.50 is `150`. No endpoint takes a rupee float |
+| Products | **Manifold** (`/v1/manifold/…`, text in, text out) and **Relay Voice** (`/v1/relay/…`, text in, a phone rings) |
+| Relationship | separate products, separate switches, separate pricing, one wallet and one key format. Nothing passes between them automatically |
+| Recipients | Indian mobiles only, any common spelling, normalized to E.164 and deduplicated |
+
+<Note>
+  The single most common mistake a model makes with this API is assuming Manifold's output
+  can be handed to Relay Voice in one call. It cannot. Ask Manifold for text, read the
+  string out of the response, then send it to Relay Voice as `text`. Two calls, made by
+  your code. See [the two products](/platform/products) for why they are built that way.
+</Note>
