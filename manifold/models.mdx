@@ -5,6 +5,11 @@ sidebarTitle: "Models"
 icon: "layer-group"
 ---
 
+import ModelCatalog from '/snippets/model-catalog.mdx';
+import ModelBudget from '/snippets/model-budget.mdx';
+import CatalogSummary from '/snippets/catalog-summary.mdx';
+import ModelVision from '/snippets/model-vision.mdx';
+
 You name a model by **alias**: a short, stable string like `nova-micro` or `mistral-large-3`.
 An alias is Tristack's name for a model, not the provider's. Which engine serves it, and in
 which region, is routing that stays inside Manifold, so a model can be moved or re-hosted
@@ -117,6 +122,22 @@ input on most models, so trimming a verbose reply usually saves more than trimmi
 Picking the smallest model that passes your own evaluation is the largest cost decision
 available to you.
 
+<CatalogSummary />
+
+The cheapest models in the catalog, by the cost of one thousand tokens in and one thousand
+out together:
+
+<ModelBudget />
+
+<Accordion title="The full catalog, every alias and price" icon="table-list">
+  Generated from a capture of `GET /v1/manifold/models`, so it is a snapshot rather than the
+  authority. Your own key may see fewer models: the platform can switch one off, and a
+  project's allowlist narrows the list further. Read the endpoint if you need what is
+  callable right now.
+
+  <ModelCatalog />
+</Accordion>
+
 ## The per-project allowlist
 
 Every project has a list of the aliases it may spend on.
@@ -204,6 +225,10 @@ The practical consequence: `unknown_model` never means "try again later". Treat 
     Supported image media types are `image/png`, `image/jpeg`, `image/gif` and `image/webp`,
     sent as base64 in a content block. See
     [the messages reference](/api-reference/manifold/messages).
+
+    Since the endpoint will not tell you, these are the aliases that accept images:
+
+    <ModelVision />
   </Accordion>
 </AccordionGroup>
 

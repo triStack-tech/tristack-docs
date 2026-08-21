@@ -292,8 +292,10 @@ def write_summary(
         "",
         f"The catalog holds **{len(models)} models** across **{len(families)} families**, "
         f"of which **{len(servable(models))}** are servable today. Prices are converted at "
-        f"**{fx:.1f} INR per USD**, the `usdToInr` value the catalog endpoint returned "
-        "when this table was captured.",
+        f"**{fx:.1f} INR per USD** (the `usdToInr` the catalog endpoint returned when this "
+        "table was captured) and already include the 10 percent margin, so the paise "
+        "columns are what you are billed, not a figure to mark up. Working back to USD "
+        f"means dividing by {fx:.1f} and then by 1.1.",
         "",
     ]
     (target.directory / f"catalog-summary{target.suffix}").write_text("\n".join(lines))

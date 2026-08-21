@@ -2,13 +2,13 @@
 
 | Alias | Model | Paise / 1K in | Paise / 1K out | Paise for 1K in + 1K out |
 |---|---|---:|---:|---:|
-| `voxtral-mini` | Voxtral Mini 1.0 | 0.36 | 0.36 | 0.72 |
-| `gemma-3-4b` | Gemma 3 4B | 0.36 | 0.72 | 1.08 |
-| `nova-micro` | Nova Micro | 0.32 | 1.26 | 1.58 |
-| `ministral-3b` | Ministral 3B 3.0 | 0.90 | 0.90 | 1.80 |
-| `gpt-oss-safeguard-20b` | gpt-oss Safeguard 20B | 0.63 | 1.80 | 2.43 |
-| `nemotron-nano-9b` | Nemotron Nano 2 9B | 0.54 | 2.07 | 2.61 |
-| `ministral-8b` | Ministral 8B 3.0 | 1.35 | 1.35 | 2.70 |
-| `nemotron-nano-3-30b` | Nemotron Nano 3 30B | 0.54 | 2.16 | 2.70 |
-| `nova-lite` | Nova Lite | 0.54 | 2.16 | 2.70 |
-| `mistral-7b` | Mistral 7B Instruct | 1.35 | 1.80 | 3.15 |
+| `voxtral-mini` | Voxtral Mini 1.0 | 0.44 | 0.44 | 0.88 |
+| `gemma-3-4b` | Gemma 3 4B | 0.44 | 0.88 | 1.32 |
+| `nova-micro` | Nova Micro | 0.38 | 1.54 | 1.92 |
+| `ministral-3b` | Ministral 3B 3.0 | 1.10 | 1.10 | 2.20 |
+| `gpt-oss-safeguard-20b` | gpt-oss Safeguard 20B | 0.77 | 2.20 | 2.97 |
+| `nemotron-nano-9b` | Nemotron Nano 2 9B | 0.66 | 2.53 | 3.19 |
+| `ministral-8b` | Ministral 8B 3.0 | 1.65 | 1.65 | 3.30 |
+| `nemotron-nano-3-30b` | Nemotron Nano 3 30B | 0.66 | 2.64 | 3.30 |
+| `nova-lite` | Nova Lite | 0.66 | 2.64 | 3.30 |
+| `mistral-7b` | Mistral 7B Instruct | 1.65 | 2.20 | 3.85 |
