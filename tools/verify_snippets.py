@@ -59,12 +59,12 @@ VISION = SNIPPETS / "model-vision.mdx"
 BUDGET = SNIPPETS / "model-budget.mdx"
 GENERATED = (CATALOG, SUMMARY, VISION, BUDGET)
 
+# No USD columns: the upstream rate beside the charged price is one division away from the
+# conversion rate and the margin, which is not published.
 CATALOG_HEADER = [
     "Alias",
     "Model",
     "Vision",
-    "USD / MTok in",
-    "USD / MTok out",
     "Paise / 1K in",
     "Paise / 1K out",
 ]
@@ -181,8 +181,6 @@ def check_catalog(body: str, models: dict[str, dict], problems: list[str]) -> No
             expected = [
                 ("displayName", model["displayName"]),
                 ("vision", "yes" if alias in VISION_ALIASES else ""),
-                ("usdPerMTokIn", usd(model["usdPerMTokIn"])),
-                ("usdPerMTokOut", usd(model["usdPerMTokOut"])),
                 ("paisePer1KTokensIn", paise(model["paisePer1KTokensIn"])),
                 ("paisePer1KTokensOut", paise(model["paisePer1KTokensOut"])),
             ]
@@ -260,7 +258,6 @@ def check_summary(body: str, fx: Decimal, models: dict[str, dict], problems: lis
         "models": (r"\*\*(\d+) models\*\*", str(len(models))),
         "families": (r"\*\*(\d+) families\*\*", str(len(FAMILIES))),
         "servable": (r"of which \*\*(\d+)\*\*", str(len(servable(list(models.values()))))),
-        "conversion rate": (r"\*\*([\d.]+) INR per USD\*\*", f"{fx:.1f}"),
     }
     for what, (pattern, want) in counted.items():
         found = re.search(pattern, body)
