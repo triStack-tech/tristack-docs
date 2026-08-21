@@ -68,7 +68,7 @@ Two fields ride along on specific failures:
 | `unknown_voice` | 400 | Relay Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
 | `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
 | `audio_not_found` | 404 | Relay Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
-| `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get a fresh `audioId` |
+| `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get the **same** `audioId` back, so nothing in your database needs updating. The per-character synthesis charge does apply again, because the file had to be re-made |
 | `invalid_callback_url` | 400 | Relay Voice | `callbackUrl` is not an absolute https URL | Use https. Plain http is refused because the body lists who was called |
 | `text_rejected` | 502 | Relay Voice | The speech provider would not synthesize this text, on length or content. The hold is released | Shorten or reword it. Nothing was charged |
 | `voice_unavailable` | 502 | Relay Voice | The voice or synthesis model no longer exists at the speech provider. The hold is released | Pick another voice and tell support. This is an operator problem |

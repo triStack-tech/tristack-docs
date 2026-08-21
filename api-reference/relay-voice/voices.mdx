@@ -17,12 +17,15 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
   -H "Authorization: Bearer $TRISTACK_API_KEY"
 ```
 
-```json 200 OK
+```json 200 OK (abridged: the live catalog carries 16 voices)
 {
-  "defaultVoice": "default",
+  "defaultVoice": "bella",
   "pricePerCallPaise": 40,
   "voices": [
-    { "voice": "default", "name": "Default voice", "language": "en-IN" }
+    { "voice": "adam", "name": "Adam (male)", "language": "en" },
+    { "voice": "alice", "name": "Alice (female)", "language": "en" },
+    { "voice": "bella", "name": "Bella (female, warm)", "language": "en" },
+    { "voice": "lily", "name": "Lily (female)", "language": "en" }
   ]
 }
 ```

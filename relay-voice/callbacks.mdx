@@ -42,7 +42,7 @@ it, so you can point the same parser at both.
   "jobId": "rvj_cfa25cf49446fe8f8558de5c",
   "status": "Completed",
   "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
-  "voice": "ravi",
+  "voice": "bella",
   "language": "en-IN",
   "recipients": 2,
   "estimatedCostPaise": 275,
@@ -116,11 +116,26 @@ Without the signature, a callback endpoint is an unauthenticated POST that anybo
 the URL can forge, and your system would act on call outcomes we never reported. Verify it on
 every request, before you parse the body.
 
+<Warning>
+  **Per-customer signing secrets are not issued yet.** Do not email support asking for one:
+  there is nothing to hand out, and the value the signature is currently keyed with is a
+  server-side secret that will never be shared.
+
+  Until a per-account secret ships, treat the signature as something you cannot verify, and
+  do not rely on it as the only thing standing between your endpoint and a forged callback.
+  Protect the endpoint another way: give every job a `callbackUrl` carrying a long random
+  path segment or query token that only you and Tristack know, check that value on arrival,
+  and treat the callback as a hint to re-read the job rather than as trusted data.
+
+  The examples below are written against `TRISTACK_WEBHOOK_SECRET` so they are ready the day
+  the secret exists. They will not verify against live callbacks before then.
+</Warning>
+
 <Note>
-  The signing secret is issued by Tristack and is not shown in the dashboard yet. Ask
-  [support@tristack.tech](mailto:support@tristack.tech) for yours, and keep it where you keep
-  your API keys: it verifies callbacks, it does not authorize anything. Everything below
-  reads it from `TRISTACK_WEBHOOK_SECRET`.
+  **The safest pattern, available today.** Treat a callback purely as a signal that something
+  changed, and get the facts from the API: on arrival, call
+  `GET /v1/relay/voice/{jobId}` with your API key and use that response. A forged callback
+  then costs you one authenticated read and can tell you nothing false.
 </Note>
 
 ## Verifying the signature

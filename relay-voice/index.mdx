@@ -25,7 +25,7 @@ HTTP client should hold a socket open for that:
   "jobId": "rvj_cfa25cf49446fe8f8558de5c",
   "status": "Queued",
   "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
-  "voice": "ravi",
+  "voice": "bella",
   "language": "en-IN",
   "recipients": 3,
   "estimatedCostPaise": 315,
@@ -140,7 +140,7 @@ Two statuses matter and they answer different questions.
 | Job status | Means |
 |---|---|
 | `Queued` | Accepted and paid for, waiting for a dialing slot. |
-| `Running` | At least one call has been placed. |
+| `Running` | The dialer owns the job and is working through the recipients. |
 | `Completed` | Every call reached a terminal state. **Not** that anyone answered. |
 | `Failed` | The job itself could not run. The reason is in the job's `error` field. |
 
@@ -148,7 +148,7 @@ Two statuses matter and they answer different questions.
 |---|---|---|
 | `Queued` | Not dialed yet. | No |
 | `Dialing` | Ringing. | No |
-| `InProgress` | Answered, message playing. | Settles as answered |
+| `InProgress` | Answered, message playing. | Not yet |
 | `Completed` | Answered, and the call ended. | **Yes, 40 paise** |
 | `Busy` | Engaged. | No |
 | `NoAnswer` | Rang out. | No |

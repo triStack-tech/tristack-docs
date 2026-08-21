@@ -15,8 +15,9 @@ An alias is Tristack's name for a model, not the provider's. Which engine serves
 which region, is routing that stays inside Manifold, so a model can be moved or re-hosted
 without your code changing.
 
-Aliases are the only model names the product API takes, and the only ones the dashboard
-stores.
+Aliases are the names to use, and the only ones the dashboard allowlist accepts and stores.
+The messages API will also resolve a provider model id the catalog happens to carry, but a
+provider id is the thing an alias exists to insulate you from, so name the alias.
 
 ## The catalog is an endpoint, not a table
 

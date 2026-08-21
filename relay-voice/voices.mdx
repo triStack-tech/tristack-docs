@@ -13,11 +13,11 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 
 ```json 200 OK
 {
-  "defaultVoice": "ravi",
+  "defaultVoice": "bella",
   "pricePerCallPaise": 40,
   "voices": [
-    { "voice": "asha", "name": "Asha (Hindi, female)", "language": "hi-IN" },
-    { "voice": "ravi", "name": "Ravi (Indian English, male)", "language": "en-IN" }
+    { "voice": "lily", "name": "Asha (Hindi, female)", "language": "hi-IN" },
+    { "voice": "bella", "name": "Ravi (Indian English, male)", "language": "en-IN" }
   ]
 }
 ```
@@ -45,7 +45,7 @@ curl https://api.tristack.tech/v1/relay/voice \
   -d '{
     "to": ["+91XXXXXXXXXX"],
     "text": "Fees for term two are due on Friday. Please pay at the school office.",
-    "voice": "asha"
+    "voice": "lily"
   }'
 ```
 

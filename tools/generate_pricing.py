@@ -73,9 +73,12 @@ FAMILIES: list[tuple[str, tuple[str, ...]]] = [
     ("GLM", ("glm-4-7", "glm-4-7-flash", "glm-5")),
 ]
 
-# Aliases published in the catalog but not yet servable on this deployment. Calls to them
-# answer 403 model_access_denied until the entitlement clears. Keyed on alias for the same
-# reason the families are: availability is not something a display name can tell you.
+# Aliases carried in the settings but switched off on this deployment (Enabled = false).
+# A call to one answers 400 unknown_model, exactly as a misspelt alias does: the platform
+# refuses to make "switched off" and "does not exist" distinguishable, so a model it cannot
+# serve is not discoverable through the difference between two errors. Keyed on alias for
+# the same reason the families are: availability is not something a display name can tell
+# you.
 PENDING_ALIASES = {
     "opus-5",
     "opus-4-8",
@@ -261,9 +264,10 @@ def pending_admonition(target, aliases: list[str], closing: str) -> list[str]:
     named = ", ".join(f"`{alias}`" for alias in aliases)
     return target.warning(
         "Not servable yet",
-        f"{named} are published in the catalog but are not servable yet while "
-        "account-level access is being finalised, so a call answers "
-        f"`403 model_access_denied`. {closing}",
+        f"{named} are listed here but are switched off on this deployment, so "
+        "`GET /v1/manifold/models` does not return them and a call answers "
+        "`400 unknown_model`, the same answer a misspelt alias gets. It is refused before "
+        f"any wallet hold is placed, so nothing is charged. {closing}",
     )
 
 
@@ -295,7 +299,7 @@ def write_summary(
         f"**{fx:.1f} INR per USD** (the `usdToInr` the catalog endpoint returned when this "
         "table was captured) and already include the 10 percent margin, so the paise "
         "columns are what you are billed, not a figure to mark up. Working back to USD "
-        f"means dividing by {fx:.1f} and then by 1.1.",
+        f"means multiplying by 10, then dividing by {fx:.1f} and by 1.1.",
         "",
     ]
     (target.directory / f"catalog-summary{target.suffix}").write_text("\n".join(lines))

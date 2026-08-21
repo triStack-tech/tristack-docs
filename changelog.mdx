@@ -22,7 +22,7 @@ live.
   Manifold converts a model's USD rate to paise at a fixed rate plus a 10 percent margin.
   The published rate is **100 INR per USD**, but the deployment was running an older
   **90 INR per USD** left over from before that rate was set, so calls were being billed
-  about 9 percent under the published price. The deployment now uses 100, which is what
+  exactly 10 percent under the published price. The deployment now uses 100, which is what
   `GET /v1/manifold/models` has always been the authority for.
 
   The tables on these pages were wrong in the other direction. They were generated from a
@@ -94,9 +94,10 @@ live.
   **Catalog**
 
   - 54 aliases across 19 families, converted at 90.0 INR per USD.
-  - Five aliases are published but not servable yet: `opus-5`, `opus-4-8`, `sonnet-5`,
-    `sonnet-4-6` and `haiku-4-5`. Account-level access is still being finalised, and calls
-    to them answer `403 model_access_denied`. The other 49 serve normally.
+  - Five aliases are switched off on this deployment: `opus-5`, `opus-4-8`, `sonnet-5`,
+    `sonnet-4-6` and `haiku-4-5`. Account-level access is still being finalised, so
+    `GET /v1/manifold/models` does not list them and a call answers `400 unknown_model`,
+    the same answer a misspelt alias gets. The other 49 serve normally.
   - 21 aliases accept image blocks. The list is on the [models page](/manifold/models).
 
   **Billing**

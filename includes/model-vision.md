@@ -2,7 +2,7 @@
 
 !!! warning "Not servable yet"
 
-    `opus-5`, `opus-4-8`, `sonnet-5`, `sonnet-4-6`, `haiku-4-5` are published in the catalog but are not servable yet while account-level access is being finalised, so a call answers `403 model_access_denied`. Pick one of the other aliases below for now.
+    `opus-5`, `opus-4-8`, `sonnet-5`, `sonnet-4-6`, `haiku-4-5` are listed here but are switched off on this deployment, so `GET /v1/manifold/models` does not return them and a call answers `400 unknown_model`, the same answer a misspelt alias gets. It is refused before any wallet hold is placed, so nothing is charged. Pick one of the other aliases below for now.
 
 | Alias | Model | Paise / 1K in | Paise / 1K out |
 |---|---|---:|---:|

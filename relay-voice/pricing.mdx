@@ -48,7 +48,10 @@ covers.
   </Accordion>
 
   <Accordion title="Where it appears" icon="receipt">
-    In the wallet ledger as a `Debit`, referenced `relay-activation-<projectId>`. It is
+    In the wallet ledger as a `Debit`, referenced `relay-activation-` followed by the
+    project id **with its hyphens removed**: project `8f14e45f-ceea-467a-9a1f-6b3c1a2d4e57`
+    gives `relay-activation-8f14e45fceea467a9a1f6b3c1a2d4e57`. Strip the hyphens before
+    matching, or the lookup silently finds nothing. It is
     deliberately **not** in `GET /api/v1/usage`: that endpoint reports product consumption,
     calls and characters, and the activation fee is account spend rather than something you
     consumed.
@@ -173,8 +176,10 @@ with it. This is the single largest variable in a Relay Voice bill: see
     | Answered calls | 372 x 40 | 14,880 |
     | **Charged** | | **14,880** |
 
-    **Rs 148.80.** More people reached than last month, and it cost 195 paise less, because
-    the recording was already paid for.
+    **Rs 148.80.** This is **more** than last month's Rs 137.95, because 32 more people
+    picked up and every answered call costs the same 40 paise. What reuse saved is the
+    recording: 195 paise that a fresh synthesis would have added on top. Reuse never makes a
+    send cheaper than the calls it places, it removes the one charge that is not a call.
   </Tab>
 
   <Tab title="Nobody answers">

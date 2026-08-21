@@ -25,10 +25,13 @@ two modes, so this page draws the line precisely.
 | **Identifiers** | `mfr_…` request id | `rvj_…` job id, `rvc_…` call id, `aud_…` recording id |
 
 <Warning>
-  The casing difference is real and it bites. Manifold takes `max_tokens`; Relay Voice takes
-  `callbackUrl`. Sending `maxTokens` to Manifold or `callback_url` to Relay Voice is a
-  `400 invalid_request`. Manifold's shape follows the Anthropic Messages API it is modelled
-  on, and Relay Voice follows the rest of the platform.
+  The casing difference is real and it bites, and it does **not** announce itself. Manifold
+  takes `max_tokens`; Relay Voice takes `callbackUrl`. An unknown JSON member is ignored
+  rather than refused, so `maxTokens` does not raise `400 invalid_request`: it leaves
+  `max_tokens` unset and the request silently runs at the 4096 default. `callback_url`
+  likewise registers no callback, and none is ever sent. Nothing tells you. Manifold's shape
+  follows the Anthropic Messages API it is modelled on, and Relay Voice follows the rest of
+  the platform.
 </Warning>
 
 ## Neither product feeds the other
