@@ -10,22 +10,20 @@ level of the repo, and the navigation is `docs.json`. A page that is not listed 
 
 Read this before you expect a change to appear anywhere.
 
-Mintlify is a hosted service. It does not produce a folder of HTML the way MkDocs did, so
+Mintlify is a hosted service. It does not produce a folder of HTML to deploy, so
 there is nothing for GitHub Pages to serve and no build step that would put one there.
 Publishing needs the repository connected at [mintlify.com](https://mintlify.com), through
 their GitHub App, and Mintlify then builds and hosts the site itself on every push to
 `main`.
 
-Until that connection exists:
+The MkDocs site that used to be published here has been deleted, along with `mkdocs.yml`,
+`docs/`, `includes/`, `requirements.txt` and the workflow that deployed it. It was serving
+prices from before the margin existed, roughly 10 percent under what the API actually
+billed, and keeping a second set of pages accurate in parallel is how that happened.
 
-- Pushing changes nothing that a reader can see.
-- The site the public reads is still the MkDocs one at
-  <https://tristack-tech.github.io/tristack-docs/>, built and deployed by
-  `.github/workflows/docs.yml` from `mkdocs.yml` and `docs/`.
-- Once Mintlify is connected, the published address changes. It will be a Mintlify address,
-  or a custom domain pointed at Mintlify, and not the `github.io` one above. Every link
-  that points at the old address has to be updated, including the ones on the marketing
-  site.
+Anything still pointing at <https://tristack-tech.github.io/tristack-docs/> needs
+repointing at the Mintlify address, including the links on the marketing site and the Docs
+link in the dashboard.
 
 ## Working on it locally
 
@@ -57,12 +55,7 @@ snippets/             Generated markdown, imported into pages. Never edited by h
 assets/               Wordmark and favicon, referenced from docs.json
 data/models.json      A captured GET /v1/manifold/models response
 tools/                The capture, the generator, and the checks
-.github/workflows/    The weekly catalog refresh, and the MkDocs build that still deploys
-
-mkdocs.yml            The old site, still published. See "The MkDocs files" below
-docs/                 The old pages
-includes/             The same generated tables, in the form MkDocs wanted
-requirements.txt      MkDocs and its theme
+.github/workflows/    The weekly catalog refresh
 ```
 
 ## Updating the model and pricing tables
@@ -97,11 +90,11 @@ python tools/generate_pricing.py
 python tools/verify_snippets.py
 ```
 
-Commit `snippets/` and `includes/` with `data/models.json`.
+Commit `snippets/` with `data/models.json`.
 
 A few things the catalog response does not report are tracked in
 `tools/generate_pricing.py`, documented at the constants themselves: which aliases accept
-images, which are published but not servable yet, and which family each belongs to. The
+images, which are switched off on the deployment, and which family each belongs to. The
 script fails rather than guessing when they fall out of step with the catalog.
 
 ### When the refresh fails
@@ -114,44 +107,14 @@ script fails rather than guessing when they fall out of step with the catalog.
 | `imports X but never renders <X />` | A page imports a snippet and does not use it, so that table is missing from the published page. |
 | `No page imports ...` | A note, not a failure. The tables are generated and committed but no page shows them. Either import them, or delete the generator and let the pages send readers to `GET /v1/manifold/models` for live prices. |
 
-## The MkDocs files
+## What checks a change before it publishes
 
-`mkdocs.yml`, `docs/`, `includes/` and `requirements.txt` are still here on purpose. They
-are the site the public currently reads, and deleting them before Mintlify is connected
-would take the documentation offline.
+Mintlify builds whatever is on `main`, correct or not. There is no staging step, so
+`.github/workflows/docs-check.yml` is the only thing standing between a broken page and the
+published site. It runs on every push and pull request:
 
-While they exist, everything keeps working the way it did: `docs.yml` builds and deploys
-the MkDocs site on every push to `main`, and `tools/generate_pricing.py` writes the tables
-twice, once as `snippets/*.mdx` for Mintlify and once as `includes/*.md` for MkDocs, so a
-price refresh updates both sites rather than leaving one of them quoting last month.
+- `python tools/verify_snippets.py` — every snippet import resolves, every imported snippet
+  is actually rendered, and no MkDocs syntax survived the migration.
+- `npx mint broken-links` — every internal link and anchor resolves against `docs.json`.
 
-### Once Mintlify is connected and its address is the published one
-
-Delete, in one commit:
-
-```text
-mkdocs.yml
-docs/                            (assets/ already holds copies of docs/assets/)
-includes/
-requirements.txt
-tools/verify_tables.py           (it parses the built MkDocs HTML, which will not exist)
-.github/workflows/docs.yml       (it builds and deploys that site)
-```
-
-Then turn GitHub Pages off under Settings > Pages, and delete the local `.venv` and `site/`
-if you have them.
-
-Two things happen on their own when `mkdocs.yml` goes, so nothing else needs editing:
-
-- `tools/generate_pricing.py` stops writing `includes/` and writes only `snippets/`.
-- `catalog-refresh.yml` drops its MkDocs build and starts running `npx mint broken-links`
-  instead, which is held back until then because the old `docs/` pages link to each other
-  by `.md` filename and Mintlify cannot resolve those.
-
-One gap to close while both sites exist: `docs.yml` regenerates the tables on every push
-and fails if `includes/` came out different from what was committed, but it does not make
-the same check on `snippets/`. Adding `snippets/` to that `git diff --exit-code` line
-covers both. When you delete `docs.yml`, replace it with a workflow that runs
-`npx mint broken-links` and `python tools/verify_snippets.py` on pull requests: Mintlify
-builds whatever is on `main`, correct or not, so that workflow is what stops a broken page
-reaching it.
+If either fails on `main`, the site has already published the broken version. Fix forward.

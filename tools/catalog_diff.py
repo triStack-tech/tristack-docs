@@ -163,7 +163,7 @@ def main() -> int:
 
     changed = bool(counts) or old_fx != new_fx
     body.append(
-        "`data/models.json` is the captured response and `includes/` is generated from "
+        "`data/models.json` is the captured response and `snippets/` is generated from "
         "it by `tools/generate_pricing.py`. Neither was edited by hand."
         if changed
         else "The published tables already match the catalog."

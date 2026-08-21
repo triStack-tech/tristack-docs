@@ -1,0 +1,62 @@
+# The only gate between a broken page and the published site.
+#
+# Mintlify builds whatever is on `main` the moment it lands: there is no staging build and
+# no approval step. So unlike a normal deploy pipeline, this workflow does not publish
+# anything. It exists to fail loudly on a pull request, before the merge that publishes.
+#
+# A failure on `main` means the broken version is already live. Fix forward.
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push supersedes an in-flight check of the same branch: the older answer is about
+  # code nobody is going to merge.
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # No pip cache and no install step: everything under tools/ is standard library.
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check the snippets resolve and render
+        # Catches an import that points at a file that is not there, a snippet that is
+        # imported and never rendered (so its table is silently missing from the page), and
+        # MkDocs syntax that survived the migration and would publish as literal text.
+        run: python tools/verify_snippets.py
+
+      - name: Check the generated tables still match the catalog
+        # data/models.json is the captured response; snippets/ is generated from it. If they
+        # disagree, someone hand-edited a generated table and the published price is now
+        # whatever they typed.
+        run: |
+          python tools/generate_pricing.py
+          if ! git diff --quiet -- snippets/; then
+            echo "::error::snippets/ does not match what the generator produces from data/models.json." >&2
+            echo "Run 'python tools/generate_pricing.py' and commit the result." >&2
+            git diff -- snippets/ >&2
+            exit 1
+          fi
+
+      - name: Check every internal link and anchor
+        # `mint@latest` on purpose: the CLI tracks the hosted renderer, so a pinned copy
+        # would drift from what actually publishes. Pin it here if a release ever breaks us.
+        run: npx --yes mint@latest broken-links

@@ -3,16 +3,9 @@
 
 Input:  data/models.json  (the response body, saved verbatim)
 Output: snippets/*.mdx    (Mintlify snippets, imported by the pages that show the tables)
-        includes/*.md     (the same tables for MkDocs, only while mkdocs.yml is still here)
 
 Every number on the model and pricing pages comes from here, so the published tables
 cannot drift from the catalog they were captured from.
-
-Two renderings of the same tables are written while the site is being moved from MkDocs to
-Mintlify, because the MkDocs site is still the one the public reads until Mintlify is
-connected, and a refresh that updated only one of them would leave the other quoting last
-month's prices. The MkDocs half writes itself out of existence: it is emitted only while
-mkdocs.yml is present, so deleting that file is all it takes to stop it.
 
 The weekly Catalog refresh workflow captures the catalog and runs this, opening a pull
 request when anything moved. To do the same locally:
@@ -30,8 +23,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "data" / "models.json"
 SNIPPETS = ROOT / "snippets"
-INCLUDES = ROOT / "includes"
-MKDOCS_CONFIG = ROOT / "mkdocs.yml"
 
 # How the catalog is grouped into families on the page, in the order the sections appear.
 # Keyed on alias, never on the display name: the catalog names a model without any vendor
@@ -136,21 +127,8 @@ class Mintlify:
         return ["<Warning>", "", f"  **{title}.** {text}", "", "</Warning>", ""]
 
 
-class MkDocs:
-    """includes/*.md, pulled into a page by pymdownx.snippets as `--8<-- "x.md"`."""
-
-    directory = INCLUDES
-    suffix = ".md"
-    banner = f"<!-- {NOTICE} -->"
-
-    @staticmethod
-    def warning(title: str, text: str) -> list[str]:
-        return [f'!!! warning "{title}"', "", f"    {text}", ""]
-
-
-# Mintlify first: it is the rendering that survives. MkDocs only while its config is here.
-def targets() -> list[type[Mintlify] | type[MkDocs]]:
-    return [Mintlify] + ([MkDocs] if MKDOCS_CONFIG.exists() else [])
+def targets() -> list[type[Mintlify]]:
+    return [Mintlify]
 
 
 # MDX reads `{` as the start of an expression and `<` as the start of a tag, so a display

@@ -11,10 +11,8 @@
 # Without it the run stops on the first step with that instruction, before anything is
 # written, rather than half-writing a capture.
 #
-# The tables are generated twice while the site is being moved from MkDocs to Mintlify:
-# snippets/*.mdx for Mintlify, and includes/*.md for the MkDocs site that is still the one
-# the public reads. tools/generate_pricing.py stops writing the MkDocs half by itself the
-# day mkdocs.yml is deleted, and the steps below that build that site disappear with it.
+# The tables are generated as snippets/*.mdx and imported by the pages that show them, so
+# a price on a page cannot drift from the catalog it was captured from.
 #
 # Everything is checked here, before the pull request is opened, because a pull request
 # opened with the workflow token does not start another workflow: docs.yml will not run on
@@ -69,19 +67,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          # No pip cache: everything under tools/ is standard library only, and the one
-          # dependency file in the repo installs MkDocs, which is on its way out. Caching
-          # on requirements.txt would fail the whole job the day that file is deleted.
-
-      - name: Install MkDocs
-        # The MkDocs site is still the published one. This step, requirements.txt and the
-        # build below all leave together, on the day mkdocs.yml does.
-        if: hashFiles('mkdocs.yml') != ''
-        run: pip install -r requirements.txt
+          # No pip cache and no install step: everything under tools/ is standard library
+          # only.
 
       - uses: actions/setup-node@v4
-        # Only for `mint broken-links`, which only runs once MkDocs is gone.
-        if: hashFiles('mkdocs.yml') == ''
+        # For `mint broken-links`.
         with:
           node-version: "20"
 
@@ -118,9 +108,9 @@ jobs:
         run: |
           # A table that changed without the summary noticing would mean the summary is
           # blind to a field the pages use, and blind is worse than wrong here.
-          if ! git diff --quiet -- includes/ snippets/; then
+          if ! git diff --quiet -- snippets/; then
             echo "The tables changed but the summary reported nothing:" >&2
-            git diff -- includes/ snippets/ >&2
+            git diff -- snippets/ >&2
             exit 1
           fi
           echo "The catalog has not moved. No pull request opened." >> "$GITHUB_STEP_SUMMARY"
@@ -130,22 +120,11 @@ jobs:
         run: python tools/verify_snippets.py --tables
 
       - name: Check the Mintlify docs for broken links
-        # This is what replaces `mkdocs build --strict` as the site-wide check. It is held
-        # back until the MkDocs pages are deleted: docs/*.md links to other .md files, which
-        # are not links the new site can resolve, so running it before then would fail every
-        # week over pages that are not part of the new site at all.
-        # `mint@latest` on purpose: the CLI tracks the hosted renderer, and a pinned copy
-        # would drift from what actually publishes. Pin it here if a release ever breaks us.
-        if: steps.diff.outputs.changed == 'true' && hashFiles('mkdocs.yml') == ''
+        # The site-wide check. `mint@latest` on purpose: the CLI tracks the hosted renderer,
+        # and a pinned copy would drift from what actually publishes. Pin it here if a
+        # release ever breaks us.
+        if: steps.diff.outputs.changed == 'true'
         run: npx --yes mint@latest broken-links
-
-      - name: Build the MkDocs site that is still published
-        if: steps.diff.outputs.changed == 'true' && hashFiles('mkdocs.yml') != ''
-        run: mkdocs build --strict
-
-      - name: Check the published MkDocs tables against the catalog
-        if: steps.diff.outputs.changed == 'true' && hashFiles('mkdocs.yml') != ''
-        run: python tools/verify_tables.py
 
       - name: Open a pull request
         if: steps.diff.outputs.changed == 'true'
