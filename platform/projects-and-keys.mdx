@@ -1,0 +1,235 @@
+---
+title: "Projects and keys"
+description: "Why the project is the boundary, how product switches and API keys hang off it, and what archiving one does to every key it owns."
+---
+
+An account holds the money. A **project** holds everything else: the API keys, the product
+switches, the model allowlist, the usage figures, and the caller-id number Relay Voice dials
+from. Every product request resolves to exactly one project, through the key it was
+authenticated with.
+
+## What belongs to what
+
+| | Account | Project |
+|---|:---:|:---:|
+| Wallet balance and ledger | Yes | No |
+| Email, password, sign-in | Yes | No |
+| Recordings (`aud_…`) reusable across projects | Yes | No |
+| API keys | No | Yes |
+| Manifold and Relay Voice switches | No | Yes |
+| Manifold model allowlist | No | Yes |
+| Relay Voice caller-id number | No | Yes |
+| Usage rows and cost attribution | No | Yes |
+
+One account can own as many projects as you like. Most teams run one per application, or one
+per environment (`checkout-prod`, `checkout-staging`).
+
+## Why the boundary is the project
+
+Splitting work across projects buys you four things that an account alone cannot give:
+
+<AccordionGroup>
+  <Accordion title="A blast radius you can cut" icon="scissors">
+    A leaked key is a leaked project, not a leaked account. Revoke the key, or archive the
+    project and stop every key on it at once. Other projects keep running.
+  </Accordion>
+
+  <Accordion title="Product access you can withhold" icon="toggle-off">
+    A staging project can have Manifold on and Relay Voice off. The key still authenticates
+    against Relay Voice and is then refused with `403 relay_voice_disabled` before anything
+    is dialed, so a misrouted staging job cannot telephone real customers.
+  </Accordion>
+
+  <Accordion title="A spend limit by model" icon="list-check">
+    The Manifold allowlist is per project. An empty allowlist means every available model,
+    which is where a project starts. Name aliases in it and the project is restricted to
+    exactly those: anything else answers `403 model_not_allowed`, refused before any wallet
+    hold is taken, so a mistyped expensive alias costs nothing.
+  </Accordion>
+
+  <Accordion title="A bill you can read" icon="chart-column">
+    Every wallet ledger row and every usage row carries a project id. Without separate
+    projects, "which app spent this" has no answer.
+  </Accordion>
+</AccordionGroup>
+
+## Product switches
+
+Both products are off when a project is created. Each has its own switch, and they are
+unrelated to each other.
+
+| Switch | Gates | Refusal when off |
+|---|---|---|
+| Manifold | `POST /v1/manifold/messages`, `GET /v1/manifold/models` | `403 manifold_disabled` |
+| Relay Voice | `POST /v1/relay/voice` and the other `/v1/relay/voice` routes | `403 relay_voice_disabled` |
+
+A switch takes effect on the next request. Existing keys keep working, and you never need to
+mint a new one after flipping one.
+
+<Warning>
+  **Switching Relay Voice on for the first time charges the project Rs 200 (20000 paise).**
+  The fee rents that project its own caller-id number, which is why it is per project and not
+  per account: a second project is a second number and a second fee. Switching Relay Voice
+  off and on again in the same project is free, because the number stays rented either way.
+
+  The charge runs **before** the switch is set. A wallet that cannot cover it answers
+  `402 insufficient_balance` with `requiredPaise: 20000` and leaves the project untouched, so
+  the product is never handed over unpaid. `relayActivationPaid` on the project tells you
+  whether this project has already paid.
+</Warning>
+
+The project record also carries SMS and OTP switches. They are stored so a preference set
+today survives, and nothing reads them yet: no endpoint is gated on either.
+
+## API keys
+
+A key is a bearer token. Whoever holds it can spend your wallet through that project, which
+is the whole reason for the rules below.
+
+### Creating one
+
+In the dashboard, or through the API:
+
+```bash Create a key
+curl -X POST https://api.tristack.tech/api/v1/projects/$PROJECT_ID/keys \
+  -H "Authorization: Bearer $TRISTACK_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "checkout-prod", "mode": "live" }'
+```
+
+```json Response, and the only time you see the token
+{
+  "id": "0f1c9b3e-6a1d-4b0f-9a7c-2f5b8d4e1a90",
+  "name": "checkout-prod",
+  "token": "tsk_live_ZS9hQ2xw…",
+  "prefix": "tsk_live_",
+  "hint": "1a90",
+  "createdAt": "2026-08-21T09:12:44Z"
+}
+```
+
+<Warning>
+  **`token` is returned once and never stored.** Only a hash of it is kept, so no screen, no
+  endpoint and nobody at Tristack Technologies LLP can show it to you again. Copy it into
+  your secret manager before you close the dialog.
+
+  `GET /api/v1/projects/{id}/keys` afterwards lists `prefix` and `hint` (the last 4
+  characters) with `createdAt`, `revokedAt` and `lastUsedAt`. That is enough to tell two keys
+  apart, decide which one is dead, and never enough to make a request.
+</Warning>
+
+### Live and test prefixes
+
+`mode` decides one thing: whether the token reads `tsk_live_` or `tsk_test_`.
+
+Both call the same models, dial the same real phones, and spend the same real wallet. There
+is no sandbox behind `tsk_test_`, no free tier and no mock. It is a label so your logs and
+your secret manager can tell a production credential from a scratch one. Treat both as
+production secrets, because to the API they are identical.
+
+### Using one
+
+Either header works, on both products. Pick one and keep it:
+
+<CodeGroup>
+```bash Authorization
+curl https://api.tristack.tech/v1/manifold/models \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```bash X-Api-Key
+curl https://api.tristack.tech/v1/manifold/models \
+  -H "X-Api-Key: $TRISTACK_API_KEY"
+```
+</CodeGroup>
+
+Keys belong on a server, in an environment variable or a secret manager. A key in a browser
+bundle, a mobile app or a public repository is a key somebody else can spend from, and the
+only fix is revocation.
+
+### Revoking one
+
+```bash Revoke
+curl -X DELETE https://api.tristack.tech/api/v1/projects/$PROJECT_ID/keys/$KEY_ID \
+  -H "Authorization: Bearer $TRISTACK_JWT"
+```
+
+Revocation takes effect on the next request. From then on that token answers
+`401 invalid_api_key`.
+
+An unknown key and a revoked key get the same answer on purpose. A distinct "this key was
+revoked" reply would confirm to whoever holds a leaked token that it was once real, which is
+information worth having only to the person who should not have it.
+
+Revoking a second time answers `404`, as does a key id from another project. In-flight work
+is not cancelled: a Relay Voice job already accepted keeps dialing, because the calls were
+authorized when the job was created.
+
+<Tip>
+  **Rotating without downtime:** create the new key, deploy it, confirm traffic is flowing
+  on it (`lastUsedAt` on the key list moves), then revoke the old one. Nothing forces one key
+  per project, so the overlap is free.
+</Tip>
+
+## Archiving a project
+
+Archiving is the off switch for a whole project.
+
+<Steps>
+  <Step title="Every key on it stops working, immediately">
+    Requests answer `401` `{ "error": "This project is archived.", "code": "project_archived" }`.
+    The check runs during authentication, before any product gate, so it is what you see even
+    on a project that had Manifold or Relay Voice switched on.
+  </Step>
+  <Step title="Nothing is deleted">
+    The project, its keys, its usage rows and its ledger entries stay exactly as they were.
+    Keys are not revoked, and the Relay Voice activation fee is not charged again.
+  </Step>
+  <Step title="It is reversible">
+    Unarchive the project and the same keys start working again on the next request, with the
+    same product switches they had.
+  </Step>
+</Steps>
+
+```bash Archive, then bring it back
+curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
+  -H "Authorization: Bearer $TRISTACK_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "archived": true }'
+
+curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
+  -H "Authorization: Bearer $TRISTACK_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "archived": false }'
+```
+
+Reach for archiving when a project is finished or compromised and you want it stopped in one
+move. Reach for revocation when one credential leaked and the project should carry on.
+
+## The dashboard API, for automation
+
+These routes are what the dashboard itself calls. They use your account session (a JWT), not
+an API key, and they speak camelCase.
+
+```bash Get a session token
+curl -X POST https://api.tristack.tech/api/v1/account/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "you@example.com", "password": "your-password" }'
+```
+
+The `token` in the response is the JWT the calls below expect, and it is valid for 24 hours.
+Everything under `/api/v1/account` is rate limited to 10 requests per minute per caller IP.
+
+| Route | Method | Does |
+|---|---|---|
+| `/api/v1/projects` | `GET` | List your projects |
+| `/api/v1/projects` | `POST` | Create one: `{ "name": "…" }` |
+| `/api/v1/projects/{id}` | `GET` | Read one |
+| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `archived`. Omitted fields are unchanged |
+| `/api/v1/projects/{id}/keys` | `POST` | Create a key: `{ "name": "…", "mode": "live" }` |
+| `/api/v1/projects/{id}/keys` | `GET` | List keys, without tokens |
+| `/api/v1/projects/{id}/keys/{keyId}` | `DELETE` | Revoke a key |
+| `/api/v1/projects/{id}/models` | `GET` | The allowlist, with every catalog row and its price |
+| `/api/v1/projects/{id}/models` | `PUT` | Replace it: `{ "aliases": ["nova-lite"] }`. `[]` clears it, which restores allow-all |
+
+A project id belonging to another account answers `404`, never that account's data.

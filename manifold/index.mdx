@@ -1,0 +1,150 @@
+---
+title: "Manifold"
+description: "One HTTP API for language models: send messages, name a model by alias, read generated text back, priced per token in paise."
+sidebarTitle: "Overview"
+icon: "brain"
+---
+
+Manifold is the language-model half of Tristack. You send messages, name a model by alias,
+and get generated text back, either as one JSON body or as a stream of deltas. Every
+response carries the tokens it used and what it cost, to the paise.
+
+The other product, [Relay Voice](/relay-voice/index), telephones people. Nothing on this
+page rings a phone, and nothing Manifold returns is spoken aloud unless you send that text
+to Relay Voice yourself.
+
+## One request, start to finish
+
+```bash A complete Manifold call
+export TRISTACK_API_KEY="tsk_live_your_key_here"
+
+curl https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nova-micro",
+    "max_tokens": 1024,
+    "messages": [
+      { "role": "user", "content": "Say hello from Tristack, in one sentence." }
+    ]
+  }'
+```
+
+```json The answer
+{
+  "id": "mfr_9f7922159e6dab6a72166e1f",
+  "model": "nova-micro",
+  "role": "assistant",
+  "content": [{ "type": "text", "text": "Hello from Tristack: your first Manifold call worked." }],
+  "stop_reason": "end_turn",
+  "usage": { "input_tokens": 14, "output_tokens": 13 },
+  "cost": { "paise": 1 }
+}
+```
+
+That is the whole surface for most integrations. Swap the alias to change model, add
+`"stream": true` to receive deltas, and read `cost.paise` to know what it cost.
+
+<Info>
+  Field names are snake_case on the wire: `max_tokens`, `stop_sequences`, `stop_reason`,
+  `input_tokens`. If you have written against a Messages-style API before, the shape is the
+  one you expect.
+</Info>
+
+## Reach for Manifold when
+
+<CardGroup cols={2}>
+  <Card title="You want generated text" icon="pen-nib">
+    Summaries, extraction, classification, rewriting, chat replies. Text in, text out, with
+    optional images in the input on the models that accept them.
+  </Card>
+
+  <Card title="You want one bill for many models" icon="scale-balanced">
+    Dozens of models behind one endpoint, one key and one wallet. Changing model is a
+    one-word change, not a new SDK and a new invoice.
+  </Card>
+
+  <Card title="You want the cost of each call" icon="receipt">
+    `cost.paise` comes back on every response and in every stream, so you can attribute
+    spend to a feature without reconciling a monthly statement.
+  </Card>
+
+  <Card title="You want prepaid, capped spend" icon="shield-halved">
+    The wallet is prepaid. A leaked key can spend the balance and not one paise more, and a
+    call that the balance cannot cover is refused before a model ever runs.
+  </Card>
+</CardGroup>
+
+Manifold is not the right tool for embeddings, image generation, audio transcription or
+fine-tuning. It serves text completions from the catalog and nothing else.
+
+## What a call needs
+
+<Steps>
+  <Step title="A project with Manifold switched on">
+    The switch is per project and off until you turn it on. A key on a project without it
+    authenticates correctly and still answers `403 manifold_disabled`.
+  </Step>
+
+  <Step title="An API key from that project">
+    `Authorization: Bearer tsk_live_...`, or `X-Api-Key: tsk_live_...` if a header named
+    Authorization is awkward in your stack. Keys belong to a project, never to an account.
+
+    [Projects and keys](/platform/projects-and-keys)
+  </Step>
+
+  <Step title="A wallet with enough balance">
+    One prepaid wallet per account, shared with Relay Voice. Too little for the estimated
+    cost of the call and you get `402 insufficient_balance` before any model runs, which
+    costs nothing.
+
+    [Wallet](/platform/wallet)
+  </Step>
+
+  <Step title="A model the project may call">
+    Any alias from `GET /v1/manifold/models`. That list already accounts for the project's
+    allowlist, so anything it returns is callable with that key.
+
+    [Models and the allowlist](/manifold/models)
+  </Step>
+</Steps>
+
+## The endpoints
+
+| Endpoint | Does |
+|---|---|
+| `POST /v1/manifold/messages` | Sends messages and returns generated text, streamed or whole. |
+| `GET /v1/manifold/models` | Lists the models this key may call, with their per-token prices. |
+
+Base URL `https://api.tristack.tech`. Every Manifold error is JSON carrying a human
+sentence in `error` and a stable `code` in snake_case to branch on, whatever the status.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/manifold/quickstart">
+    Key to first billed response, in six steps, with the response fields explained one by
+    one.
+  </Card>
+
+  <Card title="Models" icon="layer-group" href="/manifold/models">
+    Aliases, the live catalog, how to read the listed prices, and the per-project allowlist.
+  </Card>
+
+  <Card title="Streaming" icon="bolt" href="/manifold/streaming">
+    `"stream": true`, the SSE events in order, a consumer that accumulates deltas, and what
+    an abort costs.
+  </Card>
+
+  <Card title="Pricing" icon="wallet" href="/manifold/pricing">
+    Estimate, hold, settle, release, worked through on one real call down to the paise.
+  </Card>
+
+  <Card title="API reference: messages" icon="code" href="/api-reference/manifold/messages">
+    Every request parameter, every response field, every error code.
+  </Card>
+
+  <Card title="API reference: models" icon="code" href="/api-reference/manifold/models">
+    The catalog endpoint, field by field.
+  </Card>
+</CardGroup>

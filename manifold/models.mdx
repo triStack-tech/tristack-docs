@@ -1,0 +1,241 @@
+---
+title: "Models and the allowlist"
+description: "Model aliases, the live catalog at GET /v1/manifold/models, how to read its per-1K-token prices, and the per-project allowlist behind model_not_allowed."
+sidebarTitle: "Models"
+icon: "layer-group"
+---
+
+You name a model by **alias**: a short, stable string like `nova-micro` or `mistral-large-3`.
+An alias is Tristack's name for a model, not the provider's. Which engine serves it, and in
+which region, is routing that stays inside Manifold, so a model can be moved or re-hosted
+without your code changing.
+
+Aliases are the only model names the product API takes, and the only ones the dashboard
+stores.
+
+## The catalog is an endpoint, not a table
+
+```bash What this key may call
+curl https://api.tristack.tech/v1/manifold/models \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK, trimmed to four rows
+{
+  "usdToInr": 100.0,
+  "models": [
+    { "alias": "nova-micro", "displayName": "Nova Micro",
+      "usdPerMTokIn": 0.035, "usdPerMTokOut": 0.14,
+      "paisePer1KTokensIn": 0.38, "paisePer1KTokensOut": 1.54 },
+    { "alias": "nova-lite", "displayName": "Nova Lite",
+      "usdPerMTokIn": 0.06, "usdPerMTokOut": 0.24,
+      "paisePer1KTokensIn": 0.66, "paisePer1KTokensOut": 2.64 },
+    { "alias": "nova-pro", "displayName": "Nova Pro",
+      "usdPerMTokIn": 0.80, "usdPerMTokOut": 3.20,
+      "paisePer1KTokensIn": 8.80, "paisePer1KTokensOut": 35.20 },
+    { "alias": "mistral-large-3", "displayName": "Mistral Large 3 675B",
+      "usdPerMTokIn": 0.50, "usdPerMTokOut": 1.50,
+      "paisePer1KTokensIn": 5.50, "paisePer1KTokensOut": 16.50 }
+  ]
+}
+```
+
+<Warning>
+  **This endpoint answers per key.** It returns what the calling project can actually call:
+  the models the platform has switched on, narrowed by that project's allowlist when it has
+  one. Two keys on two projects can see two different lists, and anything missing from your
+  list is not callable with your key.
+
+  It also runs the same product gate a call does, so a key whose project has Manifold
+  switched off answers `403 manifold_disabled` here rather than listing models it could not
+  use.
+</Warning>
+
+Fetch it at startup, or cache it for an hour. Do not hardcode the catalog: models are added
+and retired, prices move with the provider's own rates, and the allowlist can be narrowed
+under you by whoever administers the project.
+
+## Reading the prices
+
+| Field | Is |
+|---|---|
+| `alias` | The name you put in `model`. |
+| `displayName` | A human label for a picker. Never send it as `model`. |
+| `usdPerMTokIn` / `usdPerMTokOut` | The provider's own rate, in USD per **million** tokens. Provenance, not a billing input. |
+| `usdToInr` | The exchange rate used to convert, at the top of the response because it applies to every row. |
+| `paisePer1KTokensIn` / `paisePer1KTokensOut` | **The billable rate**: paise per **1000** tokens, margin already included. |
+
+Two different units sit in the same object, so read the field names carefully: the USD
+figures are per million tokens, the paise figures are per thousand.
+
+### Where the paise figure comes from
+
+Manifold converts the provider's USD rate at **100 INR to the dollar** and adds a **10
+percent margin**:
+
+```text
+paisePer1KTokens = round(usdPerMTok * usdToInr * 1.10 / 10, 2)
+```
+
+The division by 10 is the unit change, from per-million tokens in dollars to per-thousand in
+paise. With `usdToInr` at 100, that comes to the USD-per-million rate multiplied by 11: Nova
+Lite input, at 0.06 USD per million tokens, lists at 0.66 paise per 1000 tokens.
+
+<Note>
+  The same 10 percent is applied to the pre-flight estimate, to the settled cost, and to the
+  prices this endpoint lists. All three come out of one function in the pricing code, so the
+  number you are quoted cannot drift from the number you are billed.
+</Note>
+
+<Warning>
+  **Do not derive your own rate from `usdPerMTok` and `usdToInr`.** Those two fields are the
+  provider rate and the exchange rate: multiplying them gives the cost before margin, which
+  is 10 percent under what you will actually pay. `paisePer1KTokensIn` and
+  `paisePer1KTokensOut` are the numbers to compute against.
+</Warning>
+
+### What a call costs
+
+```text
+costPaise = ceil(
+  (inputTokens * usdPerMTokIn + outputTokens * usdPerMTokOut)
+  / 1e6 * usdToInr * 100 * 1.10
+)
+```
+
+The rounding up to a whole paise happens once, at the very end, so a call that used any
+tokens at all costs at least 1 paise. There is no per-request fee, no minimum billable token
+count, no surcharge for images, and no price difference between a streamed and a
+non-streamed call. [Pricing, worked end to end](/manifold/pricing).
+
+### The spread between models
+
+The catalog runs from small models at well under 1 paise per 1000 tokens to large ones
+costing tens of paise for the same thousand. Output is priced several times higher than
+input on most models, so trimming a verbose reply usually saves more than trimming context.
+
+Picking the smallest model that passes your own evaluation is the largest cost decision
+available to you.
+
+## The per-project allowlist
+
+Every project has a list of the aliases it may spend on.
+
+<Card title="An empty allowlist means every available model is allowed" icon="list">
+  That is the state a project is in until somebody narrows it, so a new project can call
+  anything the platform serves. A **non-empty** list restricts the project to exactly the
+  aliases it carries, and nothing else.
+</Card>
+
+Narrow it in the dashboard, under the project's model settings. Reasons to bother:
+
+- **Cap the blast radius of a leaked key.** A key limited to `nova-micro` cannot be pointed
+  at the most expensive model in the catalog.
+- **Stop accidental upgrades.** A typo or a copied snippet that names a dearer alias fails
+  loudly instead of quietly costing fifty times more.
+- **Keep environments honest.** A staging project allowed only cheap models cannot run up a
+  production-sized bill.
+
+The allowlist changes what `GET /v1/manifold/models` returns for that project's keys, so a
+client that reads the catalog at startup sees the narrowed list and never offers a model it
+cannot use.
+
+### model_not_allowed
+
+```json 403
+{
+  "error": "The model 'nova-pro' is not enabled for this project. Enable it for the project in the dashboard, under the project's model settings.",
+  "code": "model_not_allowed"
+}
+```
+
+The model is real and the platform can serve it. This project is not permitted to spend on
+it.
+
+**To fix it**, either add the alias to the project's allowlist, or clear the list entirely
+to go back to allow-all. No new key is needed and no redeploy: the next request reads the
+new list.
+
+<Note>
+  This check runs **before** the wallet hold, along with the model resolution itself. A
+  refused call reserves nothing and costs nothing, so a retry loop against a model you are
+  not allowed to call burns latency and nothing else.
+</Note>
+
+## Unknown and switched off answer alike
+
+A model the platform has switched off is not listed by `GET /v1/manifold/models`, and
+calling it gives you the same answer as a name that was never real:
+
+```json 400
+{ "error": "Unknown model 'some-model'.", "code": "unknown_model" }
+```
+
+That is deliberate, not a gap. If a switched-off model answered differently from a
+nonexistent one, the difference between two error messages would become a way to enumerate
+what the platform is not serving yet. One answer for both keeps the two indistinguishable
+from outside.
+
+The practical consequence: `unknown_model` never means "try again later". Treat it as
+"this alias is not callable here", read the catalog endpoint, and use what it returns.
+
+<Info>
+  `model_not_allowed` is the deliberate exception. It names the model and tells you where to
+  enable it, because there the model is the whole content of the failure: it exists, it can
+  be served, and it is your own project setting standing in the way. Nothing is leaked,
+  because you already have access to the project.
+</Info>
+
+## Two more ways a model can be unavailable
+
+<AccordionGroup>
+  <Accordion title="403 model_access_denied" icon="lock">
+    The alias is in the catalog and switched on, but the backing account is not entitled to
+    that particular model yet. Nothing you can change from your side: pick another alias.
+    The wallet hold is released in full, so the attempt costs nothing.
+  </Accordion>
+
+  <Accordion title="400 provider_rejected on an image" icon="image">
+    Image content blocks work only on the vision-capable models, and the catalog endpoint
+    does not report which those are. Sending an image to a text-only alias is a validation
+    rejection from the model, not a Manifold refusal, so it comes back as
+    `400 provider_rejected`.
+
+    Supported image media types are `image/png`, `image/jpeg`, `image/gif` and `image/webp`,
+    sent as base64 in a content block. See
+    [the messages reference](/api-reference/manifold/messages).
+  </Accordion>
+</AccordionGroup>
+
+## A startup check worth writing
+
+```python Fail loudly at boot, not on the first customer request
+# pip install requests
+import os
+
+import requests
+
+WANTED = "nova-micro"
+
+response = requests.get(
+    "https://api.tristack.tech/v1/manifold/models",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    timeout=30,
+)
+response.raise_for_status()
+
+catalog = {m["alias"]: m for m in response.json()["models"]}
+if WANTED not in catalog:
+    raise SystemExit(
+        f"{WANTED} is not callable with this key. Available: {', '.join(sorted(catalog))}"
+    )
+
+model = catalog[WANTED]
+print(
+    f"{model['displayName']}: {model['paisePer1KTokensIn']} paise per 1K in, "
+    f"{model['paisePer1KTokensOut']} paise per 1K out"
+)
+```
+
+This turns a project misconfiguration into one clear line at startup rather than a
+`403 model_not_allowed` in front of a user.

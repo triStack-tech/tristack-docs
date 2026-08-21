@@ -1,0 +1,344 @@
+---
+title: "Streaming"
+description: "Server-sent events for stream=true: the event order, a consumer that accumulates deltas, mid-stream failures, and what an aborted stream costs."
+sidebarTitle: "Streaming"
+icon: "bolt"
+---
+
+Set `"stream": true` on `POST /v1/manifold/messages` and the reply arrives as server-sent
+events instead of one JSON body. The request is otherwise identical, and so is the price:
+streaming changes when text reaches you, not what it costs.
+
+```json The only change to the request
+{
+  "model": "nova-micro",
+  "max_tokens": 1024,
+  "stream": true,
+  "messages": [{ "role": "user", "content": "Count to five." }]
+}
+```
+
+```bash Watch it on the wire
+curl -N https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nova-micro",
+    "max_tokens": 1024,
+    "stream": true,
+    "messages": [{ "role": "user", "content": "Count to five." }]
+  }'
+```
+
+`-N` disables curl's own buffering. Without it you see the whole stream arrive at once and
+learn nothing.
+
+## The response
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache
+X-Accel-Buffering: no
+```
+
+`X-Accel-Buffering: no` tells reverse proxies not to hold the deltas back. If you put your
+own proxy or CDN in front of this, check it honours that header, or your users wait for the
+whole answer while your logs show it streaming perfectly.
+
+## The events, in order
+
+Each event is an `event:` line, a `data:` line carrying one JSON object, then a blank line.
+
+```text A complete successful stream
+event: message_start
+data: {"id":"mfr_9f7922159e6dab6a72166e1f","model":"nova-micro","role":"assistant"}
+
+event: content_block_delta
+data: {"index":0,"delta":{"type":"text_delta","text":"One"}}
+
+event: content_block_delta
+data: {"index":0,"delta":{"type":"text_delta","text":", two, three"}}
+
+event: content_block_delta
+data: {"index":0,"delta":{"type":"text_delta","text":", four, five."}}
+
+event: message_delta
+data: {"stop_reason":"end_turn","usage":{"input_tokens":11,"output_tokens":9},"cost":{"paise":1}}
+
+event: message_stop
+data: {}
+```
+
+| Order | Event | Payload | Count |
+|---|---|---|---|
+| 1 | `message_start` | `id`, `model`, `role` | Once, first |
+| 2 | `content_block_delta` | `index`, `delta.type`, `delta.text` | Repeated |
+| 3 | `message_delta` | `stop_reason`, `usage`, `cost` | Once |
+| 4 | `message_stop` | `{}` | Once, last |
+| in place of 3 | `error` | `error`, `code` | A mid-stream failure; the stream then ends |
+
+Four things that save an afternoon of debugging:
+
+- **There is no `[DONE]` sentinel.** `message_stop` is the end of a successful stream.
+- **`message_delta` carries the money.** `usage` and `cost` appear there and nowhere else:
+  no running total per delta, and nothing in `message_stop`. A stream that ends without
+  `message_delta` is a failed stream, whether or not you saw an `error` event.
+- **Deltas split anywhere.** `delta.text` can end mid-word. Concatenate in arrival order and
+  never assume a chunk is a token, a word or a sentence.
+- **`index` identifies the content block.** Replies carry one text block today, so it is
+  always `0`. Key your accumulator on it anyway and a future block type will not corrupt
+  your output.
+
+`message_start.id` is the same `mfr_...` request id a non-streamed call returns, and the one
+that appears in your wallet ledger.
+
+## A consumer that accumulates deltas
+
+<Note>
+  A browser `EventSource` cannot call this endpoint. It only issues `GET` and cannot set
+  request headers, so neither the API key nor the JSON body has anywhere to go. Use anything
+  that can stream the response body of a `POST`.
+</Note>
+
+<CodeGroup>
+
+```python Python
+# pip install httpx
+import json
+import os
+
+import httpx
+
+API = "https://api.tristack.tech"
+KEY = os.environ["TRISTACK_API_KEY"]
+
+
+def stream_message(prompt, model="nova-micro"):
+    """Yields (event_name, payload) pairs until the stream ends."""
+    payload = {
+        "model": model,
+        "max_tokens": 1024,
+        "stream": True,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    timeout = httpx.Timeout(120.0, read=None)
+
+    with httpx.Client(timeout=timeout) as client:
+        with client.stream(
+            "POST",
+            f"{API}/v1/manifold/messages",
+            headers={"Authorization": f"Bearer {KEY}"},
+            json=payload,
+        ) as response:
+            if response.status_code != 200:
+                # A failure before the first event is plain JSON, not SSE.
+                response.read()
+                failure = response.json()
+                raise RuntimeError(
+                    f"{response.status_code} {failure.get('code', '-')}: {failure.get('error')}"
+                )
+
+            event = None
+            for line in response.iter_lines():
+                if line.startswith("event: "):
+                    event = line[len("event: "):]
+                elif line.startswith("data: ") and event is not None:
+                    yield event, json.loads(line[len("data: "):])
+                elif not line:
+                    event = None
+
+
+def main():
+    chunks = []
+    settled = False
+
+    for event, data in stream_message("Count to five."):
+        if event == "content_block_delta":
+            chunks.append(data["delta"]["text"])
+            print(data["delta"]["text"], end="", flush=True)
+        elif event == "message_delta":
+            settled = True
+            print(
+                f"\n\nstop_reason={data['stop_reason']}"
+                f" in={data['usage']['input_tokens']}"
+                f" out={data['usage']['output_tokens']}"
+                f" cost={data['cost']['paise']} paise"
+            )
+        elif event == "error":
+            raise RuntimeError(f"{data['code']}: {data['error']}")
+
+    if not settled:
+        raise RuntimeError("the stream ended before message_delta")
+
+    return "".join(chunks)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+```javascript Node
+// Node 18 or newer, no dependencies. ES modules: save as .mjs, or set
+// "type": "module" in package.json.
+const API = "https://api.tristack.tech";
+const KEY = process.env.TRISTACK_API_KEY;
+
+async function* streamMessage(prompt, { model = "nova-micro", signal } = {}) {
+  const response = await fetch(`${API}/v1/manifold/messages`, {
+    method: "POST",
+    signal,
+    headers: {
+      Authorization: `Bearer ${KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      stream: true,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    // A failure before the first event is plain JSON, not SSE.
+    const failure = await response.json();
+    throw new Error(`${response.status} ${failure.code ?? "-"}: ${failure.error}`);
+  }
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += value;
+
+    let boundary;
+    while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+
+      let event = null;
+      let data = null;
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7);
+        else if (line.startsWith("data: ")) data = JSON.parse(line.slice(6));
+      }
+      if (event && data) yield [event, data];
+    }
+  }
+}
+
+let text = "";
+let settled = false;
+
+for await (const [event, data] of streamMessage("Count to five.")) {
+  if (event === "content_block_delta") {
+    text += data.delta.text;
+    process.stdout.write(data.delta.text);
+  } else if (event === "message_delta") {
+    settled = true;
+    console.log(
+      `\n\nstop_reason=${data.stop_reason} in=${data.usage.input_tokens}` +
+        ` out=${data.usage.output_tokens} cost=${data.cost.paise} paise`,
+    );
+  } else if (event === "error") {
+    throw new Error(`${data.code}: ${data.error}`);
+  }
+}
+
+if (!settled) throw new Error("the stream ended before message_delta");
+```
+
+</CodeGroup>
+
+Both consumers do the three things that matter: they check the status **before** parsing
+anything as SSE, they accumulate `delta.text` in arrival order, and they treat a missing
+`message_delta` as a failure rather than as a short answer.
+
+## When the provider fails
+
+A stream breaks in one of two places, and they look nothing alike on the wire.
+
+<AccordionGroup>
+  <Accordion title="Before the first event" icon="circle-xmark">
+    Nothing has been committed to a stream yet, so you get an ordinary JSON error with a
+    real status code, exactly as a non-streamed call would:
+
+    ```json 429
+    { "error": "The model provider is throttling requests. Retry with backoff.", "code": "provider_throttled" }
+    ```
+
+    `429 provider_throttled`, `403 model_access_denied`, `400 provider_rejected`,
+    `502 provider_error` all arrive this way. The wallet hold is released in full: the call
+    costs nothing, and retrying with backoff is free apart from latency.
+
+    This is why every consumer above checks `response.status_code` before it looks for an
+    `event:` line. A parser that goes straight to SSE reads a JSON error body as a stream
+    that produced no deltas, and reports the wrong thing.
+  </Accordion>
+
+  <Accordion title="Mid-stream" icon="plug-circle-xmark">
+    The response is already `200` and deltas have been flowing. The failure arrives as an
+    `error` event in place of `message_delta` and `message_stop`:
+
+    ```text
+    event: message_start
+    data: {"id":"mfr_9f7922159e6dab6a72166e1f","model":"nova-micro","role":"assistant"}
+
+    event: content_block_delta
+    data: {"index":0,"delta":{"type":"text_delta","text":"One, two"}}
+
+    event: error
+    data: {"error":"The model provider failed mid-stream.","code":"provider_error"}
+    ```
+
+    You are left holding partial text and no usage figures. **The hold is released in full
+    and the call costs nothing**: the failure was not yours, so you do not pay for the
+    fragment that arrived.
+
+    The HTTP status is still `200`, because it was sent before anything went wrong. Status
+    codes cannot be revised mid-body, which is exactly why the rule above matters: judge a
+    stream by whether `message_delta` arrived, not by its status line.
+  </Accordion>
+</AccordionGroup>
+
+## What an abort costs
+
+You may stop reading at any time: cancel the request, close the connection, let the user
+navigate away. What happens to the money depends on how far the call got.
+
+| You hang up | Charged |
+|---|---|
+| Before any text arrives | Nothing. The whole hold is released. |
+| After some text, before the model reported usage | The full input, plus the output that actually reached you. |
+| After the model reported usage | The real usage, exactly as if you had read to the end. |
+
+The second row is the one to understand.
+
+<Warning>
+  An aborted stream is **settled, not refunded**. If Manifold never received the model's
+  usage figures, the call is priced with the same estimate the hold used: your entire input
+  at 4 characters per token, plus the output that reached you, also at 4 characters per
+  token and capped at your `max_tokens`. It is recorded in usage as a failure with the code
+  `client_aborted`, and it is the only failure that ever carries a real cost. It can never
+  exceed the hold: both halves are capped at the figures the hold was priced on.
+
+  Without it, hanging up one delta before the end would be repeatable free inference.
+</Warning>
+
+Notice which half of the bill shrinks. The output half is proportional to what you received.
+The input half is not: the model read your entire prompt whether or not you stayed to hear
+the answer, so a call with a long system prompt or a base64 image in it is expensive to
+abort even when barely any text came back.
+
+If the model did report usage before you hung up, the call is settled at that real usage and
+recorded as a **success**, because it is one. The call completed; you stopped listening.
+
+<Info>
+  A provider failure and your own abort are treated differently on purpose. A failure
+  delivers you nothing you asked to keep, so the hold comes back in full. An abort discards
+  output that was generated, sent and paid for at the provider. Only your own abort forfeits
+  the refund. [How holds and settlement work](/manifold/pricing).
+</Info>

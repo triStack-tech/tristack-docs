@@ -1,0 +1,258 @@
+---
+title: "Wallet and billing"
+description: "One prepaid balance in paise for the whole account, how hold-then-settle works and why, what 402 insufficient_balance means, and how to read the ledger."
+---
+
+Tristack is prepaid. Your account holds one wallet, denominated in paise, and every charge
+from every product and every project comes out of it. There is no invoice at the end of the
+month and no credit: work that the balance cannot cover is refused before it starts.
+
+## One balance, one account
+
+<Info>
+  The wallet belongs to the **account**. Projects do not have balances. A project id is
+  recorded on each ledger row so you can see which project spent what, but the money is a
+  single pool that a Manifold call and a Relay Voice job draw on equally.
+</Info>
+
+That has one consequence worth designing around: a runaway loop in a staging project can
+drain the balance a production project is relying on. If that matters to you, the lever is
+the Manifold model allowlist and the product switches, not separate wallets.
+[Projects and keys →](/platform/projects-and-keys)
+
+## Money is always an integer in paise
+
+Rs 1 is `100`. Rs 1.50 is `150`. Rs 200 is `20000`.
+
+Every amount on the wire is an integer number of paise: `balancePaise`, `amountPaise`,
+`costPaise`, `estimatedCostPaise`, `requiredPaise`, `cost.paise`. There are no rupee floats
+anywhere in the API, in either direction.
+
+<Warning>
+  Never send a rupee float. `{ "amountPaise": 100.5 }` is not Rs 100.50, and
+  `{ "amountPaise": 100 }` is Rs 1, not Rs 100. Binary floating point cannot represent most
+  decimal fractions exactly, so a currency that allows halves of a paise ends the month with
+  a balance that does not reconcile. Integers cannot drift.
+</Warning>
+
+## Adding money
+
+Top-ups go through the checkout flow in the dashboard.
+
+| Rule | Value |
+|---|---|
+| Minimum top-up | `10000` paise (Rs 100) |
+| Below that | `400 below_minimum_topup` |
+| Email not verified | `403 email_unverified` |
+| Payments not configured on the deployment | `503 razorpay_disabled` |
+
+`GET /api/v1/wallet` reads the current state with your account session:
+
+```bash Read the balance
+curl https://api.tristack.tech/api/v1/wallet \
+  -H "Authorization: Bearer $TRISTACK_JWT"
+```
+
+```json
+{
+  "balancePaise": 9997,
+  "minTopUpPaise": 10000,
+  "recentTopups": [
+    { "id": "…", "amountPaise": 10000, "status": "Paid",
+      "razorpayOrderId": "order_…", "invoiceUrl": null,
+      "createdAt": "2026-08-21T09:04:11Z", "paidAt": "2026-08-21T09:04:39Z" }
+  ]
+}
+```
+
+`status` is `Pending` until the payment is confirmed, then `Paid`. Confirmation is
+idempotent: the browser callback and the payment webhook can both arrive, and the money is
+credited once.
+
+## Hold, then settle
+
+Neither product knows what a request costs until it is over. A model's output length is not
+known before it is generated, and how many phones answer is not known before they are dialed.
+So both products bill in two movements.
+
+<Steps>
+  <Step title="Estimate, before anything happens" icon="calculator">
+    The request is priced at its worst realistic case: for Manifold, the input plus the whole
+    of `max_tokens`; for Relay Voice, every recipient answering, plus any speech that has to
+    be synthesized.
+  </Step>
+  <Step title="Hold that estimate" icon="lock">
+    The balance drops by the estimate immediately, in one conditional database update that
+    checks and subtracts in the same statement. A `Hold` row appears in the ledger.
+
+    This is the step that makes "no money, no call" true rather than approximate. Two
+    requests arriving at the same moment cannot both read a balance of 50 paise and both
+    decide they can afford it: the second update finds the balance already reduced and the
+    request is refused.
+  </Step>
+  <Step title="Do the work" icon="play">
+    Manifold calls the model. Relay Voice synthesizes the audio, returns `202`, and dials in
+    the background.
+  </Step>
+  <Step title="Settle against what actually happened" icon="scale-balanced">
+    The whole hold is handed back and the real cost is debited. In the ledger that reads as a
+    `HoldRelease` for the full estimate followed by a `Debit` for the actual amount, so both
+    numbers are visible rather than one netted figure.
+  </Step>
+</Steps>
+
+If the work never happened, there is nothing to settle and the hold is released in full. A
+provider that fails before producing anything, a model the AWS account cannot serve, speech
+that the voice provider refuses: all of them cost you nothing, and the ledger shows the
+reason in the release row's `description`.
+
+### What the estimate is
+
+<CodeGroup>
+```text Manifold
+input_tokens  = ceil(characters in the request / 4)
+output_tokens = max_tokens, in full
+
+estimate = (input_tokens x input rate + output_tokens x output rate)
+           converted at 100 INR per USD, plus a 10 percent margin,
+           rounded up to whole paise, never less than 1 paise
+```
+
+```text Relay Voice
+estimate = recipients x 40 paise
+         + characters of NEWLY synthesized speech x 3 paise
+```
+</CodeGroup>
+
+Two practical consequences:
+
+- **`max_tokens` decides how much Manifold reserves.** Asking for 65536 tokens to get a
+  one-line answer holds the money for 65536 tokens until the call finishes, and hands almost
+  all of it straight back. That money is unavailable to your other requests in the meantime.
+  Set `max_tokens` near what you actually expect.
+- **Reusing a recording removes the synthesis half of the Relay Voice estimate.** Replaying
+  an `audioId`, or sending wording this account has already synthesized in the same voice,
+  makes the character count zero: nothing is prepared, so nothing is charged for preparing
+  it. [Reusing audio →](/relay-voice/reusing-audio)
+
+The prices `GET /v1/manifold/models` reports already include the currency conversion and the
+margin, so the rate you read there is the rate you are charged. Do not apply either yourself.
+
+<Note>
+  The Rs 200 Relay Voice activation fee goes through the same hold and settle, keyed to the
+  project rather than to a request. It is charged when the switch is turned on, not when the
+  first call is made. [Why it exists →](/relay-voice/pricing)
+</Note>
+
+## 402 insufficient_balance
+
+```json
+{
+  "error": "The wallet balance cannot cover the estimated cost of this request.",
+  "code": "insufficient_balance",
+  "requiredPaise": 42
+}
+```
+
+- `requiredPaise` is what **this request** needed reserved up front. It is not your balance,
+  and it is not the shortfall.
+- The check runs **before any provider is called**. No model is invoked, no phone is dialed,
+  no speech is synthesized. A refused request costs nothing at all, so retrying it after a
+  top-up is safe and there is no half-finished work to clean up.
+- It is a state, not a transient error. Retrying without topping up produces the same answer.
+  Manifold is deliberately not rate limited by us, so a tight retry loop against a `402` will
+  spin as fast as your client can send.
+- The same code and shape come back from turning Relay Voice on for a project when the
+  balance cannot cover the Rs 200 activation fee.
+
+<Tip>
+  Watch `balancePaise` on a schedule and top up on a threshold rather than on a `402`. The
+  hold takes the estimate, not the final cost, so a balance that looks like it covers your
+  next call can still refuse it if `max_tokens` is large.
+</Tip>
+
+## Reading the ledger
+
+The ledger is append-only, newest first. Nothing in it is ever edited: a correction is
+another row.
+
+```bash Last 20 movements
+curl "https://api.tristack.tech/api/v1/wallet/transactions?limit=20" \
+  -H "Authorization: Bearer $TRISTACK_JWT"
+```
+
+`limit` clamps to 1 to 100 and defaults to 50. `before` takes a timestamp and pages backwards
+from it. The response is a bare array.
+
+| `type` | Direction | Written when |
+|---|---|---|
+| `Topup` | Credit | A payment is confirmed. `reference` is the payment id |
+| `Hold` | Reserved | A request is admitted and its estimate is taken |
+| `HoldRelease` | Credit | A hold is handed back, in full on failure or as part of every settlement |
+| `Debit` | Charge | Real, settled cost |
+| `Grant` | Credit | Credit added by Tristack Technologies LLP with no payment behind it |
+| `Reversal` | Credit | A prior debit undone |
+
+`amountPaise` is always positive. The direction is carried by `type`, never by a sign.
+`balanceAfterPaise` is the balance immediately after that row, which is the field to trust
+when you are reconstructing history.
+
+### One Manifold call, in three rows
+
+A call on a wallet holding 10000 paise, estimated at 42 paise, that settled at 3:
+
+```json Newest first
+[
+  { "type": "Debit",       "amountPaise": 3,  "balanceAfterPaise": 9997,
+    "reference": "mfr_9f7922159e6dab6a72166e1f", "projectId": "…", "description": null },
+  { "type": "HoldRelease", "amountPaise": 42, "balanceAfterPaise": 10000,
+    "reference": "mfr_9f7922159e6dab6a72166e1f", "projectId": "…", "description": null },
+  { "type": "Hold",        "amountPaise": 42, "balanceAfterPaise": 9958,
+    "reference": "mfr_9f7922159e6dab6a72166e1f", "projectId": "…", "description": null }
+]
+```
+
+Read bottom to top: 42 paise reserved, all 42 returned, 3 charged. The net effect on the
+balance is 3 paise, and all three rows share one `reference`.
+
+### Matching a row to what caused it
+
+| `reference` | Came from |
+|---|---|
+| `mfr_…` | A Manifold request. The same id is on the response as `id` |
+| `rvj_…` | A Relay Voice job. The same id is the `jobId` from the `202` |
+| `relay-activation-…` | The one-time Relay Voice activation fee for the project in `projectId` |
+| `pay_…` | A wallet top-up |
+
+A Relay Voice job produces its rows when the job finishes, not when it is accepted, because
+that is when the answered calls are known. A job still dialing shows only its `Hold`.
+
+`description` is usually null. On a `HoldRelease` it carries the reason the hold came back,
+which is either an error code such as `provider_error`, `no_calls_answered` when a Relay
+Voice job ended with nothing billable, or `Released by the stale-hold sweep`.
+
+<Accordion title="What happens to a hold if the service restarts mid-request" icon="rotate">
+  Nothing is stranded. A background sweep runs hourly and releases any hold still active
+  after two hours, so a crash between the hold and the settlement returns the money without
+  anyone filing a ticket. The release row's `description` says so.
+
+  This is also why a hold is a real ledger row rather than a number held in memory: it
+  survives the process that took it.
+</Accordion>
+
+<Accordion title="When the settled cost lands above the hold" icon="triangle-exclamation">
+  Manifold estimates input at one token per four characters, which under-counts dense
+  non-Latin text. The settled cost can therefore come out slightly above the hold. The
+  overage is taken, but only down to a zero balance: the wallet never goes negative, and any
+  remainder that cannot be collected is written off rather than carried as debt. The `Debit`
+  row's `description` names the original figure when that happens.
+</Accordion>
+
+## Where usage figures live instead
+
+`GET /api/v1/usage` reports consumption across both products, per day, project and item, with
+a `product=manifold|relay_voice|all` filter. It answers "what did we use", where the ledger
+answers "what moved in the wallet".
+
+One thing it does not include: the Relay Voice activation fee. That is account spend rather
+than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.

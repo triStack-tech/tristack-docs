@@ -1,0 +1,226 @@
+---
+title: "Errors"
+description: "The error envelope, what each HTTP status means on this API, and every documented code across Manifold and Relay Voice with what to do about it."
+---
+
+Every failure from either product answers with the same JSON envelope, so one handler covers
+the whole API.
+
+```json
+{
+  "error": "The wallet balance cannot cover the estimated cost of this request.",
+  "code": "insufficient_balance"
+}
+```
+
+- `error` is a sentence written for a human reading a log. Its wording can change, so never
+  match on it.
+- `code` is a stable `snake_case` identifier. Branch on this.
+- `code` is omitted where the status alone is unambiguous, so read it defensively.
+
+Two fields ride along on specific failures:
+
+| Extra field | Appears on |
+|---|---|
+| `requiredPaise` | `402 insufficient_balance`, holding what this request needed reserved |
+| `fields` | Validation failures, as an object keyed by field name with a sentence each |
+
+## What each status means here
+
+| Status | Meaning on this API |
+|---|---|
+| `200` | Done. Manifold returns the completion; the dashboard API returns the resource |
+| `202` | Accepted, not finished. Only Relay Voice sends this: the calls have not been dialed yet |
+| `400` | The request is wrong. Nothing was charged. Retrying it unchanged fails the same way |
+| `401` | The key is not usable: missing, unknown, revoked, or its project is archived |
+| `402` | The wallet cannot cover the estimate. Checked before any provider is called |
+| `403` | The key is fine, but this project may not do this: a product switch or an allowlist |
+| `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
+| `410` | It existed and is gone. Only Relay Voice recordings do this |
+| `429` | Throttled. From the model provider, or from the rate limiter on the dashboard API |
+| `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
+| `503` | A product is switched off or half-configured on the deployment. Not your request |
+
+<Note>
+  A `404` for a resource that belongs to another account is deliberate and not a bug. Telling
+  you "this exists but is not yours" would confirm the existence of another tenant's job,
+  recording or project to anyone guessing ids.
+</Note>
+
+## Every documented code
+
+| `code` | Status | Product | What happened | What to do |
+|---|:---:|---|---|---|
+| `invalid_api_key` | 401 | Both | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
+| `project_archived` | 401 | Both | The key's project is archived. Checked before any product gate | Unarchive the project, or use a key from an active one |
+| `invalid_request` | 400 | Both | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Relay Voice is `camelCase` |
+| `insufficient_balance` | 402 | Both | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
+| `manifold_disabled` | 403 | Manifold | Manifold is not switched on for this project | Turn the switch on. It applies to the next request, with no new key |
+| `unknown_model` | 400 | Manifold | `model` is neither a known alias nor a catalog model id, or it is one the platform cannot serve. Both answer identically | Copy an alias from `GET /v1/manifold/models`, which lists exactly what this key can call |
+| `model_not_allowed` | 403 | Manifold | The model is real and servable, but this project's allowlist does not carry it. Refused before the hold | Add the alias under the project's model settings, or call one that is on the list |
+| `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
+| `model_access_denied` | 403 | Manifold | The backing AWS account is not entitled to this model. The hold is released in full | Use another alias. Nothing was charged |
+| `provider_throttled` | 429 | Manifold | The model provider is throttling. Not a Tristack rate limit | Retry with exponential backoff and jitter |
+| `provider_error` | 502 | Manifold | Any other provider failure. The hold is released | Retry. If it persists, send support the `mfr_…` id |
+| `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
+| `relay_voice_unavailable` | 503 | Relay Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
+| `invalid_phone_number` | 400 | Relay Voice | A number in `to` is not a dialable Indian mobile. `error` names the index and the value you sent | Drop or correct it. Landlines and foreign numbers are refused |
+| `unknown_voice` | 400 | Relay Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
+| `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
+| `audio_not_found` | 404 | Relay Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
+| `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get a fresh `audioId` |
+| `invalid_callback_url` | 400 | Relay Voice | `callbackUrl` is not an absolute https URL | Use https. Plain http is refused because the body lists who was called |
+| `text_rejected` | 502 | Relay Voice | The speech provider would not synthesize this text, on length or content. The hold is released | Shorten or reword it. Nothing was charged |
+| `voice_unavailable` | 502 | Relay Voice | The voice or synthesis model no longer exists at the speech provider. The hold is released | Pick another voice and tell support. This is an operator problem |
+| `speech_provider_unauthorized` | 502 | Relay Voice | The speech provider rejected our credentials. The hold is released | Nothing you can fix. Contact support |
+| `speech_quota_exhausted` | 502 | Relay Voice | The speech provider's quota is spent. The hold is released | Retry later, and tell support |
+| `speech_provider_throttled` | 502 | Relay Voice | The speech provider is rate limiting. The hold is released | Retry shortly with backoff |
+| `speech_provider_error` | 502 | Relay Voice | Any other synthesis failure, including an unreachable provider. The hold is released | Retry. If it persists, contact support |
+
+<Accordion title="Codes from the dashboard API" icon="gauge">
+  These come from the account and wallet routes under `/api/v1`, which use your session token
+  rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`.
+
+  - `email_unverified` (403): topping up requires a verified email address. Resend the link
+    from the dashboard.
+  - `below_minimum_topup` (400): the minimum is 10000 paise (Rs 100).
+  - `razorpay_disabled` (503): payments are not configured on this deployment.
+  - `invalid_range` (400): `from` is later than `to` on the usage endpoint.
+  - `invalid_status` (400): the usage `status` filter is not one of `all`, `succeeded`,
+    `failed`, `provider_error`.
+  - `invalid_request` (400): a validation failure, with `fields` naming what to fix.
+</Accordion>
+
+## What an error costs
+
+Almost nothing, by design. The order of checks is deliberate:
+
+<Steps>
+  <Step title="Authentication and product gates">
+    `invalid_api_key`, `project_archived`, `manifold_disabled`, `relay_voice_disabled` and
+    `relay_voice_unavailable` are decided before any money is touched.
+  </Step>
+  <Step title="Validation and allowlists">
+    `invalid_request`, `unknown_model`, `model_not_allowed`, `invalid_phone_number`,
+    `unknown_voice`, `invalid_audio_id` and `invalid_callback_url` are all refused before the
+    wallet hold.
+  </Step>
+  <Step title="The balance check">
+    `insufficient_balance` is the hold itself failing. No provider has been contacted.
+  </Step>
+  <Step title="Provider failures">
+    Everything that reaches a provider and fails (`provider_error`, `model_access_denied`,
+    every `speech_*` code, `text_rejected`, `voice_unavailable`) releases the hold in full.
+  </Step>
+</Steps>
+
+<Warning>
+  The one exception is a **client abort mid-stream** on Manifold. If you disconnect while
+  tokens are arriving, the request settles against what was already generated, using the
+  provider's usage when it reported any and an estimate from the streamed characters
+  otherwise, never above the hold. It is recorded as a failure with the code `client_aborted`
+  and it is real money, because the tokens were really generated.
+</Warning>
+
+## Rate limits
+
+| Surface | Limit | Answer |
+|---|---|---|
+| `/v1/manifold/*` and `/v1/relay/*` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/api/v1/account/*` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
+| `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
+
+<Note>
+  The product API is not throttled on purpose: your wallet is the limit. That also means a
+  retry loop against a `402` or a `403` will spin as fast as you can send, writing nothing
+  but rejections. Back off on your side.
+</Note>
+
+An empty-body `429` is the only response on the API without the JSON envelope. Unknown routes
+under `/api/` or `/v1/` answer `404 { "error": "Unknown API route" }` with no `code`, rather
+than serving the dashboard's HTML.
+
+## Relay Voice failures that are not status codes
+
+A Relay Voice request can be accepted with `202` and still go wrong later, so those failures
+are read from the job rather than from a status code.
+
+- **`error` on the job**: `audio_unavailable` (the recording vanished before dialing),
+  `interrupted` (the service restarted mid-job; nothing is redialed and the undelivered calls
+  are refunded), or `internal_error`.
+- **`error` on a call**: why that one number failed, alongside its status.
+- **Call statuses that are not errors at all**: `Busy`, `NoAnswer` and `Cancelled` are normal
+  outcomes of telephoning people. None of them is billed. A job status of `Completed` means
+  every call reached a terminal state, not that anyone answered.
+
+## Handling them
+
+<CodeGroup>
+```python Python
+# pip install requests
+import os
+
+import requests
+
+response = requests.post(
+    "https://api.tristack.tech/v1/manifold/messages",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    json={
+        "model": "nova-micro",
+        "max_tokens": 64,
+        "messages": [{"role": "user", "content": "Say hello from Tristack."}],
+    },
+    timeout=60,
+)
+
+if response.ok:
+    print(response.json()["content"][0]["text"])
+else:
+    # raise_for_status() would throw the body away, and the body is where `code` lives.
+    failure = response.json()
+    code = failure.get("code", "")
+    print(f"{response.status_code} {code}: {failure['error']}")
+
+    if code == "insufficient_balance":
+        print(f"this call needed {failure['requiredPaise']} paise reserved")
+    elif code == "provider_throttled":
+        print("retry with backoff")
+    elif code in ("model_not_allowed", "manifold_disabled"):
+        print("fix the project settings, not the request")
+```
+
+```javascript Node
+// Node 18 or newer, no dependencies. Save as .mjs, or set "type": "module".
+const response = await fetch("https://api.tristack.tech/v1/relay/voice", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    to: ["+91XXXXXXXXXX"],
+    text: "Your delivery arrives between 4 and 6 today.",
+  }),
+});
+
+if (!response.ok) {
+  const failure = await response.json();
+  console.error(`${response.status} ${failure.code}: ${failure.error}`);
+
+  if (failure.code === "insufficient_balance") {
+    console.error(`needed ${failure.requiredPaise} paise`);
+  }
+} else {
+  const job = await response.json();
+  // 202: the calls have not been dialed yet. Poll the job or take a callback.
+  console.log(job.jobId, job.status, job.estimatedCostPaise);
+}
+```
+</CodeGroup>
+
+Streaming is the one case where a failure does not arrive as a status code. Once the SSE
+response has started, a provider failure is delivered as an `error` event carrying the same
+`{ error, code }` body. A failure before the first event is a plain JSON response.
+[Streaming →](/manifold/streaming)
+
+Still stuck? [What to send support →](/platform/support)

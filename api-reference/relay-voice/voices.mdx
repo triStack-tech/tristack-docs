@@ -1,0 +1,111 @@
+---
+title: "List voices"
+description: "GET /v1/relay/voice/voices: the voice aliases this key can send, the default, and the per-call price."
+---
+
+<Info>
+  `GET https://api.tristack.tech/v1/relay/voice/voices` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+Returns the voices you may pass as `voice` on
+[`POST /v1/relay/voice`](/api-reference/relay-voice/send), which one is used when you pass
+none, and what an answered call costs.
+
+```bash Fetch the voices
+curl https://api.tristack.tech/v1/relay/voice/voices \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "defaultVoice": "default",
+  "pricePerCallPaise": 40,
+  "voices": [
+    { "voice": "default", "name": "Default voice", "language": "en-IN" }
+  ]
+}
+```
+
+## Response
+
+<ResponseField name="defaultVoice" type="string">
+  The alias used when a send omits `voice`. It is always one of the aliases in `voices`.
+</ResponseField>
+
+<ResponseField name="pricePerCallPaise" type="integer">
+  What one **answered** call costs, in paise. A phone that rang out, was engaged or was
+  refused costs nothing.
+
+  This is the per-call price and nothing else. It does not include the 3 paise per character
+  charged once when a new recording is prepared, or the one-time activation fee per project.
+  See [Relay Voice pricing](/relay-voice/pricing).
+</ResponseField>
+
+<ResponseField name="voices" type="object[]">
+  The selectable voices, sorted by alias.
+
+  <Expandable title="voice">
+    <ResponseField name="voice" type="string">
+      The alias to send as `voice`. Matched case-insensitively.
+    </ResponseField>
+
+    <ResponseField name="name" type="string">
+      A human-readable label for a picker, for example `Asha (Hindi, female)`. Not an
+      identifier: send `voice`.
+    </ResponseField>
+
+    <ResponseField name="language" type="string">
+      The BCP-47 tag the voice is labelled with, for example `en-IN` or `hi-IN`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## What the list does and does not tell you
+
+<AccordionGroup>
+  <Accordion title="Aliases are the whole surface" icon="masks-theater">
+    A voice is an alias and nothing more. Which speech provider says the words, and under
+    which voice id, is deliberately not exposed: those ids are per-account strings that can be
+    rotated or replaced without your integration noticing, and an alias survives that.
+  </Accordion>
+
+  <Accordion title="language is a label, not a setting" icon="tag">
+    It tells you what the voice was chosen for. It does not switch anything: the voice itself,
+    and the synthesis model behind it, decide how your text comes out. Sending Hindi text to a
+    voice labelled `en-IN` produces exactly what that voice makes of it.
+
+    Text is spoken as written, with no SSML, so the script you send matters. A Hindi voice
+    pronounces Devanagari more reliably than romanized Hindi, because there is no script to
+    infer.
+  </Accordion>
+
+  <Accordion title="A missing voice is not a hidden voice" icon="eye-slash">
+    An operator can switch a voice off. It then disappears from this list and stops being
+    selectable, and sending it answers `400 unknown_voice`, exactly the same answer a typo
+    gets. Which voices exist but are unavailable is not discoverable by comparing two errors.
+  </Accordion>
+
+  <Accordion title="Recordings carry their own voice" icon="rotate-left">
+    `voice` applies to `text` only. Replaying an `audioId` plays the voice it was recorded in,
+    which is why sending both is `400 invalid_request` rather than a silently ignored field.
+    To change voice, send the text again under the new alias, which prepares a new recording
+    and a new `audioId`.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  The dashboard plays a sample sentence in each voice, in Hindi and English, so you can pick
+  one by ear before you spend anything on it.
+</Tip>
+
+## Errors
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
+| 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it on for the project. This endpoint runs the same gate a send does, so it refuses rather than showing you a menu you cannot order from. |
+| 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. | Retry later or [contact support](mailto:support@tristack.tech). A deployment with no configured voice reports itself unavailable rather than returning an empty list. |
+
+Listing voices costs nothing and touches no wallet.

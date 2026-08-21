@@ -1,0 +1,131 @@
+---
+title: "Tristack developer docs"
+description: "Two products on one platform: Manifold answers with a language model, Relay Voice rings a phone. One account, one wallet, one kind of API key."
+mode: "wide"
+---
+
+Tristack runs **two products**. They do different jobs and have different endpoints, and
+you can use one without ever touching the other.
+
+<CardGroup cols={2}>
+  <Card title="Manifold" icon="brain" href="/manifold/index" horizontal>
+    **Text in, text out.** One HTTP API for language models: send messages, name a model
+    by alias, read the answer back. Metered per token.
+
+    `POST /v1/manifold/messages`
+  </Card>
+
+  <Card title="Relay Voice" icon="phone" href="/relay-voice/index" horizontal>
+    **Text in, a phone rings.** Send Indian mobile numbers and a line of text; it is
+    spoken aloud and called out to every one of them. Metered per answered call.
+
+    `POST /v1/relay/voice`
+  </Card>
+</CardGroup>
+
+## They are separate products, not two halves of one
+
+This is the thing worth being clear about up front, because the shared plumbing makes them
+look more connected than they are.
+
+<Columns cols={2}>
+  <div>
+    **What they share**
+
+    - One Tristack account and one dashboard
+    - One prepaid wallet: both products draw from the same balance
+    - The same kind of API key (`tsk_live_…`), scoped to a project
+    - The same error envelope and the same base URL
+  </div>
+
+  <div>
+    **What they do not share**
+
+    - Different endpoints, request shapes and responses
+    - Separate per-project switches: enabling one does nothing to the other
+    - Separate pricing, on entirely different units
+    - Nothing passes between them. Manifold's answer is not spoken by Relay Voice unless
+      you send it there yourself
+  </div>
+</Columns>
+
+<Note>
+  A key with Manifold enabled and Relay Voice disabled calls Manifold and gets
+  `403 relay_voice_disabled` from Relay Voice. The switches are per project and per product.
+</Note>
+
+## Which one do you want?
+
+<AccordionGroup>
+  <Accordion title="I want a model to answer a prompt" icon="brain">
+    That is **Manifold**. You send messages and get generated text back, streaming or not.
+    Billing is per token, at the model's own rate.
+
+    [Manifold quickstart →](/manifold/quickstart)
+  </Accordion>
+
+  <Accordion title="I want to telephone people and play them a message" icon="phone">
+    That is **Relay Voice**. You send a list of Indian mobile numbers and the words to say.
+    It synthesizes the speech once and calls everyone. Billing is per answered call, plus a
+    one-off charge for preparing each new recording.
+
+    [Relay Voice quickstart →](/relay-voice/quickstart)
+  </Accordion>
+
+  <Accordion title="I want a model to write the message, then phone people with it" icon="arrow-right-arrow-left">
+    That is **both products, called in sequence, by your code**. Ask Manifold for the text,
+    take the string out of the response, and send it to Relay Voice as `text`.
+
+    There is no shortcut that does it in one call, and no hidden coupling: to Relay Voice,
+    text written by a model is just text.
+  </Accordion>
+</AccordionGroup>
+
+## Everything below this line is common to both
+
+<Steps>
+  <Step title="Create a project">
+    A project owns its API keys and its usage. Most teams run one project per app, or one
+    per environment.
+
+    [Projects and keys →](/platform/projects-and-keys)
+  </Step>
+
+  <Step title="Turn on the products you want">
+    Each product has its own switch on the project. They are independent.
+  </Step>
+
+  <Step title="Create an API key">
+    `tsk_live_…` for production, `tsk_test_…` otherwise. The full token is shown once, at
+    creation, and never again.
+  </Step>
+
+  <Step title="Fund the wallet">
+    One prepaid balance in paise, drawn on by every product. A call that cannot be covered
+    is refused with `402` before anything is spent.
+
+    [Wallet and billing →](/platform/wallet)
+  </Step>
+</Steps>
+
+```bash Both products, same key, same base URL
+export TRISTACK_API_KEY="tsk_live_your_key_here"
+
+# Manifold: a model answers
+curl https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"nova-micro","max_tokens":256,
+       "messages":[{"role":"user","content":"Say hello from Tristack."}]}'
+
+# Relay Voice: a phone rings
+curl https://api.tristack.tech/v1/relay/voice \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"to":["+91XXXXXXXXXX"],"text":"Your delivery arrives between 4 and 6 today."}'
+```
+
+<Info>
+  **Base URL** `https://api.tristack.tech` · **Auth** `Authorization: Bearer tsk_live_…`
+  (or `X-Api-Key`) · **Money** every amount is an integer in paise, so ₹1.50 is `150`.
+</Info>

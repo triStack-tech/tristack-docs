@@ -1,0 +1,147 @@
+---
+title: "Voices"
+description: "List the voice aliases your key can use, choose one, and hear it on a real phone before your customers do."
+---
+
+A voice is chosen by alias. `GET /v1/relay/voice/voices` lists the aliases your key can use,
+and the `voice` field on a send picks one of them.
+
+```bash List the voices
+curl https://api.tristack.tech/v1/relay/voice/voices \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "defaultVoice": "ravi",
+  "pricePerCallPaise": 40,
+  "voices": [
+    { "voice": "asha", "name": "Asha (Hindi, female)", "language": "hi-IN" },
+    { "voice": "ravi", "name": "Ravi (Indian English, male)", "language": "en-IN" }
+  ]
+}
+```
+
+| Field | What it is |
+|---|---|
+| `voice` | The alias. This is the string you send. |
+| `name` | A human label for a picker. Do not parse it. |
+| `language` | What the voice was chosen for. A label, not a switch: see below. |
+| `defaultVoice` | What you get when you send no `voice` at all. |
+| `pricePerCallPaise` | 40 paise per answered call, the same for every voice. Voice choice never changes what a call costs. |
+
+<Note>
+  This endpoint runs the same product gate a send does, so a key whose project has Relay
+  Voice switched off answers `403 relay_voice_disabled` here as well. It lists what you can
+  actually order, never a menu you would be refused from.
+</Note>
+
+## Using one
+
+```bash A named voice
+curl https://api.tristack.tech/v1/relay/voice \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["+91XXXXXXXXXX"],
+    "text": "Fees for term two are due on Friday. Please pay at the school office.",
+    "voice": "asha"
+  }'
+```
+
+The alias you used comes back on the response, and on every later read of the job, in the
+`voice` field. Omit `voice` and you get `defaultVoice`, reported back the same way, so a
+response always tells you which voice actually spoke.
+
+An alias that is not on the list answers `400 unknown_voice`. A voice an operator has
+switched off answers identically, because from a caller's side there is no difference between
+a voice that never existed and one that is no longer selectable.
+
+<Warning>
+  `voice` cannot be sent alongside `audioId`. A stored recording already has a voice baked
+  into it, and accepting a `voice` there would tell you that you chose something you did not
+  get. Sending both is `400 invalid_request`.
+</Warning>
+
+## `language` is a label, not a switch
+
+The `language` field says what a voice was picked for. It does not translate, transliterate,
+or change how your text is read. What actually decides how the words come out is the voice
+itself and the speech model behind it.
+
+So `language` is useful for building a picker and for documenting your own choice, and it is
+useless as an instruction. Send the text in the language you want spoken, and pick a voice
+that suits it.
+
+## Aliases, not provider ids
+
+Which speech provider sits behind an alias, and what its internal voice id is, are
+deliberately not exposed. The alias is the stable thing: it is what you store in your config,
+what appears on your job records, and what keeps working if the engine underneath is
+replaced. An opaque provider id in your codebase would be a hard dependency on a supplier you
+never chose.
+
+## Choosing a voice changes the recording
+
+A recording is identified by its exact wording **and** its voice. The same sentence in two
+voices is two recordings, two `audioId` values, and two synthesis charges of 3 paise per
+character.
+
+That is worth deciding early. Picking a voice, sending a hundred broadcasts, and then
+switching voices means re-recording every one of those messages at full price. See
+[reusing a recording](/relay-voice/reusing-audio) for what the id buys you and
+[pricing](/relay-voice/pricing) for the arithmetic.
+
+## Hear it before your customers do
+
+The dashboard has two ways to audition a voice, and they answer different questions.
+
+<AccordionGroup>
+  <Accordion title="Play a sample in the browser" icon="play">
+    Every voice in the picker has a play button. It plays a fixed sample sentence,
+    synthesized in the **real** voice and speech model a job would use, not the provider's
+    own marketing clip. That distinction matters: a marketing clip is a different engine's
+    best take, and your recipients will not hear it.
+
+    The sample is synthesized once per voice, ever, and served from storage afterwards. It
+    costs you nothing, on any voice, however many times you press play.
+
+    If the button is dead, the page will say so: speech is unconfigured on the deployment,
+    and no send would work either.
+  </Accordion>
+
+  <Accordion title="Place a test call to a real phone" icon="phone">
+    The dashboard can ring one number of your choosing and play that same sample in the
+    voice you are auditioning. This is the only way to hear what a recipient hears: a voice
+    through a mobile network's codec is not the voice through laptop speakers, and the phone
+    is where the judgement matters.
+
+    What it costs: **40 paise**, the normal price of one answered call. There is no synthesis
+    charge, because the sample is our wording rather than yours and you are not being billed
+    to prepare something you neither wrote nor keep. A real number rings and a real call is
+    placed, so the call itself is charged like any other.
+
+    It needs Relay Voice already switched on for the project you pick, since that is the
+    project whose wallet pays and whose usage records it. The call shows up in your job
+    history with `reference` set to `dashboard-test-call`.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Test-call yourself once per voice before a campaign, and once again after you change the
+  wording of a message you care about. A sentence that reads cleanly can still land badly
+  when spoken: numbers, abbreviations and long clauses are the usual culprits, and there is
+  no SSML to fix them with. Rewriting the sentence is the fix.
+</Tip>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Reusing a recording" icon="rotate-left" href="/relay-voice/reusing-audio">
+    The voice is part of a recording's identity. Here is what that means for your bill.
+  </Card>
+
+  <Card title="Voices API reference" icon="code" href="/api-reference/relay-voice/voices">
+    The endpoint, field by field.
+  </Card>
+</CardGroup>

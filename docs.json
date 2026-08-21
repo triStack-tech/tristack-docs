@@ -1,0 +1,125 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Tristack",
+  "description": "Developer documentation for Tristack: Manifold for language models, Relay Voice for phone calls. One account, one wallet, one API key scheme.",
+  "colors": {
+    "primary": "#047857",
+    "light": "#34d399",
+    "dark": "#047857"
+  },
+  "favicon": "/assets/favicon.ico",
+  "logo": {
+    "light": "/assets/wordmark.svg",
+    "dark": "/assets/wordmark.svg",
+    "href": "https://tristack.tech"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Start here",
+            "pages": [
+              "index",
+              "platform/products",
+              "platform/quickstart"
+            ]
+          },
+          {
+            "group": "Manifold",
+            "icon": "brain",
+            "pages": [
+              "manifold/index",
+              "manifold/quickstart",
+              "manifold/models",
+              "manifold/streaming",
+              "manifold/pricing"
+            ]
+          },
+          {
+            "group": "Relay Voice",
+            "icon": "phone",
+            "pages": [
+              "relay-voice/index",
+              "relay-voice/quickstart",
+              "relay-voice/voices",
+              "relay-voice/reusing-audio",
+              "relay-voice/callbacks",
+              "relay-voice/pricing"
+            ]
+          },
+          {
+            "group": "Platform",
+            "icon": "gear",
+            "pages": [
+              "platform/projects-and-keys",
+              "platform/wallet",
+              "platform/errors",
+              "platform/support"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Manifold",
+            "pages": [
+              "api-reference/manifold/messages",
+              "api-reference/manifold/models"
+            ]
+          },
+          {
+            "group": "Relay Voice",
+            "pages": [
+              "api-reference/relay-voice/send",
+              "api-reference/relay-voice/job",
+              "api-reference/relay-voice/voices"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
+          {
+            "group": "Changelog",
+            "pages": ["changelog"]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      { "label": "Support", "href": "mailto:support@tristack.tech" },
+      { "label": "Status", "href": "https://api.tristack.tech/health" }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://tristack.tech/login"
+    }
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "Products",
+        "items": [
+          { "label": "Manifold", "href": "/manifold/index" },
+          { "label": "Relay Voice", "href": "/relay-voice/index" }
+        ]
+      },
+      {
+        "header": "Company",
+        "items": [
+          { "label": "Tristack", "href": "https://tristack.tech" },
+          { "label": "Support", "href": "mailto:support@tristack.tech" }
+        ]
+      }
+    ]
+  }
+}

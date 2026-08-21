@@ -1,0 +1,207 @@
+---
+title: "Relay Voice"
+description: "Send Indian mobile numbers and a line of text. Relay Voice speaks it down a phone call to every one of them and bills you for the calls that were answered."
+---
+
+Relay Voice turns a line of text into a phone call. You POST a list of Indian mobile numbers
+and the words to say. It synthesizes the speech once, dials everybody, and charges you for
+the calls that were answered.
+
+```bash One request, three phones ring
+curl https://api.tristack.tech/v1/relay/voice \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["+91XXXXXXXXXX", "0YYYYYYYYYY", "ZZZZZZZZZZ"],
+    "text": "Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am."
+  }'
+```
+
+The response comes back before any phone rings, because dialing a list takes minutes and no
+HTTP client should hold a socket open for that:
+
+```json 202 Accepted
+{
+  "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+  "status": "Queued",
+  "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+  "voice": "ravi",
+  "language": "en-IN",
+  "recipients": 3,
+  "estimatedCostPaise": 315,
+  "costPaise": 0,
+  "reference": null,
+  "error": null,
+  "createdAt": "2026-08-21T18:30:00Z",
+  "completedAt": null,
+  "calls": [
+    { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Queued",
+      "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 },
+    { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "Queued",
+      "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 },
+    { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Queued",
+      "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 }
+  ]
+}
+```
+
+<Note>
+  Those three spellings are accepted as written and normalized to E.164 before anything is
+  dialed. Normalizing first is also what makes deduplication work: `+91XXXXXXXXXX`,
+  `0XXXXXXXXXX` and `XXXXXXXXXX` in one request are one recipient and one charge, not three.
+</Note>
+
+## It is a separate product from Manifold
+
+Relay Voice and [Manifold](/manifold/index) share an account, a wallet and a key format, and
+nothing else. They are not two halves of one thing.
+
+<Columns cols={2}>
+  <div>
+    **Shared**
+
+    - One account, one dashboard, one prepaid wallet in paise
+    - The same `tsk_live_…` key format, scoped to a project
+    - The same error envelope and the same base URL
+  </div>
+
+  <div>
+    **Not shared**
+
+    - Different endpoints and different request shapes
+    - A separate per-project switch: turning one on does nothing to the other
+    - Separate pricing, on units that have nothing in common
+    - No data path between them
+  </div>
+</Columns>
+
+A key whose project has Relay Voice switched off answers `403 relay_voice_disabled` here
+while still calling Manifold happily. If you want a model to write the message and a phone to
+say it, your code makes both calls: ask Manifold for the text, take the string out of the
+response, and send it to Relay Voice as `text`.
+
+## What actually happens when you call it
+
+<Steps>
+  <Step title="The request is checked before anything costs money">
+    Every number is normalized to E.164 and duplicates collapse. Landlines and foreign
+    numbers are refused with `400 invalid_phone_number`, naming the index and the exact
+    value you sent so you can find the bad row in your own data. The limit is 500 numbers
+    and 1500 characters per request.
+
+    Exactly one of `text` and `audioId` is required. Sending both is refused rather than
+    silently preferring one: a caller who changed the wording but forgot to drop the id
+    would otherwise keep broadcasting the old recording, and every call would sound correct
+    from here.
+  </Step>
+
+  <Step title="The speech is synthesized once, not once per recipient">
+    One recording is made and played to everyone on the list. It happens while your request
+    is still open, so a text the speech provider refuses is a `502` you can see and act on
+    rather than a job that quietly fails an hour later.
+
+    The recording gets an `audioId`, returned on every response. Send that id back instead of
+    `text` next time and there is no synthesis and no synthesis charge. The same wording in
+    the same voice resolves to the same id automatically, so a repeat is already free.
+    [Reusing a recording](/relay-voice/reusing-audio) is the single biggest lever on your
+    bill.
+  </Step>
+
+  <Step title="The wallet is held for the worst case">
+    A hold covering every recipient plus any new synthesis goes on the wallet before a
+    single number is dialed. If the balance cannot cover it, the answer is
+    `402 insufficient_balance` with `requiredPaise`, and nothing at all has been spent: no
+    provider was called, no phone rang.
+  </Step>
+
+  <Step title="You get a jobId and the dialing starts in the background">
+    `202 Accepted` with `Location: /v1/relay/voice/{jobId}`. Calls are placed three at a
+    time across the whole service, so a long list finishes over minutes rather than seconds.
+
+    Follow it by polling `GET /v1/relay/voice/{jobId}`, or supply a
+    [`callbackUrl`](/relay-voice/callbacks) and be told when the job is done.
+  </Step>
+
+  <Step title="The bill settles against who answered">
+    When every call has reached a terminal state, the answered ones are debited at 40 paise
+    each, the recording charge is added if this request was the one that made the recording,
+    and the rest of the hold goes back. A phone that rang out, was engaged, or was refused by
+    the network costs nothing.
+
+    Because the hold was the worst case, the settled amount is always at or below it. The
+    job's `costPaise` is the final number, and it already includes the recording charge.
+  </Step>
+</Steps>
+
+## Reading a job
+
+Two statuses matter and they answer different questions.
+
+| Job status | Means |
+|---|---|
+| `Queued` | Accepted and paid for, waiting for a dialing slot. |
+| `Running` | At least one call has been placed. |
+| `Completed` | Every call reached a terminal state. **Not** that anyone answered. |
+| `Failed` | The job itself could not run. The reason is in the job's `error` field. |
+
+| Call status | Means | Billed |
+|---|---|---|
+| `Queued` | Not dialed yet. | No |
+| `Dialing` | Ringing. | No |
+| `InProgress` | Answered, message playing. | Settles as answered |
+| `Completed` | Answered, and the call ended. | **Yes, 40 paise** |
+| `Busy` | Engaged. | No |
+| `NoAnswer` | Rang out. | No |
+| `Failed` | The network or the provider refused it. | No |
+| `Cancelled` | Never placed, for example the service restarted mid-job. | No |
+
+<Warning>
+  `Completed` on a job means the dialing finished, not that the message was heard. Count the
+  calls whose status is `Completed` to know how many people picked up. A job where nobody
+  answered is still a `Completed` job.
+</Warning>
+
+## What it costs, in one line
+
+40 paise per answered call, 3 paise per character of newly synthesized speech charged once
+per recording, and a one-time Rs 200 the first time you switch Relay Voice on for a project.
+The 65-character message at the top of this page costs 195 paise to record, once, and then
+40 paise per person who picks up. Full arithmetic on the [pricing page](/relay-voice/pricing).
+
+## When to use it
+
+Relay Voice fits a message that has to reach a phone rather than a screen, where the
+recipient does not need to answer back: a delivery window, a clinic closure, a fee reminder,
+a shift change, an outage notice to a list of site owners.
+
+It is one-way and it says one thing. There is no field anywhere in the API for keypad input,
+for recording a reply, for receiving an inbound call, or for branching on what the person
+says. There is no SSML: the text is spoken as written, so punctuation and spelling are your
+only controls over pacing. And answered is the strongest signal you get. Nobody can tell you
+the person listened.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="phone-arrow-up-right" href="/relay-voice/quickstart">
+    From an API key to a ringing phone, with the request and the response at every step.
+  </Card>
+
+  <Card title="Reusing a recording" icon="rotate-left" href="/relay-voice/reusing-audio">
+    What `audioId` is, and why one broadcast costs a fraction of 500 personalized sends.
+  </Card>
+
+  <Card title="Voices" icon="waveform-lines" href="/relay-voice/voices">
+    List the aliases, pick one, and hear it on a real phone before your customers do.
+  </Card>
+
+  <Card title="Callbacks" icon="webhook" href="/relay-voice/callbacks">
+    Be told when a job finishes, and verify that the POST really came from us.
+  </Card>
+
+  <Card title="Pricing" icon="indian-rupee-sign" href="/relay-voice/pricing">
+    Every charge, worked through end to end, including what costs nothing.
+  </Card>
+
+  <Card title="Send API reference" icon="code" href="/api-reference/relay-voice/send">
+    Every field, every limit, every error code on `POST /v1/relay/voice`.
+  </Card>
+</CardGroup>

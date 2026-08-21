@@ -1,0 +1,273 @@
+---
+title: "Relay Voice pricing"
+description: "Three charges and nothing else: Rs 200 once per project, 40 paise per answered call, 3 paise per character of newly recorded speech."
+---
+
+Relay Voice has exactly three charges. Every amount below is in integer paise, drawn from the
+one prepaid wallet your account shares across both products.
+
+| Charge | Amount | When |
+|---|---|---|
+| Activation | **20000 paise (Rs 200)** | Once, the first time Relay Voice is switched on for a project. |
+| Answered call | **40 paise** | Per call that was actually picked up. |
+| New speech | **3 paise per character** | Once, when a recording is prepared. Never again for that recording. |
+
+There is no monthly fee, no per-recipient fee for numbers that did not answer, no charge for
+reading a job, and no charge for listing voices.
+
+## Activation: Rs 200, once, per project
+
+Switching **Relay Voice** on for a project charges 20000 paise the first time it happens for
+that project.
+
+What it buys is a rented caller-id number of that project's own: the number your recipients
+see when the phone rings, and the number the carriers associate with your traffic. We are
+billed for that number monthly whether or not you place a single call, which is what the fee
+covers.
+
+<AccordionGroup>
+  <Accordion title="Switching it off and on again is free" icon="toggle-on">
+    The fee is stamped on the project the first time it is paid and the stamp is never
+    cleared. The number stays rented, so flipping the toggle later, however many times, costs
+    nothing. `relayActivationPaid` on the project tells you which projects have already paid.
+  </Accordion>
+
+  <Accordion title="A second project is a second Rs 200" icon="folder-plus">
+    Because it is a second number. Projects get separate caller ids on purpose: one project's
+    standing with the carriers should not be another project's problem, and a recipient
+    should be able to tell your apps apart by the number that called them.
+
+    If you do not need a separate number, do not create a separate project. One project can
+    serve several campaigns, and recordings are shared account-wide anyway.
+  </Accordion>
+
+  <Accordion title="It is charged before the switch flips" icon="wallet">
+    If the wallet cannot cover the fee, the answer is `402 insufficient_balance` with
+    `requiredPaise: 20000` and the project is left exactly as it was, rather than switched on
+    for free. Top up and flip it again.
+  </Accordion>
+
+  <Accordion title="Where it appears" icon="receipt">
+    In the wallet ledger as a `Debit`, referenced `relay-activation-<projectId>`. It is
+    deliberately **not** in `GET /api/v1/usage`: that endpoint reports product consumption,
+    calls and characters, and the activation fee is account spend rather than something you
+    consumed.
+  </Accordion>
+</AccordionGroup>
+
+## 40 paise per answered call
+
+One flat price per call that was answered. It does not vary by voice, by circle, by network,
+or by how long the call lasted.
+
+| Call status | Meaning | Charged |
+|---|---|---|
+| `Completed` | Answered. | **40 paise** |
+| `Busy` | Engaged. | Nothing |
+| `NoAnswer` | Rang out. | Nothing |
+| `Failed` | The network or the provider refused it. | Nothing |
+| `Cancelled` | Never placed. | Nothing |
+
+Every call carries its own `costPaise` in the job body, so a job read shows you exactly which
+recipients you paid for.
+
+## 3 paise per character of new speech
+
+Speech is recorded, not streamed, and a recording is paid for **once**: at 3 paise per
+character of the text, counted after leading and trailing whitespace is trimmed.
+
+The 65-character message
+
+> Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.
+
+costs `65 x 3 = 195 paise` to record, whether it then goes to one phone or five hundred.
+
+<Note>
+  The two halves are priced separately because the two suppliers bill on different axes. The
+  call provider charges per call; the speech provider charges per character. A single flat
+  per-call price would quietly lose money on any message sent to a handful of people, and
+  would overcharge every broadcast to subsidize it. Splitting them keeps a broadcast cheap
+  and makes personalized sending pay for what it actually consumes.
+</Note>
+
+**You do not pay it twice for the same words.** Sending an `audioId`, or re-sending wording
+your account has already recorded in the same voice, skips synthesis entirely and the charge
+with it. This is the single largest variable in a Relay Voice bill: see
+[reusing a recording](/relay-voice/reusing-audio).
+
+<Warning>
+  A recording is charged when it is **prepared**, not when it is heard. If you record a new
+  message and nobody picks up the phone, the calls cost nothing and the recording still
+  costs 3 paise per character. Unanswered calls are free. Unheard recordings are not.
+</Warning>
+
+## How the money moves
+
+<Steps>
+  <Step title="A hold goes on before anything is dialed">
+    `recipients x 40 + newCharacters x 3`, reserved against the wallet the moment the request
+    is accepted. That is the worst case: everybody picks up.
+
+    If the balance cannot cover it, the send is refused with `402 insufficient_balance` and
+    `requiredPaise`. That check happens before any provider is called, so a refused send
+    costs nothing at all.
+  </Step>
+
+  <Step title="The job runs">
+    `estimatedCostPaise` on the response is what is held. `costPaise` stays 0 until the job
+    finishes.
+  </Step>
+
+  <Step title="It settles against who answered">
+    `answeredCalls x 40 + recordingCharge`. The difference between that and the hold goes
+    straight back to the balance.
+
+    The settled figure is always at or below the hold, because the hold assumed everyone
+    would answer and priced the recording up front. A job that ends up costing nothing at all
+    is released rather than debited, so no ledger row claims a movement of zero.
+  </Step>
+</Steps>
+
+## Worked examples
+
+<Tabs>
+  <Tab title="First message on a new project">
+    A new project, three test numbers, a 65-character announcement. Two people answer.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Activation, once for this project | | 20,000 |
+    | Recording, once for this wording | 65 x 3 | 195 |
+    | Answered calls | 2 x 40 | 80 |
+    | One phone rang out | 1 x 0 | 0 |
+    | **Wallet spent** | | **20,275** |
+
+    **Rs 202.75**, of which Rs 200 never happens again for this project. The job's own
+    `costPaise` is 275: the activation fee is a separate wallet debit, not part of the job.
+
+    The hold at send time was 315 paise (3 x 40 + 195); 40 paise came back.
+  </Tab>
+
+  <Tab title="Broadcast to 500">
+    One 65-character message, 500 numbers, 340 answer. The project is already activated.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Held at send | 500 x 40 + 195 | 20,195 |
+    | Recording | 65 x 3 | 195 |
+    | Answered calls | 340 x 40 | 13,600 |
+    | Released back to the wallet | 160 unanswered x 40 | -6,400 |
+    | **Charged** | | **13,795** |
+
+    **Rs 137.95** for 340 people reached. The 160 phones that did not pick up cost nothing.
+  </Tab>
+
+  <Tab title="The same broadcast again">
+    Next month, same wording, sent by `audioId` (or by sending the identical text again) to
+    the same 500 numbers. This time 372 answer.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Held at send | 500 x 40 + 0 | 20,000 |
+    | Recording | already yours | 0 |
+    | Answered calls | 372 x 40 | 14,880 |
+    | **Charged** | | **14,880** |
+
+    **Rs 148.80.** More people reached than last month, and it cost 195 paise less, because
+    the recording was already paid for.
+  </Tab>
+
+  <Tab title="Nobody answers">
+    A new 65-character recording sent to 100 numbers at a bad hour. Not one person picks up.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Held at send | 100 x 40 + 195 | 4,195 |
+    | Answered calls | 0 x 40 | 0 |
+    | Recording | 65 x 3 | 195 |
+    | Released back to the wallet | | -4,000 |
+    | **Charged** | | **195** |
+
+    **Rs 1.95** for a hundred calls nobody took. Had it been a replay of an existing
+    recording, the charge would have been **zero** and the whole hold would have gone back.
+  </Tab>
+
+  <Tab title="One personalized reminder">
+    A single 71-character message naming one customer.
+
+    | Outcome | Working | Paise |
+    |---|---|---:|
+    | They answer | 71 x 3 + 40 | 253 |
+    | They do not | 71 x 3 + 0 | 213 |
+
+    **Rs 2.53** or **Rs 2.13**. Note how little of that is the call: on one-off personalized
+    messages you are mostly buying speech, which is why sending 500 of them costs six times
+    what the same 500 calls cost as a broadcast.
+  </Tab>
+</Tabs>
+
+## What costs nothing
+
+<AccordionGroup>
+  <Accordion title="Any request that is refused" icon="ban">
+    A validation failure (`400`), a product that is switched off (`403`), a wallet that
+    cannot cover the hold (`402`), or a speech provider that fails or refuses your text
+    (`502`). The balance check runs before any provider is called, and every `502` releases
+    the hold in full. A refused send never costs a paisa.
+  </Accordion>
+
+  <Accordion title="Phones that do not pick up" icon="phone-slash">
+    `Busy`, `NoAnswer`, `Failed` and `Cancelled` calls are all free. You are billed on
+    answers, not on attempts.
+  </Accordion>
+
+  <Accordion title="Duplicate numbers in one request" icon="copy">
+    The same person written twice in one `to` array is normalized, deduplicated, dialed once
+    and charged once. `recipients` on the response tells you how many the request really had.
+  </Accordion>
+
+  <Accordion title="Replaying a recording" icon="rotate-left">
+    Preparing the audio is free on every send after the first, whether you replay by
+    `audioId` or send the identical text and voice again.
+  </Accordion>
+
+  <Accordion title="Reading jobs, listing voices, playing samples" icon="magnifying-glass">
+    `GET /v1/relay/voice/{jobId}` and `GET /v1/relay/voice/voices` are free and unmetered,
+    poll them as often as you like. The dashboard's in-browser voice samples are free too.
+
+    The dashboard's **test call** is not: it rings a real phone, so it costs the usual 40
+    paise for the call. It carries no synthesis charge.
+  </Accordion>
+
+  <Accordion title="A job we could not finish" icon="rotate">
+    If the service restarts mid-job, the job ends as `Failed` with `error: "interrupted"`,
+    nothing is redialed, and the undelivered calls are refunded. You are charged for the
+    calls that were genuinely answered, and for the recording, and nothing else.
+  </Accordion>
+</AccordionGroup>
+
+## Where to see what you spent
+
+| Surface | Shows |
+|---|---|
+| The job body, `costPaise` | The final charge for that job: answered calls plus the recording charge if this job made it. Already includes the recording, so never add it on top. |
+| `GET /api/v1/wallet/transactions` | The ledger. A Relay Voice job appears as a `Hold`, then a `Debit` and a `HoldRelease`, all referenced by its `rvj_…` id. The activation fee is a `Debit` referenced `relay-activation-<projectId>`. |
+| `GET /api/v1/usage?product=relay_voice` | Per day, project and voice. `units` is calls placed and `costPaise` is money settled. `units - succeededUnits - failedUnits` is the number still in flight: asked for, holding money, not yet finished. |
+
+<Tip>
+  Estimating a campaign before you run it: `characters x 3` once per distinct message, plus
+  `40 x` the number of people you expect to answer, plus `20000` if the project has never had
+  Relay Voice switched on. Everything else is zero.
+</Tip>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Cut the speech bill" icon="rotate-left" href="/relay-voice/reusing-audio">
+    The one lever that changes a Relay Voice invoice by an order of magnitude.
+  </Card>
+
+  <Card title="Wallet and billing" icon="wallet" href="/platform/wallet">
+    Top-ups, the ledger, holds, and how a shared balance behaves across both products.
+  </Card>
+</CardGroup>

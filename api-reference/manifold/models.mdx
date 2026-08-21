@@ -1,0 +1,167 @@
+---
+title: "List models"
+description: "GET /v1/manifold/models: the models this key can call, with the price you will actually be billed."
+---
+
+<Info>
+  `GET https://api.tristack.tech/v1/manifold/models` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Field names here are **camelCase**, unlike the message body.
+</Info>
+
+Returns the models this API key can call, each with its price. This is the authoritative
+list: an alias missing from it is not callable by this key, and calling it anyway answers
+`400 unknown_model` or `403 model_not_allowed`.
+
+```bash Fetch the catalog
+curl https://api.tristack.tech/v1/manifold/models \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "usdToInr": 100.0,
+  "models": [
+    {
+      "alias": "nova-lite",
+      "displayName": "Nova Lite",
+      "usdPerMTokIn": 0.06,
+      "usdPerMTokOut": 0.24,
+      "paisePer1KTokensIn": 0.66,
+      "paisePer1KTokensOut": 2.64
+    },
+    {
+      "alias": "nova-pro",
+      "displayName": "Nova Pro",
+      "usdPerMTokIn": 0.80,
+      "usdPerMTokOut": 3.20,
+      "paisePer1KTokensIn": 8.80,
+      "paisePer1KTokensOut": 35.20
+    }
+  ]
+}
+```
+
+The real response lists every model the key may call, which is dozens of rows.
+
+## Response
+
+<ResponseField name="usdToInr" type="number">
+  The exchange rate used to convert the provider's USD rates into rupees. Reported so the
+  conversion is visible rather than hidden inside a number.
+
+  It is **not** the whole of the conversion: see [How to read the price fields](#how-to-read-the-price-fields).
+</ResponseField>
+
+<ResponseField name="models" type="object[]">
+  The callable models, in catalog order.
+
+  <Expandable title="model">
+    <ResponseField name="alias" type="string">
+      What you send as `model` in
+      [`POST /v1/manifold/messages`](/api-reference/manifold/messages), for example
+      `nova-lite`. Matched case-insensitively.
+    </ResponseField>
+
+    <ResponseField name="displayName" type="string">
+      A human-readable name for a picker or a log line, for example `Nova Lite`. It names the
+      model and never the company behind it, and it is not an identifier: send `alias`.
+    </ResponseField>
+
+    <ResponseField name="usdPerMTokIn" type="number">
+      The upstream rate for input tokens, in USD per million tokens, before conversion and
+      before margin. Published so you can see what the price is built from.
+    </ResponseField>
+
+    <ResponseField name="usdPerMTokOut" type="number">
+      The same for generated output tokens.
+    </ResponseField>
+
+    <ResponseField name="paisePer1KTokensIn" type="number">
+      **What you pay** for 1000 input tokens, in paise, margin included, rounded to two
+      decimals for reading.
+    </ResponseField>
+
+    <ResponseField name="paisePer1KTokensOut" type="number">
+      The same for 1000 generated output tokens. Output is dearer than input on almost every
+      model, often by four or five times, which is why `max_tokens` moves a bill more than a
+      long prompt does.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## How to read the price fields
+
+Each model carries the price twice: the upstream USD rate, and the rupee price you are
+billed. They are not the same number converted, and the difference is a 10 percent margin.
+
+<Warning>
+  Do not compute your own price from `usdPerMTokIn × usdToInr`. That gives the cost before
+  margin, and it will not match your bill. The `paisePer1KTokens…` fields are the billed
+  price: the estimate, the settlement and this listing all come from the same calculation, so
+  what you are quoted is what you pay.
+</Warning>
+
+Reading one row end to end, for `nova-lite`:
+
+<Steps>
+  <Step title="Start from the upstream rate">
+    `usdPerMTokIn` is `0.06`, meaning USD 0.06 per million input tokens.
+  </Step>
+
+  <Step title="Convert and add the margin">
+    Per 1000 tokens, in paise: `0.06 ÷ 1000 × 100 (usdToInr) × 100 (paise per rupee) × 1.1`,
+    which is `0.66`. That is the `paisePer1KTokensIn` in the response.
+  </Step>
+
+  <Step title="Price a real call">
+    1000 input tokens and 500 output tokens costs `0.66 + (2.64 ÷ 2) = 1.98` paise, and money
+    moves in whole paise, so the bill is **2 paise**. Rounding is always up, and a call is
+    never free.
+  </Step>
+</Steps>
+
+The rounding happens once, at the end, on the total. Rates are held at full precision until
+then, so adding up rounded per-row numbers yourself can land a paise away from the
+`cost.paise` a response reports. Reconcile against `cost.paise` and the wallet ledger, never
+against arithmetic on the rounded fields.
+
+## The list is per key, not per platform
+
+Two keys on two projects can get two different lists from this endpoint, because it answers
+with what the calling project may actually spend on:
+
+<CardGroup cols={2}>
+  <Card title="The platform switch" icon="toggle-off">
+    A model Tristack has not switched on is absent for everyone. Calling it answers
+    `400 unknown_model`, the same answer a typo gets, so a model that exists but is not
+    servable is never discoverable by comparing two error messages.
+  </Card>
+
+  <Card title="The project allowlist" icon="list-check">
+    A project can be narrowed to a chosen set of models. While the allowlist is empty, which
+    is how every project starts, everything the platform serves is allowed. Once it is not
+    empty, this endpoint lists only what is on it, and calling anything else answers
+    `403 model_not_allowed`.
+  </Card>
+</CardGroup>
+
+<Note>
+  Fetch this list at runtime rather than hardcoding aliases and prices. Models are added and
+  retired, rates move with the provider and with the rupee, and a project's allowlist can
+  change without touching your code. A cached copy is fine; a copy pasted into a source file
+  is a bill that disagrees with your invoice.
+</Note>
+
+This response does not say which models read images. Image support varies across the catalog
+and sending an image to a text-only model answers `400 provider_rejected`. The
+[model catalog page](/manifold/models) lists the vision-capable aliases.
+
+## Errors
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
+| 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `manifold_disabled` | Manifold is switched off on the project. | Turn Manifold on for the project. This endpoint runs the same gate a real call does, so it refuses rather than advertising models the key could not use. |
+
+Listing models costs nothing and touches no wallet.

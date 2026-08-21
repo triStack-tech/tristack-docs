@@ -1,0 +1,284 @@
+---
+title: "Get a job"
+description: "GET /v1/relay/voice/{jobId}: the live job body, plus every job status and call status and what each one means."
+---
+
+<Info>
+  `GET https://api.tristack.tech/v1/relay/voice/{jobId}` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+Reads one job and the current state of every call in it. The body is the same shape
+[the send endpoint](/api-reference/relay-voice/send) returned and the same shape a
+`callbackUrl` receives, so there is one representation of a job to write code against
+whatever asked for it.
+
+```bash Read a job
+curl https://api.tristack.tech/v1/relay/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "jobId": "rvj_3f2a17c9d0be45a7104ef2b8",
+  "status": "Completed",
+  "audioId": "aud_9c11f0b3a4d75e2618ff0c7a",
+  "voice": "default",
+  "language": "en-IN",
+  "recipients": 2,
+  "estimatedCostPaise": 212,
+  "costPaise": 172,
+  "reference": "order-4417",
+  "error": null,
+  "createdAt": "2026-08-20T18:30:00Z",
+  "completedAt": "2026-08-20T18:31:12Z",
+  "calls": [
+    {
+      "callId": "rvc_9c11a4d75e2618ff0c7ab3f0",
+      "to": "+91XXXXXXXXXX",
+      "status": "Completed",
+      "attempts": 1,
+      "durationSeconds": 9,
+      "error": null,
+      "costPaise": 40
+    },
+    {
+      "callId": "rvc_2b8104ef3f2a17c9d0be45a7",
+      "to": "+91YYYYYYYYYY",
+      "status": "NoAnswer",
+      "attempts": 1,
+      "durationSeconds": null,
+      "error": null,
+      "costPaise": 0
+    }
+  ]
+}
+```
+
+That job held 212 paise and was charged 172: one answered call at 40 paise, plus 132 paise for
+preparing the 44-character recording. The phone that rang out cost nothing, and the 40 paise
+held for it went back to the wallet.
+
+## Response
+
+<ResponseField name="jobId" type="string">
+  `rvj_` plus 24 lowercase hex characters, the id you asked for.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Where the job is: `Queued`, `Running`, `Completed` or `Failed`. See
+  [Job status](#job-status).
+</ResponseField>
+
+<ResponseField name="audioId" type="string">
+  The recording this job plays. It is on every read, not only on the 202, so a caller who lost
+  the original response can recover the reuse handle from here.
+</ResponseField>
+
+<ResponseField name="voice" type="string">
+  The voice alias the recording was spoken in.
+</ResponseField>
+
+<ResponseField name="language" type="string">
+  The BCP-47 tag the voice is labelled with, for example `en-IN`.
+</ResponseField>
+
+<ResponseField name="recipients" type="integer">
+  How many phones this job rings, after duplicates in the original request were collapsed.
+  Always equal to the length of `calls`.
+</ResponseField>
+
+<ResponseField name="estimatedCostPaise" type="integer">
+  What was held on the wallet when the job was accepted. It never changes.
+</ResponseField>
+
+<ResponseField name="costPaise" type="integer">
+  What has actually been charged: `0` until the job finishes, then the answered calls at 40
+  paise each **plus** the one-off recording charge. The recording charge is already in this
+  number, so never add it on top, and this is why `costPaise` can be non-zero on a job where
+  nobody answered.
+</ResponseField>
+
+<ResponseField name="reference" type="string | null">
+  The `reference` you sent, or `null`.
+</ResponseField>
+
+<ResponseField name="error" type="string | null">
+  `null` on a healthy job. A code when the job as a whole could not be run: see
+  [When a whole job fails](#when-a-whole-job-fails). Problems with individual calls appear on
+  the call, not here.
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  UTC ISO-8601 timestamp of when the job was accepted.
+</ResponseField>
+
+<ResponseField name="completedAt" type="string | null">
+  UTC ISO-8601 timestamp of when the last call reached a terminal state, and when the wallet
+  was settled. `null` while the job is still `Queued` or `Running`.
+</ResponseField>
+
+<ResponseField name="calls" type="object[]">
+  One entry per recipient, in the order the numbers first appeared in your original `to`
+  array. The order is stable across reads.
+
+  <Expandable title="call">
+    <ResponseField name="callId" type="string">
+      `rvc_` plus 24 lowercase hex characters.
+    </ResponseField>
+
+    <ResponseField name="to" type="string">
+      The number in E.164, as dialed.
+    </ResponseField>
+
+    <ResponseField name="status" type="string">
+      This recipient's outcome. See [Call status](#call-status).
+    </ResponseField>
+
+    <ResponseField name="attempts" type="integer">
+      How many times this number has been dialed. `0` before the dialer reaches it, `1` for
+      almost every finished call. A second attempt only ever follows `Busy` or `NoAnswer`,
+      and only where the deployment is configured to retry: redialing a refused call
+      immediately changes nothing and would cost you another attempt.
+    </ResponseField>
+
+    <ResponseField name="durationSeconds" type="integer | null">
+      How long the answered call lasted, as the provider reported it. `null` on a call that
+      was never answered and while one is still in flight.
+    </ResponseField>
+
+    <ResponseField name="error" type="string | null">
+      A plain sentence when this call failed: the provider refused it, it dropped before it
+      was answered, the provider never reported an outcome, or the service was shutting down
+      before it was placed. `null` otherwise, including for a phone that was engaged or rang
+      out, which are ordinary outcomes rather than errors.
+    </ResponseField>
+
+    <ResponseField name="costPaise" type="integer">
+      40 paise once this call is answered, `0` in every other state. Summing this column gives
+      you the call half of `costPaise`; the difference is the recording charge.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Job status
+
+| `status` | Meaning | Terminal |
+|---|---|---|
+| `Queued` | Accepted and paid for up front. Nothing has been dialed yet. | No |
+| `Running` | The dialer owns the job and is working through the recipients, three at a time across the whole service. | No |
+| `Completed` | Every call reached a terminal state. The wallet has been settled and `completedAt` is set. | Yes |
+| `Failed` | The job could not be run to the end: see [When a whole job fails](#when-a-whole-job-fails). Whatever was never delivered is refunded. | Yes |
+
+<Warning>
+  **`Completed` does not mean anyone answered.** It means nothing is still ringing.
+
+  A job sent to 50 numbers where every single one went unanswered finishes as `Completed`,
+  with a `costPaise` that covers only the recording. The job status is about the dialing being
+  over, not about the outcome.
+
+  To find out what actually happened, count the calls:
+
+  ```javascript Who actually heard it
+  const answered = job.calls.filter((call) => call.status === "Completed");
+  const missed = job.calls.filter((call) => call.status !== "Completed");
+  console.log(`${answered.length} of ${job.recipients} answered`);
+  ```
+
+  `call.status === "Completed"` is the one status that means a person picked up and the
+  message played, and it is the only one you are billed for.
+</Warning>
+
+## Call status
+
+The first three are transient. The rest are terminal, and a job finishes only once every call
+sits in one of them.
+
+| `status` | Meaning | Billed |
+|---|---|---|
+| `Queued` | Accepted, waiting its turn in the dialing queue. | No |
+| `Dialing` | Handed to the provider. The phone has not rung through yet. | No |
+| `InProgress` | Answered, and the recording is playing. | Not yet |
+| `Completed` | Answered and the message played. **The only billed outcome**, at 40 paise. | Yes |
+| `Busy` | The line was engaged. | No |
+| `NoAnswer` | It rang and nobody picked up. | No |
+| `Failed` | The provider refused the call, it dropped before it was answered, or the provider never reported its outcome. `error` says which. Silence from the provider is recorded as failed rather than billed on an outcome nobody confirmed. | No |
+| `Cancelled` | Never dialed at all, because the service was shutting down before its turn came. | No |
+
+<Note>
+  Nothing here is a delivery receipt for a human being. `Completed` means the call was
+  answered and the audio played to whatever picked up, which includes voicemail and answering
+  machines. Relay Voice does not detect them.
+</Note>
+
+## When a whole job fails
+
+A job that fails carries a code in `error` rather than an HTTP status, because by then you
+already had your `202`:
+
+| `error` | What happened | What it costs |
+|---|---|---|
+| `audio_unavailable` | The recording vanished between being prepared and being dialed. Nobody is called rather than being called and played silence. | Nothing is charged for the calls. Send the `text` again to make a new recording. |
+| `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | The undelivered calls are refunded. Calls that had already been answered stand. |
+| `internal_error` | Something on our side failed while the job was running. | Whatever was not delivered is refunded. |
+
+Calls left unfinished by an interruption are closed out as `Cancelled` if they were never
+dialed, or `Failed` if they had been, each with an `error` sentence saying so.
+
+## Polling, or not polling
+
+<CardGroup cols={2}>
+  <Card title="Poll this endpoint" icon="rotate">
+    Simple, and always available. Read the job every few seconds until `status` is `Completed`
+    or `Failed`. Calls dial three at a time, so polling faster than that tells you nothing new.
+  </Card>
+
+  <Card title="Send a callbackUrl" icon="bell">
+    Get the finished job POSTed to you once, signed, with no polling at all. It carries this
+    exact body. See [Callbacks](/relay-voice/callbacks).
+  </Card>
+</CardGroup>
+
+```python Wait for a job to finish
+# pip install requests
+import os
+import time
+
+import requests
+
+BASE = "https://api.tristack.tech/v1/relay/voice"
+headers = {"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"}
+job_id = "rvj_3f2a17c9d0be45a7104ef2b8"
+
+while True:
+    response = requests.get(f"{BASE}/{job_id}", headers=headers, timeout=30)
+    if response.status_code != 200:
+        failure = response.json()
+        raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+    job = response.json()
+    if job["status"] in ("Completed", "Failed"):
+        break
+    time.sleep(5)
+
+answered = [call for call in job["calls"] if call["status"] == "Completed"]
+print(f"{job['status']}: {len(answered)} of {job['recipients']} answered")
+print("charged", job["costPaise"], "paise of", job["estimatedCostPaise"], "held")
+```
+
+<Tip>
+  A finished job keeps answering forever, so there is no window you have to catch. If your
+  process dies mid-poll, restart it with the same `jobId`.
+</Tip>
+
+## Errors
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
+| 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it back on. Jobs already sent keep running and stay readable once it is. |
+| 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing part of its voice configuration. | Retry later. Reads are gated the same way sends are. |
+| 404 | `job_not_found` | No job with that id on this account. A job belonging to another account answers identically, on purpose, so a guessed id cannot be confirmed as real. | Check the `jobId` came from one of your own sends, on a key from the same account. |
+
+Reading a job costs nothing.

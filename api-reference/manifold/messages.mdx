@@ -1,0 +1,440 @@
+---
+title: "Create a message"
+description: "POST /v1/manifold/messages: every request field, the response, the streaming events, and every error code with its status."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/manifold/messages` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Request and response fields are **snake_case** on the wire
+  (`max_tokens`, `stop_sequences`, `stop_reason`).
+</Info>
+
+Sends a conversation to one model and returns what the model generated. One request, one
+answer, billed to the wallet in paise at the model's own rate.
+
+The wallet is charged hold-then-settle: an estimate is reserved before the model is called,
+the real token cost is debited when the call finishes, and the difference is refunded. A
+request refused during admission never reaches the model and costs nothing.
+
+## Send a request
+
+<CodeGroup>
+
+```bash curl
+curl https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nova-micro",
+    "max_tokens": 1024,
+    "messages": [
+      { "role": "user", "content": "Say hello from Tristack." }
+    ]
+  }'
+```
+
+```python Python
+# pip install requests
+import os
+
+import requests
+
+response = requests.post(
+    "https://api.tristack.tech/v1/manifold/messages",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    json={
+        "model": "nova-micro",
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": "Say hello from Tristack."}],
+    },
+    timeout=60,
+)
+if response.status_code != 200:
+    # The body carries the code and, on a 402, requiredPaise. raise_for_status()
+    # would throw all of that away.
+    failure = response.json()
+    raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+body = response.json()
+print(body["content"][0]["text"])
+print(body["usage"], "cost:", body["cost"]["paise"], "paise")
+```
+
+```javascript Node
+// Node 18 or newer, no dependencies.
+const response = await fetch("https://api.tristack.tech/v1/manifold/messages", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "nova-micro",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: "Say hello from Tristack." }],
+  }),
+});
+
+if (!response.ok) {
+  const failure = await response.json();
+  throw new Error(`${response.status} ${failure.code}: ${failure.error}`);
+}
+
+const body = await response.json();
+console.log(body.content[0].text);
+console.log(body.usage, "cost:", body.cost.paise, "paise");
+```
+
+</CodeGroup>
+
+## Request
+
+<ParamField body="model" type="string" required>
+  The model to call. Either a catalog alias (`nova-micro`) or a provider model id the
+  catalog carries.
+
+  Fetch the aliases your key can use from [`GET /v1/manifold/models`](/api-reference/manifold/models).
+  The list answers per key, so it already reflects the platform switch and the project's
+  model allowlist. An alias that is not on it is not callable.
+</ParamField>
+
+<ParamField body="messages" type="object[]" required>
+  The conversation so far, oldest first. Must hold at least one message.
+
+  <Expandable title="message">
+    <ParamField body="role" type="string" required>
+      `user` or `assistant`. Any other value is `400 invalid_request`.
+    </ParamField>
+
+    <ParamField body="content" type="string | object[]" required>
+      Either a plain string, which is read as a single text block, or an array of content
+      blocks. A missing `content`, or an empty array, is `400 invalid_request`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="system" type="string">
+  A system prompt, sent alongside the conversation rather than as a message in it. Its
+  characters count toward the pre-flight estimate, so a long system prompt raises the hold
+  on every request that carries it.
+</ParamField>
+
+<ParamField body="max_tokens" type="integer" default="4096">
+  Ceiling on the generated output.
+
+  Values above the platform cap of `65536` are clamped to it rather than refused. Zero or
+  negative is `400 invalid_request`.
+
+  This number decides the size of the hold: the estimate prices the full `max_tokens` at the
+  model's output rate, whether or not the model generates that much. Asking for 65536 tokens
+  to get a one-line answer reserves the wallet for 65536 tokens and can turn a call you could
+  afford into `402 insufficient_balance`. The refund lands when the call settles, but the
+  balance has to cover the estimate first.
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  Sampling temperature, passed to the model unchanged. Omit it to use the model's own
+  default.
+
+  Tristack does not clamp the range, because the accepted range differs per model and
+  silently rewriting the number would mean you are not running the request you sent. A value
+  the model rejects comes back as `400 provider_rejected` with the provider's own complaint
+  in `error`.
+</ParamField>
+
+<ParamField body="top_p" type="number">
+  Nucleus sampling cutoff, passed to the model unchanged. Same range rules as `temperature`.
+</ParamField>
+
+<ParamField body="stop_sequences" type="string[]">
+  Strings that end generation when the model produces one. Passed through to the model, which
+  enforces its own limit on how many it accepts; over that limit the answer is
+  `400 provider_rejected`.
+
+  When generation stops this way, `stop_reason` comes back as `stop_sequence`.
+</ParamField>
+
+<ParamField body="stream" type="boolean" default="false">
+  Send `true` for server-sent events instead of one JSON body. See
+  [Streaming](#streaming) below.
+</ParamField>
+
+### Content blocks
+
+A block is either text or an image. `{ "role": "user", "content": "hello" }` and
+`{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }` are the same request.
+
+<ParamField body="type" type="string" required>
+  `text` or `image`. Anything else is `400 invalid_request`.
+</ParamField>
+
+<ParamField body="text" type="string">
+  Required on a `text` block. May be empty, but the field has to be present.
+</ParamField>
+
+<ParamField body="source" type="object">
+  Required on an `image` block.
+
+  <Expandable title="source">
+    <ParamField body="media_type" type="string" required>
+      `image/png`, `image/jpeg` (`image/jpg` is accepted too), `image/gif` or `image/webp`.
+      Anything else is `400 invalid_request`.
+    </ParamField>
+
+    <ParamField body="data" type="string" required>
+      The image itself, base64 encoded, with no `data:` URL prefix. Invalid base64 is
+      rejected at the edge with `400 invalid_request` rather than being sent to the model.
+    </ParamField>
+
+    <ParamField body="type" type="string" default="base64">
+      Accepted for compatibility with the Anthropic Messages shape and otherwise ignored:
+      base64 is the only encoding this endpoint reads.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+```json An image and a question
+{
+  "model": "nova-lite",
+  "max_tokens": 512,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "image", "source": { "media_type": "image/png", "data": "iVBORw0KGgo..." } },
+        { "type": "text", "text": "What is written on this sign?" }
+      ]
+    }
+  ]
+}
+```
+
+<Warning>
+  Not every model in the catalog reads images, and `GET /v1/manifold/models` does not report
+  which do. Sending an image to a text-only model answers `400 provider_rejected`. The
+  [model catalog page](/manifold/models) lists the vision-capable aliases.
+
+  Image bytes also count toward the estimate through their base64 length, so an image raises
+  the hold well above what a short prompt would take.
+</Warning>
+
+## Response
+
+```json 200 OK
+{
+  "id": "mfr_9f7922159e6dab6a72166e1f",
+  "model": "nova-micro",
+  "role": "assistant",
+  "content": [{ "type": "text", "text": "Hello from Tristack!" }],
+  "stop_reason": "end_turn",
+  "usage": { "input_tokens": 10, "output_tokens": 6 },
+  "cost": { "paise": 1 }
+}
+```
+
+<ResponseField name="id" type="string">
+  The request id: `mfr_` followed by 24 lowercase hex characters. It is the key the wallet
+  ledger, the usage report and support conversations all use for this call, so log it.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Echoes the `model` string you sent, not the resolved provider id.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  Always `assistant`.
+</ResponseField>
+
+<ResponseField name="content" type="object[]">
+  The generated output. Today this is always a single text block; read it as an array so a
+  later block type does not break your client.
+
+  <Expandable title="block">
+    <ResponseField name="type" type="string">
+      `text`.
+    </ResponseField>
+
+    <ResponseField name="text" type="string">
+      The generated text.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="stop_reason" type="string">
+  Why generation ended, passed through from the model: `end_turn` when it finished on its
+  own, `max_tokens` when it hit your ceiling, `stop_sequence` when one of your
+  `stop_sequences` matched. A model that reports nothing is reported as `end_turn`.
+</ResponseField>
+
+<ResponseField name="usage" type="object">
+  Token counts as the model reported them. These are what you are billed on.
+
+  <Expandable title="usage">
+    <ResponseField name="input_tokens" type="integer">
+      Tokens consumed by `system` and `messages`.
+    </ResponseField>
+
+    <ResponseField name="output_tokens" type="integer">
+      Tokens generated.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cost" type="object">
+  What this call actually cost, already settled against the wallet by the time you read it.
+
+  <Expandable title="cost">
+    <ResponseField name="paise" type="integer">
+      Integer paise, rounded up. ₹1.50 would be `150`. It is computed from `usage` at the
+      rates [`GET /v1/manifold/models`](/api-reference/manifold/models) quotes, so the price
+      you were shown is the price you paid.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Streaming
+
+Send `"stream": true` and the answer comes back as `text/event-stream`: named SSE events, each
+carrying a JSON `data` payload. The billing is identical, and the cost still arrives with the
+response, on the `message_delta` event.
+
+```bash Stream to the terminal
+curl -N https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nova-micro",
+    "max_tokens": 256,
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "Count to five." }
+    ]
+  }'
+```
+
+```text The event sequence
+event: message_start
+data: {"id":"mfr_9f7922159e6dab6a72166e1f","model":"nova-micro","role":"assistant"}
+
+event: content_block_delta
+data: {"index":0,"delta":{"type":"text_delta","text":"One"}}
+
+event: content_block_delta
+data: {"index":0,"delta":{"type":"text_delta","text":", two"}}
+
+event: message_delta
+data: {"stop_reason":"end_turn","usage":{"input_tokens":11,"output_tokens":9},"cost":{"paise":1}}
+
+event: message_stop
+data: {}
+```
+
+| Event | When | Payload |
+|---|---|---|
+| `message_start` | Once, first. | `id`, `model`, `role`. |
+| `content_block_delta` | Repeated, one per chunk of text. | `index` (always `0` today) and `delta` with `type: "text_delta"` and `text`. |
+| `message_delta` | Once, after the last delta. | `stop_reason`, `usage` and `cost`, the same fields the non-streamed response carries. |
+| `message_stop` | Once, last. | `{}` |
+| `error` | Replaces `message_delta` and `message_stop` when the model fails part way through. | `error` and `code`, the same envelope as a failed HTTP response. |
+
+<Note>
+  A failure **before** the first event is not SSE at all: it answers as an ordinary JSON error
+  response with its own status code. Check the status and `Content-Type` before you start
+  parsing events, rather than assuming a `200` stream.
+</Note>
+
+```python Reading the stream
+# pip install requests
+import json
+import os
+
+import requests
+
+with requests.post(
+    "https://api.tristack.tech/v1/manifold/messages",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    json={
+        "model": "nova-micro",
+        "max_tokens": 256,
+        "stream": True,
+        "messages": [{"role": "user", "content": "Count to five."}],
+    },
+    stream=True,
+    timeout=120,
+) as response:
+    if response.status_code != 200:
+        failure = response.json()
+        raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+    event = None
+    for line in response.iter_lines(decode_unicode=True):
+        if not line:
+            event = None
+            continue
+        if line.startswith("event: "):
+            event = line[7:]
+        elif line.startswith("data: "):
+            payload = json.loads(line[6:])
+            if event == "content_block_delta":
+                print(payload["delta"]["text"], end="", flush=True)
+            elif event == "message_delta":
+                print(f"\ncost: {payload['cost']['paise']} paise")
+            elif event == "error":
+                raise RuntimeError(f"{payload['code']}: {payload['error']}")
+```
+
+### What an interrupted stream costs
+
+<AccordionGroup>
+  <Accordion title="The model fails part way through" icon="triangle-exclamation">
+    You get an `error` event instead of `message_delta` and `message_stop`, and the whole hold
+    is released. The call costs nothing, even though you already received text.
+  </Accordion>
+
+  <Accordion title="You hang up part way through" icon="plug-circle-xmark">
+    Settlement still runs. If the model had already reported usage, that usage is billed. If
+    it had not, the delivered stream is billed at the same estimate the hold was priced with:
+    input characters divided by four, output characters divided by four, capped at your
+    `max_tokens` and never above the hold.
+
+    Aborting is not a refund. Charging nothing here would make "disconnect after the last
+    delta" a way to read the answer for free, so what was delivered is paid for. The call is
+    recorded in usage as failed with `client_aborted`, and it is the one failure that can
+    carry a real cost.
+  </Accordion>
+</AccordionGroup>
+
+## Errors
+
+Every error is the same JSON envelope, and the status code is the first thing to branch on:
+
+```json
+{ "error": "A human-readable sentence.", "code": "snake_case_code" }
+```
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. Revoked and never-existed answer identically. | Check the header spelling and that the key was not revoked. Mint a new one if it was. |
+| 401 | `project_archived` | The key is valid but its project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `manifold_disabled` | Manifold is switched off on the project. | Turn Manifold on for the project. It takes effect on the next request, with no new key needed. |
+| 400 | `invalid_request` | The body failed validation: no `model`, empty `messages`, a bad `role`, a missing or empty `content`, an unknown block type, an unsupported `media_type`, invalid base64, or `max_tokens` at zero or below. `error` names the specific problem. | Fix the field named in `error`. |
+| 400 | `unknown_model` | `model` is not an alias or provider id this platform serves. A model that exists but is switched off platform-wide answers identically, on purpose, so a disabled model is never discoverable through the difference between two errors. | Copy an alias from [`GET /v1/manifold/models`](/api-reference/manifold/models). |
+| 403 | `model_not_allowed` | The model is real and servable, but the project's model allowlist does not carry it. | Add the model to the project's allowlist in the dashboard, or call one that is on it. Checked before the hold, so nothing was reserved. |
+| 402 | `insufficient_balance` | The balance cannot cover the estimate. The body adds `requiredPaise`, which is what this call needed up front, not your balance. | Top up, or lower `max_tokens`: the estimate prices the full ceiling. Checked before the model is called, so nothing was spent. |
+| 429 | `provider_throttled` | The model provider is rate limiting. | Retry with exponential backoff. The hold is released. |
+| 400 | `provider_rejected` | The provider refused the request: an out-of-range `temperature` or `top_p`, too many `stop_sequences`, or an image sent to a model that does not read images. `error` carries the provider's own wording. | Fix what `error` names. The hold is released. |
+| 403 | `model_access_denied` | The alias is in the catalog but the backing account is not entitled to that model. This is ours to fix, not yours. | Use another alias and [tell support](mailto:support@tristack.tech). The hold is released. |
+| 502 | `provider_error` | Any other provider failure, including a stream that ended without reporting usage. | Retry. The hold is released, so the failed attempt cost nothing. |
+
+<Note>
+  Everything in that table is free. A rejected or failed request never debits the wallet: the
+  hold is either never placed or released in full. The single exception is a client abort
+  mid-stream, described above.
+</Note>
+
+<Tip>
+  `insufficient_balance` and `model_not_allowed` are the two errors that mean a working
+  integration stopped working rather than a broken one never started. Both show up in the
+  usage report within a minute, so a project that ran out of money or called a model it may
+  not is visible in the dashboard rather than only in your logs.
+</Tip>

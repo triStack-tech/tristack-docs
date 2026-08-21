@@ -1,0 +1,282 @@
+---
+title: "Reusing a recording"
+description: "audioId is the handle on a recording you have already paid for. Sending it instead of text skips synthesis and its charge entirely."
+---
+
+Calls are cheap and predictable: 40 paise when somebody picks up. Recording speech is the
+charge that scales with how you write your code, at 3 paise per character, and it is the one
+that decides whether a campaign costs Rs 200 or Rs 1265.
+
+`audioId` is the lever. It is the handle on a recording you have already paid for. Send it in
+place of `text` and there is no synthesis and no per-character charge at all.
+
+## Where the id comes from
+
+Every Relay Voice response carries one, including every status read, so a lost `202` is not a
+lost recording:
+
+```json The id is on every representation of a job
+{
+  "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+  "status": "Completed",
+  "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+  "voice": "ravi",
+  "language": "en-IN",
+  "recipients": 500,
+  "estimatedCostPaise": 20195,
+  "costPaise": 13795
+}
+```
+
+An id is `aud_` followed by 24 lowercase hex characters. Store it next to whatever your side
+calls this message: a campaign row, a template record, a config entry.
+
+## Sending it instead of text
+
+```bash Replay a recording
+curl https://api.tristack.tech/v1/relay/voice \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["+91XXXXXXXXXX", "+91YYYYYYYYYY"],
+    "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+    "reference": "diwali-notice-2026-wave-2"
+  }'
+```
+
+```json 202 Accepted
+{
+  "jobId": "rvj_cc0f9625e621341dee629ec7",
+  "status": "Queued",
+  "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+  "voice": "ravi",
+  "language": "en-IN",
+  "recipients": 2,
+  "estimatedCostPaise": 80,
+  "costPaise": 0,
+  "reference": "diwali-notice-2026-wave-2",
+  "error": null,
+  "createdAt": "2026-08-22T05:10:00Z",
+  "completedAt": null,
+  "calls": [
+    { "callId": "rvc_1d8a7c0b5f3e42a90c6b8d11", "to": "+91XXXXXXXXXX", "status": "Queued",
+      "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 },
+    { "callId": "rvc_47b2e9f60ac1d3852f0e9a44", "to": "+91YYYYYYYYYY", "status": "Queued",
+      "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 }
+  ]
+}
+```
+
+`estimatedCostPaise` is 80: two recipients at 40 paise, and nothing for the audio. The
+recording was paid for once, by the job that made it.
+
+Three rules go with it:
+
+- **Exactly one of `text` and `audioId`.** Both is `400 invalid_request`, and so is neither.
+  Sending both is refused rather than quietly preferring one, because the caller who changed
+  their wording and forgot to drop the id would keep broadcasting last month's message while
+  every response looked correct.
+- **No `voice` with an `audioId`.** The recording already has one. The job's `voice` field
+  reports the recording's voice back to you.
+- **The text limit does not apply here.** Nothing is being synthesized, so there is nothing
+  to limit.
+
+## Repeating the same words is already free
+
+You do not have to hold onto the id to get the discount. The same wording, in the same voice,
+that your account has recorded before resolves to the same recording automatically, before
+any money is held:
+
+```bash Same text, sent twice, recorded once
+# Monday
+curl https://api.tristack.tech/v1/relay/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"to":["+91XXXXXXXXXX"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"asha"}'
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 247  (40 call + 207 speech)
+
+# Tuesday, a different list, the same sentence and voice
+curl https://api.tristack.tech/v1/relay/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"to":["+91YYYYYYYYYY"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"asha"}'
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 40   (the recording is already yours)
+```
+
+So why keep the id at all? Because the automatic match is exact, and "exact" is a stricter
+test than it looks.
+
+<AccordionGroup>
+  <Accordion title="What counts as the same recording" icon="equals">
+    The wording, the voice, and the speech model behind that voice. Leading and trailing
+    whitespace is trimmed before the comparison, so a stray newline at the end of a template
+    does not cost you anything.
+  </Accordion>
+
+  <Accordion title="What counts as a different recording" icon="not-equal">
+    Everything else. A comma, a changed digit, a name, a different voice alias, a rewritten
+    clause. Each of those is a new recording at 3 paise per character, and it should be:
+    those are different words, and somebody has to say them.
+
+    This is why template interpolation is expensive by default. A greeting that interpolates
+    the recipient's name is not one recording sent 500 times, it is 500 recordings, one per
+    name.
+  </Accordion>
+
+  <Accordion title="Why the explicit id is still worth storing" icon="bookmark">
+    It makes the reuse guaranteed and visible instead of incidental. An `audioId` in your
+    database cannot drift: nobody can edit the template, add a trailing full stop, and
+    silently start paying to re-record a message you have been sending for a year. The
+    `estimatedCostPaise` on the response tells you immediately which of the two happened.
+  </Accordion>
+</AccordionGroup>
+
+## Ids belong to your account, not to a project
+
+A recording is scoped to the account. A job sent with a key from project B can replay a
+recording that project A created, which is what you want when a message is the company's and
+the projects are environments or apps.
+
+Two consequences worth knowing:
+
+- **Another account's id is not readable.** It answers `404 audio_not_found`, exactly as a
+  nonexistent id does. The two are answered identically on purpose: a different answer would
+  confirm that a guessed id belongs to somebody.
+- **The Rs 200 activation fee is still per project.** Sharing recordings across projects does
+  not share the caller-id number they are dialed from. See
+  [pricing](/relay-voice/pricing).
+
+## When an id stops working
+
+| Status | `code` | What it means | What to do |
+|---|---|---|---|
+| `400` | `invalid_audio_id` | The value is not shaped like an id (`aud_` plus 24 lowercase hex). Checked before any lookup, because a malformed id is a bug in your code rather than a miss to report. | Fix the value you are sending. |
+| `404` | `audio_not_found` | No such recording on this account. | Send the text again to make one. |
+| `410` | `audio_unavailable` | The recording is known, but the stored audio behind it is gone. | Send the text again. |
+
+<Note>
+  **On `410 audio_unavailable`**: the record of your recording is intact, only the audio file
+  behind it went missing. Relay Voice refuses the send rather than dialing everybody and
+  playing silence at them.
+
+  The recovery is one line of code you should already have: fall back to sending `text`. That
+  re-records the message, so it costs 3 paise per character once more, and because the id is
+  keyed to your account and that exact wording, **you get the same `audioId` back**. Nothing
+  in your database needs updating.
+
+  This is rare by design. Recordings are not set to expire, and every send stamps the one it
+  used as recently used, so a recording you are actively sending is never the one that ages
+  out.
+</Note>
+
+```python Fall back to text on 410
+import os
+
+import requests
+
+SEND_URL = "https://api.tristack.tech/v1/relay/voice"
+HEADERS = {"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"}
+
+
+def send(to, audio_id, text, voice):
+    body = {"to": to, "audioId": audio_id}
+    response = requests.post(SEND_URL, headers=HEADERS, json=body, timeout=60)
+
+    if response.status_code in (404, 410):
+        # The recording is gone. Re-record it: the reply carries an audioId again,
+        # and for a 410 it is the same one you already have on file.
+        body = {"to": to, "text": text, "voice": voice}
+        response = requests.post(SEND_URL, headers=HEADERS, json=body, timeout=60)
+
+    if response.status_code != 202:
+        failure = response.json()
+        raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+    return response.json()
+```
+
+## What this is worth: 500 people, two ways
+
+One list of 500 mobile numbers, one thing to tell them. Calls are 40 paise each answered,
+speech is 3 paise per character, and both scenarios place exactly the same 500 calls.
+
+<Tabs>
+  <Tab title="One broadcast">
+    One recording, 65 characters:
+
+    > Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Speech, once | 65 chars x 3 paise | 195 |
+    | Calls, if all 500 answer | 500 x 40 paise | 20,000 |
+    | **Total** | | **20,195** |
+
+    **Rs 201.95**, of which Rs 1.95 is the recording. Send the same message again next
+    month, by `audioId` or by sending the identical text, and it is **Rs 200.00 flat**: the
+    recording is already yours.
+  </Tab>
+
+  <Tab title="500 personalized sends">
+    500 separate sends, each naming the recipient, averaging 71 characters:
+
+    > Hello Priya, your order 4417 is out for delivery today between 4 and 6.
+
+    | Line | Working | Paise |
+    |---|---|---:|
+    | Speech, 500 distinct recordings | 500 x 71 chars x 3 paise | 106,500 |
+    | Calls, if all 500 answer | 500 x 40 paise | 20,000 |
+    | **Total** | | **126,500** |
+
+    **Rs 1,265.00**, of which Rs 1,065.00 is speech. The calls cost the same as the
+    broadcast. Every rupee of the difference bought 500 recordings of nearly the same
+    sentence.
+  </Tab>
+</Tabs>
+
+The broadcast is **Rs 1,063.05 cheaper for the same 500 calls**, and the gap gets wider, not
+narrower, when fewer people answer:
+
+| Answered | One broadcast | 500 personalized | Personalized costs |
+|---|---:|---:|---:|
+| 500 of 500 | Rs 201.95 | Rs 1,265.00 | 6.3x more |
+| 340 of 500 | Rs 137.95 | Rs 1,201.00 | 8.7x more |
+
+That is the part worth internalizing: **an unanswered call is free, but the recording behind
+it is not.** Speech is paid for when it is prepared, whether or not a single phone gets
+picked up. Personalizing 500 messages commits you to Rs 1,065 of speech before you know
+whether anybody will answer.
+
+## Personalize the parts that need it
+
+Personalization is not wrong, it is priced. The useful question is how many **distinct
+recordings** a campaign really needs, because that number, not the number of recipients, is
+what you are paying for. At about 70 characters a message and 500 calls all answered:
+
+| Distinct recordings | Speech | Calls | Total |
+|---:|---:|---:|---:|
+| 1 (one announcement) | Rs 2.10 | Rs 200.00 | **Rs 202.10** |
+| 4 (one per delivery slot) | Rs 8.40 | Rs 200.00 | **Rs 208.40** |
+| 25 (one per branch) | Rs 52.50 | Rs 200.00 | **Rs 252.50** |
+| 500 (one per person) | Rs 1,050.00 | Rs 200.00 | **Rs 1,250.00** |
+
+Bucketing recipients by what they actually need to hear ("your delivery is between 4 and 6")
+costs almost nothing over a single broadcast. Naming each person costs five times the whole
+campaign.
+
+<Tip>
+  Practical shape for a recurring campaign: keep an `audioId` column on your message
+  template, send with the id when you have one, fall back to `text` on `404` or `410` and
+  store the id the response gives you. Reminder waves to the people who did not answer the
+  first time then cost only the calls.
+</Tip>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Pricing" icon="indian-rupee-sign" href="/relay-voice/pricing">
+    Every charge in one place, including the activation fee these examples leave out.
+  </Card>
+
+  <Card title="Voices" icon="waveform-lines" href="/relay-voice/voices">
+    The voice is part of a recording's identity. Choose it before you record at scale.
+  </Card>
+</CardGroup>

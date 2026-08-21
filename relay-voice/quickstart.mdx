@@ -1,0 +1,387 @@
+---
+title: "Relay Voice quickstart"
+description: "From an API key to a ringing phone: enable the product on a project, fund the wallet, send the call, and read the job back."
+---
+
+Four steps take you from a key to a phone ringing. Everything below is copy-pasteable once
+you have a project and a `tsk_live_…` key in it.
+
+<Info>
+  You need an account, a project, and an API key minted in that project before you start.
+  If you do not have those yet, do [projects and keys](/platform/projects-and-keys) first.
+  Relay Voice needs no other setup: no numbers to buy, no audio to upload.
+</Info>
+
+```bash Your key, in the environment
+export TRISTACK_API_KEY="tsk_live_your_key_here"
+```
+
+<Warning>
+  Step 1 spends money the moment it succeeds. If your wallet is empty, do step 2 first and
+  come back to step 1: an activation that cannot be paid for leaves the toggle exactly where
+  it was.
+</Warning>
+
+<Steps>
+  <Step title="Turn Relay Voice on for the project" icon="toggle-on">
+    Open the project in the dashboard and switch **Relay Voice** on, or call the dashboard
+    API with your session JWT. It is a per-project switch, and it is a deliberate one: a key
+    on a project without it authenticates correctly and still gets `403`.
+
+    The dashboard API is a different surface from the product API: it takes the session JWT
+    that `POST /api/v1/account/login` returns, not a `tsk_live_…` key.
+
+    ```bash Two values the dashboard API needs
+    export TRISTACK_JWT="your_dashboard_session_token"
+    export PROJECT_ID="8f14e45f-ceea-467a-9a1f-6b3c1a2d4e57"
+    ```
+
+    ```bash PATCH the project
+    curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
+      -H "Authorization: Bearer $TRISTACK_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{ "relayVoiceEnabled": true }'
+    ```
+
+    ```json 200 OK
+    {
+      "id": "8f14e45f-ceea-467a-9a1f-6b3c1a2d4e57",
+      "name": "Deliveries",
+      "manifoldEnabled": true,
+      "relaySmsEnabled": false,
+      "relayOtpEnabled": false,
+      "relayVoiceEnabled": true,
+      "status": "Active",
+      "createdAt": "2026-08-19T09:12:44Z",
+      "relayActivationPaid": true
+    }
+    ```
+
+    **The first time this project goes from off to on, it costs Rs 200 (20000 paise), once.**
+    That fee rents this project its own caller-id number: the number your recipients see, and
+    the number the carrier associates with your traffic. It is not a subscription and it is
+    not per call.
+
+    - Switching the project off and back on again later is **free**. The number stays rented
+      and the fee is never charged twice for the same project.
+    - A **second project** is a second number, so it pays its own Rs 200. Projects get
+      separate numbers so one project's reputation with the carriers is not another's
+      problem.
+    - `relayActivationPaid` tells you which side of that line a project is on, so you can
+      warn before a click spends money rather than after.
+
+    If the wallet cannot cover the fee, the switch does not flip:
+
+    ```json 402 Payment Required
+    {
+      "error": "Turning Relay on for this project costs a one-time activation fee, and the wallet balance cannot cover it. Top up and try again.",
+      "code": "insufficient_balance",
+      "requiredPaise": 20000
+    }
+    ```
+  </Step>
+
+  <Step title="Fund the wallet" icon="wallet">
+    One prepaid wallet serves the whole account and every product in it. Top up in the
+    dashboard through the checkout flow. The minimum top-up is 10000 paise (Rs 100), and
+    your email has to be verified before you can add money.
+
+    Budget for both charges you are about to incur: Rs 200 for activation, plus the calls
+    themselves at 40 paise each answered, plus 3 paise per character the first time each
+    message is recorded. Rs 500 is a comfortable start for testing.
+
+    ```bash Check the balance
+    curl https://api.tristack.tech/api/v1/wallet \
+      -H "Authorization: Bearer $TRISTACK_JWT"
+    ```
+
+    ```json 200 OK
+    {
+      "balancePaise": 50000,
+      "minTopUpPaise": 10000,
+      "recentTopups": [
+        { "id": "5c9b0f22-9d51-4a2e-9e4f-0d6f3a71b2c8", "amountPaise": 50000,
+          "status": "Paid", "razorpayOrderId": "order_QxT8mJ2sV1kR7d",
+          "invoiceUrl": null, "createdAt": "2026-08-21T18:22:03Z",
+          "paidAt": "2026-08-21T18:22:41Z" }
+      ]
+    }
+    ```
+
+    Every amount in the API, everywhere, is an integer in paise. Rs 1.50 is `150`. There is
+    no endpoint that accepts a rupee float.
+  </Step>
+
+  <Step title="Send the call" icon="phone-arrow-up-right">
+    Now the API key, not the JWT. `to` takes Indian mobile numbers in any common spelling.
+
+    <Warning>
+      `XXXXXXXXXX`, `YYYYYYYYYY` and `ZZZZZZZZZZ` are placeholders, not numbers. Replace
+      them with real ten-digit Indian mobiles before sending. We do not print a dialable
+      number anywhere in these docs, because a copied-and-pasted example would ring a
+      stranger's phone and charge you for it. Left as-is, the whole request is refused with
+      `400 invalid_phone_number` before any call is placed, and nothing is spent.
+    </Warning>
+
+    <CodeGroup>
+
+    ```bash curl
+    curl https://api.tristack.tech/v1/relay/voice \
+      -H "Authorization: Bearer $TRISTACK_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "to": ["+91XXXXXXXXXX", "0YYYYYYYYYY", "ZZZZZZZZZZ"],
+        "text": "Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.",
+        "reference": "diwali-notice-2026"
+      }'
+    ```
+
+    ```python Python
+    # pip install requests
+    import os
+
+    import requests
+
+    response = requests.post(
+        "https://api.tristack.tech/v1/relay/voice",
+        headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+        json={
+            "to": ["+91XXXXXXXXXX", "0YYYYYYYYYY", "ZZZZZZZZZZ"],
+            "text": "Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.",
+            "reference": "diwali-notice-2026",
+        },
+        timeout=60,
+    )
+    if response.status_code != 202:
+        # The body carries `code` and, on a 402, `requiredPaise`. raise_for_status()
+        # would throw all of that away.
+        failure = response.json()
+        raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+    job = response.json()
+    print(job["jobId"], job["audioId"], job["estimatedCostPaise"], "paise held")
+    ```
+
+    ```javascript Node
+    // Node 18 or newer, no dependencies.
+    const response = await fetch("https://api.tristack.tech/v1/relay/voice", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: ["+91XXXXXXXXXX", "0YYYYYYYYYY", "ZZZZZZZZZZ"],
+        text: "Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.",
+        reference: "diwali-notice-2026",
+      }),
+    });
+
+    if (response.status !== 202) {
+      const failure = await response.json();
+      throw new Error(`${response.status} ${failure.code}: ${failure.error}`);
+    }
+
+    const job = await response.json();
+    console.log(job.jobId, job.audioId, job.estimatedCostPaise, "paise held");
+    ```
+
+    </CodeGroup>
+
+    The answer is `202 Accepted` with `Location: /v1/relay/voice/rvj_cfa25cf49446fe8f8558de5c`:
+
+    ```json 202 Accepted
+    {
+      "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+      "status": "Queued",
+      "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+      "voice": "ravi",
+      "language": "en-IN",
+      "recipients": 3,
+      "estimatedCostPaise": 315,
+      "costPaise": 0,
+      "reference": "diwali-notice-2026",
+      "error": null,
+      "createdAt": "2026-08-21T18:30:00Z",
+      "completedAt": null,
+      "calls": [
+        { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Queued",
+          "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 },
+        { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "Queued",
+          "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 },
+        { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Queued",
+          "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 }
+      ]
+    }
+    ```
+
+    Three things in that body are worth keeping.
+
+    | Field | Why you want it |
+    |---|---|
+    | `jobId` | The handle for every later read, and the reference in your wallet ledger. |
+    | `audioId` | Send this instead of `text` next time and the recording costs nothing to prepare. See [reusing a recording](/relay-voice/reusing-audio). |
+    | `estimatedCostPaise` | What is held right now: 3 recipients at 40 paise, plus 65 characters at 3 paise, so 315. The final bill settles at or below it. |
+
+    No `voice` was sent, so the account default was used and reported back. To choose one,
+    see [voices](/relay-voice/voices).
+  </Step>
+
+  <Step title="Poll the job until it is done" icon="arrows-rotate">
+    Calls are dialed in the background, three at a time across the service, and an unanswered
+    phone is given up on after about thirty seconds. A three-number job is usually finished
+    inside a minute; five hundred numbers take a while.
+
+    ```bash Read the job
+    curl https://api.tristack.tech/v1/relay/voice/rvj_cfa25cf49446fe8f8558de5c \
+      -H "Authorization: Bearer $TRISTACK_API_KEY"
+    ```
+
+    Mid-flight, the same shape with live per-call status:
+
+    ```json 200 OK, still running
+    {
+      "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+      "status": "Running",
+      "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+      "voice": "ravi",
+      "language": "en-IN",
+      "recipients": 3,
+      "estimatedCostPaise": 315,
+      "costPaise": 0,
+      "reference": "diwali-notice-2026",
+      "error": null,
+      "createdAt": "2026-08-21T18:30:00Z",
+      "completedAt": null,
+      "calls": [
+        { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+        { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "Dialing",
+          "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
+        { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Queued",
+          "attempts": 0, "durationSeconds": null, "error": null, "costPaise": 0 }
+      ]
+    }
+    ```
+
+    And when it is over:
+
+    ```json 200 OK, finished
+    {
+      "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+      "status": "Completed",
+      "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+      "voice": "ravi",
+      "language": "en-IN",
+      "recipients": 3,
+      "estimatedCostPaise": 315,
+      "costPaise": 275,
+      "reference": "diwali-notice-2026",
+      "error": null,
+      "createdAt": "2026-08-21T18:30:00Z",
+      "completedAt": "2026-08-21T18:31:47Z",
+      "calls": [
+        { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+        { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
+          "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
+        { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Completed",
+          "attempts": 1, "durationSeconds": 12, "error": null, "costPaise": 40 }
+      ]
+    }
+    ```
+
+    Two people picked up, one did not. The bill is 80 paise of calls plus 195 paise for the
+    recording, so `costPaise` is 275 and the remaining 40 paise of the hold went back to the
+    wallet. The phone that rang out cost nothing.
+
+    <Warning>
+      `"status": "Completed"` on the **job** means every call reached a terminal state. It
+      does not mean anybody answered. Count the **calls** whose status is `Completed` for
+      that, exactly as the billing does.
+    </Warning>
+
+    A poll loop that stops when the job is terminal:
+
+    <CodeGroup>
+
+    ```bash curl
+    JOB=rvj_cfa25cf49446fe8f8558de5c
+
+    while :; do
+      body=$(curl -s "https://api.tristack.tech/v1/relay/voice/$JOB" \
+        -H "Authorization: Bearer $TRISTACK_API_KEY")
+      status=$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+      echo "$status"
+      case "$status" in Completed|Failed) printf '%s\n' "$body"; break ;; esac
+      sleep 5
+    done
+    ```
+
+    ```python Python
+    import os
+    import time
+
+    import requests
+
+    job_id = "rvj_cfa25cf49446fe8f8558de5c"
+    headers = {"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"}
+
+    while True:
+        job = requests.get(
+            f"https://api.tristack.tech/v1/relay/voice/{job_id}",
+            headers=headers,
+            timeout=30,
+        ).json()
+        if job["status"] in ("Completed", "Failed"):
+            break
+        time.sleep(5)
+
+    answered = [c for c in job["calls"] if c["status"] == "Completed"]
+    print(f"{len(answered)}/{job['recipients']} answered, {job['costPaise']} paise")
+    ```
+
+    </CodeGroup>
+
+    Polling every five seconds is fine and costs nothing. If you would rather not poll at
+    all, pass a [`callbackUrl`](/relay-voice/callbacks) on the send and be POSTed this exact
+    body when the job finishes.
+  </Step>
+</Steps>
+
+## When it goes wrong
+
+Every failure answers `{ "error": "...", "code": "..." }`. The ones you are most likely to
+meet on the first call:
+
+| Status | `code` | What happened | Cost |
+|---|---|---|---|
+| `401` | `invalid_api_key` | Header missing, mistyped, or the key was revoked. | Nothing |
+| `403` | `relay_voice_disabled` | Step 1 was skipped for this project. | Nothing |
+| `400` | `invalid_phone_number` | A landline, a foreign number, or a typo. `error` names the index and the value you sent. | Nothing |
+| `400` | `invalid_request` | Both `text` and `audioId`, neither of them, over 500 numbers, or over 1500 characters. | Nothing |
+| `402` | `insufficient_balance` | The wallet cannot cover the hold. `requiredPaise` says what this send needed. | Nothing |
+| `502` | `text_rejected` | The speech provider would not say this text. | Nothing, the hold is released |
+
+Every one of those is decided before a phone rings, so a refused request costs you nothing at
+all. The full list is on the [errors page](/platform/errors).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Stop paying to record the same words" icon="rotate-left" href="/relay-voice/reusing-audio">
+    Keep the `audioId` from step 3 and the next send skips synthesis and its charge.
+  </Card>
+
+  <Card title="Choose a voice" icon="waveform-lines" href="/relay-voice/voices">
+    List the aliases and hear one on a real phone before your customers do.
+  </Card>
+
+  <Card title="Get told instead of asking" icon="webhook" href="/relay-voice/callbacks">
+    A signed POST when the job finishes, with the same body polling gives you.
+  </Card>
+
+  <Card title="Know the bill in advance" icon="indian-rupee-sign" href="/relay-voice/pricing">
+    Every charge, worked through, including the ones that are zero.
+  </Card>
+</CardGroup>

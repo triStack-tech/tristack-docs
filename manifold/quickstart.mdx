@@ -1,0 +1,322 @@
+---
+title: "Manifold quickstart"
+description: "From an API key to a billed model response, with every field of that response explained."
+sidebarTitle: "Quickstart"
+icon: "rocket"
+---
+
+Six steps from an empty account to generated text. Steps 1 to 3 happen in the dashboard,
+the rest in a terminal. Each step names the error you get if you skip it.
+
+<Steps>
+  <Step title="Create a project and switch Manifold on" icon="folder-plus">
+    In the [dashboard](https://tristack.tech/login), create a project and turn **Manifold**
+    on in it. The switch is off until you turn it on, deliberately: a key on a project
+    without it authenticates correctly and still fails.
+
+    ```json If you skip it: 403
+    { "error": "Manifold is not enabled for this project.", "code": "manifold_disabled" }
+    ```
+
+    The toggle takes effect on the next request. You do not need a new key for it.
+  </Step>
+
+  <Step title="Mint an API key" icon="key">
+    Create a key inside that project. Pick `live` or `test`: the mode decides the prefix,
+    `tsk_live_` or `tsk_test_`, and nothing else. Both call the same models and bill the
+    same wallet.
+
+    <Warning>
+      The full token is shown once, on the screen that creates it. It is stored hashed, so
+      nobody can show it to you again, support included. Copy it into your secret manager
+      before you close the dialog. Lost a key? Revoke it and mint another.
+    </Warning>
+
+    ```bash
+    export TRISTACK_API_KEY="tsk_live_your_key_here"
+    ```
+  </Step>
+
+  <Step title="Put money in the wallet" icon="wallet">
+    One prepaid wallet per account, shared by every project and by Relay Voice. Top up
+    through the dashboard checkout: minimum **10000 paise (Rs 100)**, and your email must be
+    verified first.
+
+    ```json If you skip it: 402
+    {
+      "error": "The wallet balance cannot cover the estimated cost of this request.",
+      "code": "insufficient_balance",
+      "requiredPaise": 90
+    }
+    ```
+
+    `requiredPaise` is what this one call needed up front, not your balance. Nothing is
+    charged: the request never reaches a model.
+  </Step>
+
+  <Step title="Pick a model" icon="layer-group">
+    Ask the API what this key may call. The answer is per key, so it already accounts for
+    the project's allowlist and for what the platform can serve.
+
+    ```bash
+    curl https://api.tristack.tech/v1/manifold/models \
+      -H "Authorization: Bearer $TRISTACK_API_KEY"
+    ```
+
+    ```json Trimmed
+    {
+      "usdToInr": 100.0,
+      "models": [
+        { "alias": "nova-micro", "displayName": "Nova Micro",
+          "usdPerMTokIn": 0.035, "usdPerMTokOut": 0.14,
+          "paisePer1KTokensIn": 0.38, "paisePer1KTokensOut": 1.54 },
+        { "alias": "nova-lite", "displayName": "Nova Lite",
+          "usdPerMTokIn": 0.06, "usdPerMTokOut": 0.24,
+          "paisePer1KTokensIn": 0.66, "paisePer1KTokensOut": 2.64 }
+      ]
+    }
+    ```
+
+    Copy an `alias`. `nova-micro` is the cheapest way to prove the pipe works.
+  </Step>
+
+  <Step title="Send the first message" icon="paper-plane">
+    <CodeGroup>
+
+    ```bash curl
+    curl https://api.tristack.tech/v1/manifold/messages \
+      -H "Authorization: Bearer $TRISTACK_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "model": "nova-micro",
+        "max_tokens": 1024,
+        "messages": [
+          { "role": "user", "content": "Say hello from Tristack, in one sentence." }
+        ]
+      }'
+    ```
+
+    ```python Python
+    # pip install requests
+    import os
+
+    import requests
+
+    response = requests.post(
+        "https://api.tristack.tech/v1/manifold/messages",
+        headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+        json={
+            "model": "nova-micro",
+            "max_tokens": 1024,
+            "messages": [
+                {"role": "user", "content": "Say hello from Tristack, in one sentence."}
+            ],
+        },
+        timeout=60,
+    )
+
+    if response.status_code != 200:
+        # raise_for_status() throws the body away, and the body is where `code` and
+        # `requiredPaise` live.
+        failure = response.json()
+        raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
+
+    body = response.json()
+    print(body["content"][0]["text"])
+    print(body["usage"], "cost:", body["cost"]["paise"], "paise")
+    ```
+
+    ```javascript Node
+    // Node 18 or newer, no dependencies. ES modules: save as .mjs, or set
+    // "type": "module" in package.json.
+    const response = await fetch("https://api.tristack.tech/v1/manifold/messages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "nova-micro",
+        max_tokens: 1024,
+        messages: [
+          { role: "user", content: "Say hello from Tristack, in one sentence." },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const failure = await response.json();
+      throw new Error(`${response.status} ${failure.code}: ${failure.error}`);
+    }
+
+    const body = await response.json();
+    console.log(body.content[0].text);
+    console.log(body.usage, "cost:", body.cost.paise, "paise");
+    ```
+
+    </CodeGroup>
+
+    <Note>
+      `X-Api-Key: tsk_live_...` works everywhere `Authorization: Bearer` does, if a header
+      named Authorization is awkward in your stack. Send both and the Bearer token wins.
+    </Note>
+  </Step>
+
+  <Step title="Read the answer" icon="receipt">
+    ```json 200 OK
+    {
+      "id": "mfr_9f7922159e6dab6a72166e1f",
+      "model": "nova-micro",
+      "role": "assistant",
+      "content": [
+        { "type": "text", "text": "Hello from Tristack: your first Manifold call worked." }
+      ],
+      "stop_reason": "end_turn",
+      "usage": { "input_tokens": 14, "output_tokens": 13 },
+      "cost": { "paise": 1 }
+    }
+    ```
+
+    One paise. The [pricing page](/manifold/pricing) shows where that number comes from.
+  </Step>
+</Steps>
+
+## What each field means
+
+<ResponseField name="id" type="string">
+  The request id, `mfr_` followed by 24 hex characters. It is the same id the wallet ledger
+  and the usage view carry for this call, and the one to quote to support. Log it next to
+  `cost.paise` and you can attribute spend to a feature later.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The alias you sent, echoed back. Which engine served it is a routing detail Manifold keeps
+  to itself.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  Always `assistant` on a response. It is here so the object can be appended straight into
+  your `messages` array on the next turn of a conversation.
+</ResponseField>
+
+<ResponseField name="content" type="array">
+  The reply, as an array of blocks rather than a bare string, so a future block type does
+  not break your parser. Today every reply is a single text block, so
+  `content[0].text` is the answer.
+
+  <Expandable title="block">
+    <ResponseField name="type" type="string">
+      `text`.
+    </ResponseField>
+    <ResponseField name="text" type="string">
+      The generated text.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="stop_reason" type="string">
+  Why generation stopped. `end_turn` means the model finished on its own. Anything else
+  means it was cut short, most often because it hit your `max_tokens` or a string from
+  `stop_sequences`. Check this before you treat a reply as complete: a truncated answer is a
+  `200`, not an error.
+</ResponseField>
+
+<ResponseField name="usage" type="object">
+  The token counts the model actually reported, which are what you are billed on.
+
+  <Expandable title="usage">
+    <ResponseField name="input_tokens" type="integer">
+      Everything you sent: `system`, every message, and any image data. Charged in full on
+      every call, so a long system prompt is a cost you pay on each request rather than once.
+    </ResponseField>
+    <ResponseField name="output_tokens" type="integer">
+      What the model wrote. Priced several times higher than input on most models.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cost" type="object">
+  <Expandable title="cost">
+    <ResponseField name="paise" type="integer">
+      What this call cost, as an integer in paise. Rs 1 is `100`. This is the settled
+      amount, not the estimate that was held, and any call that used tokens costs at least
+      1 paise.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>
+  Every money value in the API, in both directions, is an integer in paise. Rs 1.50 is
+  `150`. There is no rupee float anywhere in a payload, so never send one and never round
+  one into an amount.
+</Warning>
+
+## If the first call fails
+
+<AccordionGroup>
+  <Accordion title="401 invalid_api_key" icon="key">
+    Missing, malformed, unknown or revoked key. Check the header reads
+    `Authorization: Bearer tsk_live_...` with a single space, no quotes and no trailing
+    newline. `export KEY=$(cat key.txt)` is a common way to smuggle a newline in.
+  </Accordion>
+
+  <Accordion title="401 project_archived" icon="box-archive">
+    The key's project was archived. Keys stop working with it. Unarchive the project, or use
+    a key from an active one.
+  </Accordion>
+
+  <Accordion title="403 manifold_disabled" icon="toggle-off">
+    Step 1. Manifold is not switched on for this project. Turn it on; the next request
+    works, with the same key.
+  </Accordion>
+
+  <Accordion title="402 insufficient_balance" icon="wallet">
+    Step 3, or the balance ran out. `requiredPaise` is what this call needed. Nothing was
+    charged and no model ran, so top up and retry the identical request.
+  </Accordion>
+
+  <Accordion title="400 unknown_model" icon="circle-question">
+    The alias is not one this deployment serves. Fetch `GET /v1/manifold/models` and copy an
+    alias from the response rather than typing one from memory. A model the platform has
+    switched off answers exactly the same way, on purpose:
+    [why](/manifold/models#unknown-and-switched-off-answer-alike).
+  </Accordion>
+
+  <Accordion title="403 model_not_allowed" icon="list-check">
+    The model is real and servable, but your project's model allowlist does not carry it.
+    Add the alias in the project's model settings, or clear the list to allow everything.
+    Checked before any money moves, so the refusal costs nothing.
+    [Allowlist](/manifold/models#the-per-project-allowlist).
+  </Accordion>
+
+  <Accordion title="400 invalid_request" icon="triangle-exclamation">
+    A shape problem, and `error` names it in a sentence. The usual causes: `messages` empty,
+    a `role` other than `user` or `assistant`, a message with no content, or `max_tokens`
+    set to zero or a negative number.
+  </Accordion>
+</AccordionGroup>
+
+Every code, with its status and what it costs, is on the
+[errors page](/platform/errors).
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Stream the reply" icon="bolt" href="/manifold/streaming">
+    Add `"stream": true` and show text as it is generated instead of waiting for the whole
+    answer.
+  </Card>
+
+  <Card title="Choose a model" icon="layer-group" href="/manifold/models">
+    The catalog spans more than a hundredfold in price per token. Picking well is the
+    biggest saving available to you.
+  </Card>
+
+  <Card title="Understand the 1 paise" icon="wallet" href="/manifold/pricing">
+    Estimate, hold, settlement and release, worked end to end.
+  </Card>
+
+  <Card title="Every parameter" icon="code" href="/api-reference/manifold/messages">
+    `system`, `temperature`, `top_p`, `stop_sequences`, image blocks and the rest.
+  </Card>
+</CardGroup>

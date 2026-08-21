@@ -1,0 +1,349 @@
+---
+title: "Callbacks"
+description: "Pass a callbackUrl and Relay Voice POSTs you the finished job, signed. How to verify the signature, and why the URL rules are as strict as they are."
+---
+
+Polling works and costs nothing. A callback saves you from it: pass `callbackUrl` on the
+send, and when the job finishes, Relay Voice POSTs the finished job to that URL.
+
+```bash Ask to be told
+curl https://api.tristack.tech/v1/relay/voice \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["+91XXXXXXXXXX", "+91YYYYYYYYYY"],
+    "text": "Clinic closed tomorrow for Diwali. We reopen on Thursday at 9 am.",
+    "callbackUrl": "https://your-app.example/hooks/relay-voice",
+    "reference": "diwali-notice-2026"
+  }'
+```
+
+It fires **once per job**, when every call in it has reached a terminal state. That includes a
+job that ended as `Failed`: you are told either way, because a job that could not run is
+exactly the thing you need to hear about.
+
+<Warning>
+  Delivery is **best effort**. One attempt, no retries, and we give up after about ten
+  seconds. If your endpoint is down, deployed mid-flight, or slow, that notification is gone
+  and nothing replays it.
+
+  `GET /v1/relay/voice/{jobId}` is the authority on what happened. Treat the callback as a
+  latency optimization over polling, never as the only path by which a job's outcome reaches
+  your system.
+</Warning>
+
+## What is POSTed
+
+The body is exactly the body of a job read. One representation of a job, whatever asks for
+it, so you can point the same parser at both.
+
+```json POST https://your-app.example/hooks/relay-voice
+{
+  "jobId": "rvj_cfa25cf49446fe8f8558de5c",
+  "status": "Completed",
+  "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
+  "voice": "ravi",
+  "language": "en-IN",
+  "recipients": 2,
+  "estimatedCostPaise": 275,
+  "costPaise": 235,
+  "reference": "diwali-notice-2026",
+  "error": null,
+  "createdAt": "2026-08-21T18:30:00Z",
+  "completedAt": "2026-08-21T18:31:47Z",
+  "calls": [
+    { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
+      "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+    { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
+      "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 }
+  ]
+}
+```
+
+<ResponseField name="jobId" type="string">
+  The job this is about, `rvj_` plus 24 hex. Your key for deduplication.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `Completed` or `Failed`. `Completed` means the dialing finished, **not** that anyone
+  answered.
+</ResponseField>
+
+<ResponseField name="error" type="string | null">
+  Set only when `status` is `Failed`: `audio_unavailable`, `interrupted` (the service
+  restarted mid-job; nothing is redialed and the undelivered calls are refunded), or
+  `internal_error`.
+</ResponseField>
+
+<ResponseField name="costPaise" type="integer">
+  What you were actually charged, in paise. Answered calls plus the recording charge if this
+  job made the recording. Never add the recording cost on top: it is already in here.
+</ResponseField>
+
+<ResponseField name="reference" type="string | null">
+  Whatever you sent on the request. This is how you line the job up with your own records
+  without keeping a `jobId` lookup table.
+</ResponseField>
+
+<ResponseField name="calls" type="array">
+  One entry per recipient, in the order you sent them, after deduplication.
+
+  <Expandable title="call fields">
+    <ResponseField name="callId" type="string">`rvc_` plus 24 hex.</ResponseField>
+    <ResponseField name="to" type="string">The number in E.164, as it was dialed.</ResponseField>
+    <ResponseField name="status" type="string">
+      `Completed` (answered), `Busy`, `NoAnswer`, `Failed` or `Cancelled`.
+    </ResponseField>
+    <ResponseField name="attempts" type="integer">Dial attempts made.</ResponseField>
+    <ResponseField name="durationSeconds" type="integer | null">Length of the answered call.</ResponseField>
+    <ResponseField name="error" type="string | null">A sentence about why this call did not connect.</ResponseField>
+    <ResponseField name="costPaise" type="integer">40 for an answered call, 0 for everything else.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+Count `calls` where `status` is `Completed` to know how many people picked up. That is the
+same count the billing uses.
+
+## Headers
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json; charset=utf-8` |
+| `X-TriStack-Event` | `relay.voice.job.completed` |
+| `X-TriStack-Signature` | `sha256=` followed by the lowercase hex HMAC-SHA256 of the exact request body |
+
+Without the signature, a callback endpoint is an unauthenticated POST that anybody who learns
+the URL can forge, and your system would act on call outcomes we never reported. Verify it on
+every request, before you parse the body.
+
+<Note>
+  The signing secret is issued by Tristack and is not shown in the dashboard yet. Ask
+  [support@tristack.tech](mailto:support@tristack.tech) for yours, and keep it where you keep
+  your API keys: it verifies callbacks, it does not authorize anything. Everything below
+  reads it from `TRISTACK_WEBHOOK_SECRET`.
+</Note>
+
+## Verifying the signature
+
+The HMAC is computed over the **exact bytes we sent**. Parsing the JSON and re-serialising it
+changes those bytes (key order, spacing, unicode escapes) and the signature will not match, so
+capture the raw body first and parse it afterwards.
+
+<CodeGroup>
+
+```javascript Node (Express)
+// Node 18 or newer. npm install express
+import crypto from "node:crypto";
+import express from "express";
+
+const app = express();
+const secret = process.env.TRISTACK_WEBHOOK_SECRET;
+
+// express.raw, not express.json: the signature covers the bytes on the wire.
+app.post("/hooks/relay-voice", express.raw({ type: "application/json" }), (req, res) => {
+  const expected =
+    "sha256=" + crypto.createHmac("sha256", secret).update(req.body).digest("hex");
+  const received = req.get("X-TriStack-Signature") ?? "";
+
+  // Same length first: timingSafeEqual throws on a length mismatch.
+  const ok =
+    expected.length === received.length &&
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+
+  if (!ok) return res.status(401).send("bad signature");
+
+  const job = JSON.parse(req.body.toString("utf8"));
+  const answered = job.calls.filter((c) => c.status === "Completed").length;
+  console.log(`${job.jobId}: ${answered}/${job.recipients} answered, ${job.costPaise} paise`);
+
+  // Answer immediately; do the real work after. We wait about ten seconds, once.
+  res.sendStatus(204);
+});
+
+app.listen(8080);
+```
+
+```python Python (Flask)
+# pip install flask
+import hashlib
+import hmac
+import os
+
+from flask import Flask, request
+
+app = Flask(__name__)
+SECRET = os.environ["TRISTACK_WEBHOOK_SECRET"].encode()
+
+
+@app.post("/hooks/relay-voice")
+def relay_voice_hook():
+    # get_data() is the raw body. request.json would re-parse and lose the bytes.
+    body = request.get_data()
+    expected = "sha256=" + hmac.new(SECRET, body, hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(expected, request.headers.get("X-TriStack-Signature", "")):
+        return "bad signature", 401
+
+    job = request.get_json()
+    answered = sum(1 for c in job["calls"] if c["status"] == "Completed")
+    app.logger.info(
+        "%s: %d/%d answered, %d paise", job["jobId"], answered, job["recipients"], job["costPaise"]
+    )
+    return "", 204
+```
+
+```go Go (net/http)
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"log"
+	"net/http"
+	"os"
+)
+
+type call struct {
+	Status string `json:"status"`
+}
+
+type job struct {
+	JobID      string `json:"jobId"`
+	Recipients int    `json:"recipients"`
+	CostPaise  int64  `json:"costPaise"`
+	Calls      []call `json:"calls"`
+}
+
+func main() {
+	secret := []byte(os.Getenv("TRISTACK_WEBHOOK_SECRET"))
+
+	http.HandleFunc("/hooks/relay-voice", func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "unreadable body", http.StatusBadRequest)
+			return
+		}
+
+		mac := hmac.New(sha256.New, secret)
+		mac.Write(body)
+		expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+
+		if !hmac.Equal([]byte(expected), []byte(r.Header.Get("X-TriStack-Signature"))) {
+			http.Error(w, "bad signature", http.StatusUnauthorized)
+			return
+		}
+
+		var j job
+		if err := json.Unmarshal(body, &j); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+
+		answered := 0
+		for _, c := range j.Calls {
+			if c.Status == "Completed" {
+				answered++
+			}
+		}
+		log.Printf("%s: %d/%d answered, %d paise", j.JobID, answered, j.Recipients, j.CostPaise)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
+
+</CodeGroup>
+
+Compare in constant time, as all three do above. A byte-by-byte comparison that returns early
+leaks, through its own timing, how much of a guessed signature was correct, and that is
+enough to forge one.
+
+## The URL rules, and why they exist
+
+A `callbackUrl` is a destination our servers connect to, chosen by you. That makes the rules
+around it security rules rather than style preferences.
+
+<AccordionGroup>
+  <Accordion title="https only" icon="lock">
+    An absolute `https://` URL, 2048 characters or fewer. Anything else is
+    `400 invalid_callback_url` at send time, before the job is accepted.
+
+    The body carries the phone numbers you called and what happened on each call. Over plain
+    http, that is your customer contact list handed to everyone on the network path. There is
+    no local exception and no development mode.
+  </Accordion>
+
+  <Accordion title="Redirects are not followed" icon="arrow-turn-down-right">
+    We POST to the URL you gave us, and that is the only place the body goes. A `3xx` is
+    recorded as a failed delivery, not followed.
+
+    Following a redirect would hand the choice of destination back to the caller **after**
+    the address was screened, which undoes the screening entirely. If your endpoint has
+    moved, change the `callbackUrl` you send.
+  </Accordion>
+
+  <Accordion title="Private and loopback addresses are refused" icon="shield-halved">
+    The destination is checked at the socket, when the connection is made: the host is
+    resolved once, every address it answers with has to be publicly routable, and we connect
+    to exactly those addresses.
+
+    A URL pointing at `127.0.0.1`, a `10.x` address, or a cloud metadata endpoint would aim
+    our egress, which sits inside our own network, at a target you chose. Resolving once and
+    connecting to the resolved addresses is also what closes DNS rebinding: a hostname that
+    is screened and then handed to an HTTP client gets resolved a second time, and whoever
+    owns the record can answer publicly for the check and with `127.0.0.1` for the
+    connection. There is no second lookup for anyone to race.
+
+    In practice this means `https://localhost:3000/hooks` will never work, however you spell
+    it. For local development, put a public https tunnel in front of your machine and use the
+    tunnel's URL, or skip callbacks entirely and poll.
+  </Accordion>
+</AccordionGroup>
+
+## Building a receiver that holds up
+
+<Steps>
+  <Step title="Verify, then parse">
+    Signature check on the raw bytes first, `401` if it fails, and only then treat the body
+    as data.
+  </Step>
+
+  <Step title="Answer fast, work later">
+    Return `2xx` as soon as you have stored the payload. We wait about ten seconds and do not
+    retry, so a receiver that dials a database, sends emails and rebuilds a report before
+    replying is a receiver that loses notifications.
+  </Step>
+
+  <Step title="Handle a jobId you have never seen">
+    A single-recipient job can finish before your own `POST` call has returned and its `jobId`
+    has been committed on your side. Store the payload keyed by `jobId` and reconcile, rather
+    than rejecting what looks like an unknown job.
+  </Step>
+
+  <Step title="Be idempotent anyway">
+    One delivery per job is the intent, not a guarantee you should build on. Key on `jobId`,
+    make the second copy a no-op, and nothing downstream doubles up.
+  </Step>
+
+  <Step title="Poll for the jobs you were not told about">
+    This is the step people skip. A sweep over your own jobs that have no recorded outcome
+    after, say, an hour, reading `GET /v1/relay/voice/{jobId}` for each, is what turns best
+    effort delivery into a system that always converges on the truth.
+  </Step>
+</Steps>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Job API reference" icon="code" href="/api-reference/relay-voice/job">
+    The status endpoint, field by field. The same body as the callback.
+  </Card>
+
+  <Card title="Pricing" icon="indian-rupee-sign" href="/relay-voice/pricing">
+    Where `costPaise` in that payload comes from.
+  </Card>
+</CardGroup>

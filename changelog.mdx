@@ -1,0 +1,88 @@
+---
+title: "Changelog"
+description: "Changes to the Tristack API and to these pages, newest first."
+---
+
+Changes to the API and to these pages, newest first. Dates are the day the change went
+live.
+
+<Info>
+  Additive changes (a new field on a response, a new model in the catalog, a new optional
+  request field) do not change the `/v1` path. Parse leniently and ignore fields you do not
+  recognise.
+</Info>
+
+<Update label="2026-08-21" description="Relay Voice documented, pages reorganised">
+
+  Relay Voice is documented here for the first time, and these pages were rebuilt around
+  two products instead of one. Nothing in the Manifold API changed with this entry: what
+  moved is the documentation.
+
+  **Relay Voice**
+
+  - `POST /v1/relay/voice` takes Indian mobile numbers and either `text` to speak or an
+    `audioId` to replay, and answers `202` with a `jobId`. The calls are dialled in the
+    background.
+  - `GET /v1/relay/voice/{jobId}` reports the job and every call under it.
+    `Completed` means every call reached a terminal state, not that anyone answered.
+  - `GET /v1/relay/voice/voices` lists the voice aliases you may name in `voice`.
+  - Pricing: ₹200 once per project the first time Relay Voice is switched on, then
+    40 paise per answered call and 3 paise per character of newly synthesized speech.
+    A phone that rings out costs nothing. See [Relay Voice pricing](/relay-voice/pricing).
+
+  **Where the Manifold pages went**
+
+  | Was | Now |
+  |---|---|
+  | Getting started | [Manifold quickstart](/manifold/quickstart) |
+  | Authentication | [Projects and keys](/platform/projects-and-keys) |
+  | Streaming | [Streaming](/manifold/streaming) |
+  | Vision and images | [Create a message](/api-reference/manifold/messages) and [Models](/manifold/models) |
+  | API reference: create a message | [Create a message](/api-reference/manifold/messages) |
+  | API reference: list models | [List models](/api-reference/manifold/models) |
+  | Errors | [Errors](/platform/errors) |
+  | Model catalog | [Models](/manifold/models) |
+  | Pricing and billing | [Wallet](/platform/wallet) and [Manifold pricing](/manifold/pricing) |
+  | Support | [Support](/platform/support) |
+
+  Anything you bookmarked under the old address needs updating. The API itself did not
+  move: the base URL is still `https://api.tristack.tech`.
+
+</Update>
+
+<Update label="2026-08-17" description="First public release of the documentation">
+
+  First public release of the documentation, describing Tristack Manifold as it runs today.
+
+  **API surface**
+
+  - `POST /v1/manifold/messages`: text and image messages, optional `system` prompt,
+    `max_tokens` (default 4096, cap 65536), `temperature`, `top_p`, `stop_sequences`, and
+    `stream` for server-sent events.
+  - `GET /v1/manifold/models`: the catalog with per-model rates in USD per million tokens
+    and paise per 1000 tokens, plus the `usdToInr` rate used to convert them.
+  - API-key authentication on both, as `Authorization: Bearer tsk_...` or `X-Api-Key`.
+
+  **Catalog**
+
+  - 54 aliases across 19 families, converted at 90.0 INR per USD.
+  - Five aliases are published but not servable yet: `opus-5`, `opus-4-8`, `sonnet-5`,
+    `sonnet-4-6` and `haiku-4-5`. Account-level access is still being finalised, and calls
+    to them answer `403 model_access_denied`. The other 49 serve normally.
+  - 21 aliases accept image blocks. The list is on the [models page](/manifold/models).
+
+  **Billing**
+
+  - Prepaid wallet per account, in integer paise, minimum top-up 10000 paise (₹100).
+  - Hold before the call, settle on real token usage afterwards, difference returned.
+  - Failed calls cost nothing. A client abort mid-stream settles, for the whole input
+    estimate plus whatever output had been delivered.
+
+  **Documentation**
+
+  - Getting started, authentication, streaming, vision, the full API reference, the error
+    catalog, the model catalog, the billing model and how to get support.
+  - Model and price tables are generated from a captured `GET /v1/manifold/models`
+    response, so they match the deployment they were captured from.
+
+</Update>

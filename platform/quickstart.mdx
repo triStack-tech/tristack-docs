@@ -1,0 +1,159 @@
+---
+title: "Quickstart"
+description: "Account, project, product switch, API key, wallet. The five steps both products need before their own quickstart makes sense."
+---
+
+Every Tristack integration starts the same way, whichever product you are here for. Five
+steps in the browser get you a working key and a funded wallet. After that, the two product
+quickstarts pick up from the same place.
+
+<Info>
+  You need a browser for all five steps. Nothing here has to be automated, and the dashboard
+  does each of these in one screen. The equivalent API calls are on
+  [Projects and keys](/platform/projects-and-keys).
+</Info>
+
+<Steps>
+  <Step title="Create an account and verify the email" icon="user-plus">
+    Sign up at [tristack.tech](https://tristack.tech) with an email address and a password
+    of at least 8 characters, or with Google.
+
+    Signing up creates three things at once: your user, your account, and a wallet holding
+    0 paise. You are signed in immediately, and the session lasts 24 hours.
+
+    **Verify the email now.** The link is sent on sign-up and lasts 48 hours. Signing in
+    through Google verifies the address for you. Verification is not needed to browse the
+    dashboard or create keys, but adding money to the wallet answers
+    `403 email_unverified` until it is done, and step 5 is adding money to the wallet.
+  </Step>
+
+  <Step title="Create a project" icon="folder">
+    Give it a name of 1 to 128 characters.
+
+    A project is the boundary for everything except money: keys belong to a project, product
+    switches are per project, usage is reported per project, and Relay Voice rents each
+    project its own caller-id number. One project per application, or one per environment,
+    is the usual split.
+
+    A new project is `Active`, with **both products switched off**.
+  </Step>
+
+  <Step title="Turn on the product you want" icon="toggle-on">
+    Open the project and switch on Manifold, Relay Voice, or both. The switches are
+    independent: turning one on does nothing to the other.
+
+    This is a deliberate step, not a default. A key on a project with the switch off
+    authenticates correctly and is then refused:
+
+    | Product | Refusal when the switch is off |
+    |---|---|
+    | Manifold | `403` `{ "code": "manifold_disabled" }` |
+    | Relay Voice | `403` `{ "code": "relay_voice_disabled" }` |
+
+    Flipping the switch takes effect on the next request. You do not need a new key.
+
+    <Warning>
+      **Relay Voice charges Rs 200 the first time you switch it on for a project.** The fee
+      rents that project its own caller-id number, so a second project is a second number and
+      a second Rs 200. Switching it off and back on again inside the same project is free.
+
+      The charge happens at the toggle, before the switch is set. On an empty wallet it
+      answers `402 insufficient_balance` with `requiredPaise: 20000` and leaves the product
+      off, so **do step 5 before this step** if Relay Voice is what you came for.
+    </Warning>
+  </Step>
+
+  <Step title="Create an API key" icon="key">
+    In the project, create a key. The form asks for a name (a label for you) and a mode:
+
+    | Mode | Token | What it changes |
+    |---|---|---|
+    | `live` | `tsk_live_…` | Nothing but the prefix |
+    | `test` | `tsk_test_…` | Nothing but the prefix |
+
+    Both modes call the same models, dial the same phones and spend the same wallet. The
+    prefix is a label for your own bookkeeping, not a sandbox. Nothing on Tristack is free to
+    call because a token says `test`.
+
+    <Warning>
+      **The full token is shown once**, on the screen that creates it. It is stored hashed,
+      so nobody, including support, can read it back to you. Copy it into your secret manager
+      or `.env` before closing the dialog. Afterwards the dashboard shows the prefix and the
+      last 4 characters, which is enough to identify a key and not enough to use one. A lost
+      key is revoked and replaced, never recovered.
+    </Warning>
+
+    ```bash
+    export TRISTACK_API_KEY="tsk_live_your_key_here"
+    ```
+  </Step>
+
+  <Step title="Fund the wallet" icon="wallet">
+    One prepaid wallet belongs to your account and is shared by every project and both
+    products. Top up through the checkout flow in the dashboard.
+
+    - Minimum top-up: **10000 paise (Rs 100)**.
+    - Every amount in the API is an integer in paise. Rs 1 is `100`, Rs 1.50 is `150`. There
+      are no rupee floats anywhere on the wire.
+    - Your email must be verified (step 1).
+
+    Money is checked before any provider is called, so a request you cannot afford is
+    refused with `402 insufficient_balance` and costs you nothing.
+    [How the wallet works →](/platform/wallet)
+  </Step>
+</Steps>
+
+## Check the key works
+
+Neither call below costs anything, and each one proves the whole chain: key valid, project
+active, product switched on.
+
+<CodeGroup>
+```bash Manifold
+curl https://api.tristack.tech/v1/manifold/models \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```bash Relay Voice
+curl https://api.tristack.tech/v1/relay/voice/voices \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+</CodeGroup>
+
+Manifold answers with the models **this project** may call, which is the authoritative list
+for that key. Relay Voice answers with the voice aliases and the per-call price:
+
+```json Relay Voice voices
+{
+  "defaultVoice": "asha",
+  "pricePerCallPaise": 40,
+  "voices": [
+    { "voice": "asha", "name": "Asha (Hindi, female)", "language": "hi-IN" }
+  ]
+}
+```
+
+If either one refuses, the code says which step to go back to:
+
+| Response | Step to revisit |
+|---|---|
+| `401 invalid_api_key` | Step 4. The header is `Authorization: Bearer tsk_live_…`, one space, no quotes, no trailing newline. |
+| `401 project_archived` | The project was archived. Unarchive it, or use a key from an active project. |
+| `403 manifold_disabled` | Step 3, Manifold switch. |
+| `403 relay_voice_disabled` | Step 3, Relay Voice switch. |
+| `402 insufficient_balance` | Step 5. |
+
+## Now pick a product
+
+<CardGroup cols={2}>
+  <Card title="Manifold quickstart" icon="brain" href="/manifold/quickstart">
+    Send messages to a model and read the answer back, with the cost of the call on the
+    response.
+  </Card>
+  <Card title="Relay Voice quickstart" icon="phone" href="/relay-voice/quickstart">
+    Send a mobile number and a sentence, and make the phone ring.
+  </Card>
+</CardGroup>
+
+Using both? They are separate products that share this account, this key and this wallet, and
+nothing else. [What that means →](/platform/products)
