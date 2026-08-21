@@ -209,17 +209,18 @@ def group(models: list[dict]) -> dict[str, list[dict]]:
 
 
 def catalog_rows(models: list[dict]) -> list[str]:
+    # The upstream USD rate is deliberately not published beside the charged price: the two
+    # side by side are one division away from the conversion rate and the margin, which is
+    # how a price is arrived at rather than what a customer pays.
     header = [
-        "| Alias | Model | Vision | USD / MTok in | USD / MTok out | Paise / 1K in | Paise / 1K out |",
-        "|---|---|:--:|---:|---:|---:|---:|",
+        "| Alias | Model | Vision | Paise / 1K in | Paise / 1K out |",
+        "|---|---|:--:|---:|---:|",
     ]
     rows = [
-        "| `{alias}` | {name} | {vision} | {ui} | {uo} | {pi} | {po} |".format(
+        "| `{alias}` | {name} | {vision} | {pi} | {po} |".format(
             alias=model["alias"],
             name=model["displayName"],
             vision="yes" if model["alias"] in VISION_ALIASES else "",
-            ui=usd(model["usdPerMTokIn"]),
-            uo=usd(model["usdPerMTokOut"]),
             pi=paise(model["paisePer1KTokensIn"]),
             po=paise(model["paisePer1KTokensOut"]),
         )
@@ -273,11 +274,10 @@ def write_summary(
         target.banner,
         "",
         f"The catalog holds **{len(models)} models** across **{len(families)} families**, "
-        f"of which **{len(servable(models))}** are servable today. Prices are converted at "
-        f"**{fx:.1f} INR per USD** (the `usdToInr` the catalog endpoint returned when this "
-        "table was captured) and already include the 10 percent margin, so the paise "
-        "columns are what you are billed, not a figure to mark up. Working back to USD "
-        f"means multiplying by 10, then dividing by {fx:.1f} and by 1.1.",
+        f"of which **{len(servable(models))}** are servable today. The paise columns are "
+        "what you are billed, in full: there is nothing further added at invoice time. "
+        "`GET /v1/manifold/models` reports the same figures live for the models your key "
+        "can call.",
         "",
     ]
     (target.directory / f"catalog-summary{target.suffix}").write_text("\n".join(lines))
