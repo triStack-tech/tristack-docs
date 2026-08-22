@@ -1,0 +1,308 @@
+---
+title: "Billing profile"
+description: "Who your account is when it pays and how its invoices are addressed: what makes a profile complete, why an incomplete one blocks only adding money, when a PAN becomes mandatory, and the two GSTIN cross-checks."
+---
+
+Your billing profile is who this account is when it pays. One record per account, holding the
+legal name that goes on an invoice, the address it is addressed to, and the tax identifiers
+when they apply.
+
+It is deliberately separate from the wallet. The wallet is money moving; this is the
+counterparty the money moves from, and it has to be fillable before there is any money to
+move. [Wallet and billing →](/platform/wallet)
+
+## Where it lives
+
+In the dashboard, **click your name in the top right**. That opens
+`https://tristack.tech/profile`, which carries a **Complete** or **Incomplete** badge at the
+top so you never have to guess which state you are in.
+
+<Info>
+  Account session only. The profile is read and written by a signed-in owner and never by an
+  API key. A leaked key can already spend the wallet; it must not also be able to rewrite the
+  billing identity that payments are admitted on.
+</Info>
+
+## What a complete profile needs
+
+Six things, and nothing else.
+
+| Field | What it has to be |
+|---|---|
+| **Entity type** | A business or an individual |
+| **Legal name** | The registered name of the business, or the individual's full name. It goes on the invoice exactly as given |
+| **Mobile number** | An Indian mobile number. Stored in E.164 as `+91XXXXXXXXXX` |
+| **Address line 1** | A street address |
+| **City** | |
+| **State** | Chosen from the GST state list and stored as its two-digit code: `27` is Maharashtra, `07` is Delhi |
+| **PIN code** | Six digits, and it cannot start with a zero |
+
+Address line 2 is optional. Country is fixed to `IN` and is not something you send.
+
+<Note>
+  **PAN and GSTIN are not required for a profile to count as complete.** Neither one is
+  checked by the completeness rule. PAN becomes mandatory only above a payment threshold, and
+  folding it into completeness would make that threshold meaningless. GSTIN is optional for
+  everybody, always.
+</Note>
+
+The mobile number is stored the way a bank can use it: dialable Indian mobiles only, which
+means the first digit is 6 to 9. Landline and foreign numbers are refused rather than saved
+and failed later. You can type it however you like (`+91 XXXXX XXXXX`, `0XXXXXXXXXX`,
+`XXXXXXXXXX`, with spaces, dots, dashes or brackets) and it is normalised on save.
+
+## What an incomplete profile blocks
+
+**Adding money. That is the whole list.**
+
+<CardGroup cols={2}>
+  <Card title="Still works, untouched" icon="toggle-on">
+    Signing in. Creating and archiving projects. Creating, rotating and revoking API keys.
+    Every Manifold and Relay Voice call your **existing balance** can cover. Reading the
+    wallet, the ledger and usage. Nothing you have already paid for is affected.
+  </Card>
+
+  <Card title="Refused until the profile is filled in" icon="lock">
+    Starting a top-up in the dashboard. Paying through an embedded top-up window. Registering
+    a payment method for automatic top-ups, because the first refill is charged when the
+    method is added.
+  </Card>
+</CardGroup>
+
+Every way money starts passes the same check, so there is no fourth surface that skips it.
+
+<Warning>
+  **Existing accounts are asked the next time they add money, and never before.** An account
+  that predates this feature simply has no profile row, which reads as incomplete. Sign-in,
+  projects, keys and spending the balance you already hold carry on exactly as they did. The
+  first thing that stops is the next top-up.
+</Warning>
+
+One consequence worth knowing if you have wired up [embedded top-ups](/platform/embedded-topup):
+minting a top-up session is **not** gated. The window opens, the payer picks an amount, and
+the refusal arrives when the order is created. Handle `billing_profile_incomplete` on
+`POST /v1/wallet/topup-sessions/current/order`, not on the mint.
+
+## PAN: only above Rs 50,000, in one payment
+
+A PAN is required for a **single payment strictly above Rs 50,000**. The threshold in the API
+is `5000000` paise.
+
+<Warning>
+  **Exactly Rs 50,000 does not need a PAN.** The comparison is strictly greater than, so a
+  payment of `5000000` paise is admitted with no PAN on the profile and `5000001` paise is
+  not. "Above 50k" and "50k or more" are one character apart and differ on the most common
+  round number anybody types, so it is stated here rather than left to be inferred.
+</Warning>
+
+| Payment | In the dashboard form (rupees) | On the wire (paise) | PAN needed |
+|---|---|---|:---:|
+| Rs 10,000 | `10000` | `1000000` | No |
+| Rs 50,000 | `50000` | `5000000` | No, exactly the threshold is fine |
+| Rs 50,000.01 | `50000.01` | `5000001` | Yes |
+| Rs 1,00,000 | `100000` | `10000000` | Yes |
+
+Two more things about the reading:
+
+- **It is per payment, not a running total.** The check answers about the one amount in front
+  of you. There is no cumulative figure and no financial-year boundary in it, because a
+  per-payment rule is the shape a customer can predict from the number on their screen.
+- **The dashboard form takes rupees and the API takes paise.** Typing `50000` into the
+  dashboard is Rs 50,000, which needs no PAN. Sending `{ "amountPaise": 50000 }` is Rs 500.
+  [Money is always an integer in paise →](/platform/wallet)
+
+A PAN is ten characters: five letters, four digits, then one letter (`ABCDE1234F`). It is
+uppercased on save. Supplying a malformed one is refused at save time even though the field
+itself is optional: an optional field that is filled in still has to be right.
+
+<Tip>
+  Read the threshold from `panRequiredAbovePaise` on the profile response rather than
+  hardcoding 5000000. It is sent precisely so a client states the same number the server
+  enforces.
+</Tip>
+
+## GSTIN: always optional, business only
+
+Nothing on the platform requires a GSTIN. Give one if you want your registration on your
+invoices, and leave it blank otherwise.
+
+Two conditions apply when you do give one:
+
+1. **The profile has to be a business.** An individual has no GSTIN to give, and accepting
+   one would put a registration on an invoice that names a person. Switching the entity type
+   to individual in the dashboard clears the field for you.
+2. **It has to agree with the rest of the profile**, because a GSTIN carries two of those
+   fields inside it.
+
+### The two cross-checks
+
+A GSTIN is fifteen characters, and it is not an opaque string:
+
+```text 27ABCDE1234F1Z5
+27  ABCDE1234F  1  Z  5
+│   │           │  │  └── checksum
+│   │           │  └───── fixed letter
+│   │           └──────── entity number for that PAN in that state
+│   └──────────────────── characters 3 to 12: the holder's PAN
+└──────────────────────── characters 1 and 2: the state it is registered in
+```
+
+So:
+
+| Refusal | What it means | How to fix it |
+|---|---|---|
+| That GSTIN belongs to a different PAN | Characters 3 to 12 of the GSTIN are not the PAN on the profile | One of the two is from the wrong entity. Read characters 3 to 12 off the GSTIN and compare them to the PAN field character by character. This check only runs when a PAN is on file |
+| That GSTIN is registered in a different state | The first two characters are not the state code of the address on the profile | Either the address is a different office from the registration, or the GSTIN was pasted from another state's certificate. Set the state to the one the registration is under, or give that state's GSTIN |
+
+Worked through: `27ABCDE1234F1Z5` says "PAN `ABCDE1234F`, registered in Maharashtra". It saves
+only on a profile whose PAN is `ABCDE1234F` and whose state is Maharashtra. If you hold
+registrations in several states, the one on the profile is the one matching the billing
+address you are invoicing to.
+
+<AccordionGroup>
+  <Accordion title="A sole proprietor billing on a personal PAN" icon="user">
+    **Accepted, and it is meant to be.** Choose **business**, put the proprietor's own PAN in
+    the PAN field, and put the GST registration issued against it in the GSTIN field.
+
+    People expect this to be rejected because a proprietorship's GST registration embeds the
+    proprietor's individual PAN, whose fourth character marks it as a person's rather than a
+    company's. Nothing here reads that character. The only questions asked are whether the
+    PAN inside the GSTIN matches the PAN on the profile and whether the state matches, and for
+    a proprietor both of those are satisfied by their own PAN and their own address.
+
+    The one thing that does not work is choosing **individual** and then giving a GSTIN. Pick
+    business: the GST registration is the business, even when the PAN behind it is a person's.
+  </Accordion>
+
+  <Accordion title="A GSTIN with no PAN on the profile" icon="scissors">
+    Allowed. The PAN cross-check only runs when a PAN is present, so a business can save a
+    GSTIN before filling in a PAN, and only the state has to agree.
+
+    Adding the PAN later is where a mismatch surfaces. If the save is then refused, the PAN
+    you just typed is not the one the GSTIN was issued against.
+  </Accordion>
+</AccordionGroup>
+
+## The two refusals
+
+Both are `403`, and both use the standard envelope. [Errors →](/platform/errors)
+
+<CodeGroup>
+```json billing_profile_incomplete
+{
+  "error": "Complete your billing details before adding money. Open your profile from the menu in the top right.",
+  "code": "billing_profile_incomplete"
+}
+```
+
+```json pan_required
+{
+  "error": "A PAN is required for payments above Rs. 50,000. Add one to your profile, or pay a smaller amount.",
+  "code": "pan_required"
+}
+```
+</CodeGroup>
+
+| `code` | Status | What happened | What to do |
+|---|:---:|---|---|
+| `billing_profile_incomplete` | 403 | There is no profile, or one that is still missing a required field. Nothing to do with the amount | Fill the profile in from your name in the top right, then retry |
+| `pan_required` | 403 | The profile is complete, but this single payment is above Rs 50,000 and no PAN is on file | Add a PAN, or pay Rs 50,000 or less |
+
+<Note>
+  The `error` sentence is worded for the surface you hit it on: the embedded window points at
+  the Tristack dashboard, automatic top-ups mention that the first refill is charged when the
+  method is added. The `code` is identical everywhere. Branch on `code`, never on `error`.
+</Note>
+
+Neither is transient. Retrying without changing the profile or the amount produces the same
+answer for as long as you care to send it.
+
+## The endpoint
+
+Both routes answer to your account session, never to an API key.
+
+### GET `/api/v1/billing-profile`
+
+```bash Read the profile
+curl https://api.tristack.tech/api/v1/billing-profile \
+  -H "Authorization: Bearer $TRISTACK_JWT"
+```
+
+```json
+{
+  "entityType": "Business",
+  "legalName": "Example Retail Private Limited",
+  "pan": "ABCDE1234F",
+  "gstin": "27ABCDE1234F1Z5",
+  "addressLine1": "4th floor, 12 Example Road",
+  "addressLine2": null,
+  "city": "Pune",
+  "stateCode": "27",
+  "postalCode": "411001",
+  "country": "IN",
+  "phone": "+91XXXXXXXXXX",
+  "isComplete": true,
+  "panRequiredAbovePaise": 5000000,
+  "completedAt": "2026-08-21T09:01:44Z",
+  "states": [{ "code": "37", "name": "Andhra Pradesh" }]
+}
+```
+
+- `isComplete` is the answer to "may this account pay at all". It is what the two `403`s are
+  decided from.
+- `panRequiredAbovePaise` is the threshold in paise, sent so you never hardcode your own copy.
+- `completedAt` is stamped once, the first time the profile became usable, and never moved by
+  a later edit. It records when this account became able to pay.
+- `states` is the full list of selectable states, ordered by name, for building a dropdown.
+
+An account with no profile yet is answered with the empty shape and `isComplete: false`,
+**not** a `404`. Asking "what are my billing details" before you have any is a normal thing to
+do and should not need a second code path.
+
+### PUT `/api/v1/billing-profile`
+
+Requires a verified email address, like every other route that leads to a payment.
+
+```json Body
+{
+  "entityType": "Business",
+  "legalName": "Example Retail Private Limited",
+  "pan": "ABCDE1234F",
+  "gstin": "27ABCDE1234F1Z5",
+  "addressLine1": "4th floor, 12 Example Road",
+  "addressLine2": null,
+  "city": "Pune",
+  "stateCode": "27",
+  "postalCode": "411001",
+  "phone": "XXXXXXXXXX"
+}
+```
+
+<Warning>
+  **This is a whole-profile save, not a patch.** Send every field every time. Anything you
+  leave out is cleared, which is also the only way to express "remove my GSTIN".
+</Warning>
+
+The response is the saved profile in the same shape as the `GET`. What comes back is the
+normalised form: PAN and GSTIN uppercased, the phone number in E.164, whitespace trimmed. The
+rules are applied to that normalised record, so what you read back is exactly what a later
+payment is judged against.
+
+A refused save is `400` with `code` `invalid_billing_profile` and an `error` sentence naming
+the field and what is wrong with it. Only the first problem is reported, and the plainly
+missing fields are reported before the cross-field disagreements: you are told that the city
+is blank before you are told that the GSTIN disagrees with the state.
+
+## What to do next
+
+<CardGroup cols={2}>
+  <Card title="Add money" icon="wallet" href="/platform/wallet">
+    With the profile complete, top-ups behave as documented: minimum `10000` paise (Rs 100),
+    paid through checkout, credited idempotently.
+  </Card>
+
+  <Card title="Set up automatic top-ups" icon="rotate" href="/platform/auto-topup">
+    Registering a payment method needs a complete profile and a mobile number, and it needs a
+    PAN when the refill amount is above Rs 50,000.
+  </Card>
+</CardGroup>

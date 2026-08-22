@@ -1,12 +1,12 @@
 ---
 title: "Projects and keys"
-description: "Why the project is the boundary, how product switches and API keys hang off it, and what archiving one does to every key it owns."
+description: "Why the project is the boundary, how product switches, wallet top-up settings and API keys hang off it, and what archiving one does to every key it owns."
 ---
 
 An account holds the money. A **project** holds everything else: the API keys, the product
-switches, the model allowlist, the usage figures, and the caller-id number Relay Voice dials
-from. Every product request resolves to exactly one project, through the key it was
-authenticated with.
+switches, the model allowlist, the usage figures, the caller-id number Relay Voice dials
+from, and whether its keys may open a top-up window for that money. Every product request
+resolves to exactly one project, through the key it was authenticated with.
 
 ## What belongs to what
 
@@ -19,6 +19,7 @@ authenticated with.
 | Manifold and Relay Voice switches | No | Yes |
 | Manifold model allowlist | No | Yes |
 | Relay Voice caller-id number | No | Yes |
+| Wallet top-up switch and allowed origins | No | Yes |
 | Usage rows and cost attribution | No | Yes |
 
 One account can own as many projects as you like. Most teams run one per application, or one
@@ -80,6 +81,40 @@ mint a new one after flipping one.
 
 The project record also carries SMS and OTP switches. They are stored so a preference set
 today survives, and nothing reads them yet: no endpoint is gated on either.
+
+## Wallet top-up settings
+
+Two more per-project settings, and neither is a product switch. They decide whether this
+project's keys may open the Tristack-hosted top-up window from inside your own app, so the
+money they reach is the account's wallet rather than anything the project owns.
+[Top up from your own app →](/platform/embedded-topup)
+
+| Setting | What it is | Refusal |
+|---|---|---|
+| **Allow this project's keys to open the top-up window** | Off by default. On, `POST /v1/wallet/topup-sessions` will mint a session permit for a key on this project | `403 wallet_topup_disabled`, before any session exists |
+| **Allowed origins** | The exact origins that may open the window and receive its result. Up to 10 per project, empty to begin with | `403 origin_not_allowed` on a mint from anywhere else |
+
+An origin is scheme, host and port and nothing else: `https://app.example.com`,
+`https://app.example.com:8443`, or `http://localhost:3000`. Plain `http` is accepted only
+for loopback, a path is not part of an origin, and there are no wildcards. Entries are
+stored lowercased with no trailing slash and compared exactly, so a bad one is refused when
+you save it (`400 invalid_topup_origin`) rather than sitting on the list never matching
+anything, and an eleventh answers `400 too_many_topup_origins`.
+
+<Note>
+  **Both are required.** With no origin on the list, minting is refused however the switch is
+  set. The window reports its outcome by posting a message to one exact origin, and that
+  message carries the account balance: with nothing recorded there is nowhere safe to send
+  it.
+</Note>
+
+<Warning>
+  This switch hands a key a different kind of reach from the product switches above. Those
+  let a key **spend** the wallet; this one lets it open a page that **shows** the account
+  name and the account balance. It still cannot read the ledger, the top-up history, your
+  keys, or anything else on the account, and it is granted per project rather than inherited
+  for that reason.
+</Warning>
 
 ## API keys
 
@@ -225,7 +260,7 @@ Everything under `/api/v1/account` is rate limited to 10 requests per minute per
 | `/api/v1/projects` | `GET` | List your projects |
 | `/api/v1/projects` | `POST` | Create one: `{ "name": "…" }` |
 | `/api/v1/projects/{id}` | `GET` | Read one |
-| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `archived`. Omitted fields are unchanged |
+| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `walletTopUpEnabled`, `topUpAllowedOrigins`, `archived`. Omitted fields are unchanged, and `topUpAllowedOrigins` replaces the whole list rather than merging |
 | `/api/v1/projects/{id}/keys` | `POST` | Create a key: `{ "name": "…", "mode": "live" }` |
 | `/api/v1/projects/{id}/keys` | `GET` | List keys, without tokens |
 | `/api/v1/projects/{id}/keys/{keyId}` | `DELETE` | Revoke a key |

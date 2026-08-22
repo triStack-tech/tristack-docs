@@ -1,6 +1,6 @@
 ---
 title: "Errors"
-description: "The error envelope, what each HTTP status means on this API, and every documented code across Manifold and Relay Voice with what to do about it."
+description: "The error envelope, what each HTTP status means on this API, and every documented code across Manifold, Relay Voice and the wallet with what to do about it."
 ---
 
 Every failure from either product answers with the same JSON envelope, so one handler covers
@@ -32,14 +32,14 @@ Two fields ride along on specific failures:
 | `200` | Done. Manifold returns the completion; the dashboard API returns the resource |
 | `202` | Accepted, not finished. Only Relay Voice sends this: the calls have not been dialed yet |
 | `400` | The request is wrong. Nothing was charged. Retrying it unchanged fails the same way |
-| `401` | The key is not usable: missing, unknown, revoked, or its project is archived |
+| `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, or a top-up session permit that is none of ours |
 | `402` | The wallet cannot cover the estimate. Checked before any provider is called |
-| `403` | The key is fine, but this project may not do this: a product switch or an allowlist |
+| `403` | The credential is fine, but this is not permitted: a product switch, an allowlist, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
-| `410` | It existed and is gone. Only Relay Voice recordings do this |
+| `410` | It existed and is gone: a Relay Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `429` | Throttled. From the model provider, or from the rate limiter on the dashboard API |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
-| `503` | A product is switched off or half-configured on the deployment. Not your request |
+| `503` | A product or a payment feature is switched off or half-configured on the deployment. Not your request |
 
 <Note>
   A `404` for a resource that belongs to another account is deliberate and not a bug. Telling
@@ -79,17 +79,55 @@ Two fields ride along on specific failures:
 
 <Accordion title="Codes from the dashboard API" icon="gauge">
   These come from the account and wallet routes under `/api/v1`, which use your session token
-  rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`.
+  rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`, though
+  `below_minimum_topup` and `razorpay_disabled` also answer on `/v1/wallet`, where the same
+  two rules apply to an embedded top-up.
 
   - `email_unverified` (403): topping up requires a verified email address. Resend the link
     from the dashboard.
-  - `below_minimum_topup` (400): the minimum is 10000 paise (Rs 100).
+  - `below_minimum_topup` (400): the minimum is Rs 100 (`10000` paise).
   - `razorpay_disabled` (503): payments are not configured on this deployment.
   - `invalid_range` (400): `from` is later than `to` on the usage endpoint.
   - `invalid_status` (400): the usage `status` filter is not one of `all`, `succeeded`,
     `failed`, `provider_error`.
   - `invalid_request` (400): a validation failure, with `fields` naming what to fix.
 </Accordion>
+
+## Wallet and top-up codes
+
+These come off the money surfaces rather than off a product: minting a top-up window from
+your own app, the hosted window itself, automatic top-ups, and the billing profile every
+payment is judged against. Same envelope, same rule about `code`.
+[Automatic top-ups →](/platform/auto-topup)
+
+| `code` | Status | Surface | What happened | What to do |
+|---|:---:|---|---|---|
+| `wallet_topup_disabled` | 403 | Embedded top-up | The project's **allow this project's keys to open the top-up window** switch is off. Refused before any session exists | Turn it on in the project's settings. It applies to the next mint, with no new key |
+| `origin_not_allowed` | 403 | Embedded top-up | The `origin` you sent is not on the project's allowed-origins list, or is not a usable origin at all. Both answer identically | Add the exact origin (scheme, host and port, no path) in the project's settings. The usual cause is a forgotten entry, not a typo in the code |
+| `account_owner_unverified` | 403 | Embedded top-up | The account owner's email address is not verified. This is the API-key equivalent of the check the dashboard applies before it takes a payment | Verify the owner's address from the dashboard, then mint again |
+| `invalid_return_url` | 400 | Embedded top-up | Redirect mode with no `returnUrl`, or one that does not sit on `origin` | Send a `returnUrl` on the same origin. The binding is what stops it becoming an open redirect wearing a Tristack address |
+| `topup_session_invalid` | 401 | Hosted window | The permit is missing, unknown, or not one of ours | Mint a fresh session from your backend. Never retry the same URL |
+| `topup_session_expired` | 410 | Hosted window | Fifteen minutes passed with no payment, or a paid window sat open past its confirmation grace | Mint a fresh session |
+| `topup_session_used` | 410 | Hosted window | The permit already opened an order. A reloaded window, or a stale URL out of browser history, lands here | Mint a fresh session |
+| `auto_topup_unavailable` | 503 | Auto top-up | Recurring payments are not available on this deployment. Answered by the two calls that arm the arrangement: adding a payment method and switching it on | Nothing you can fix. Manual top-ups are unaffected |
+| `no_mandate` | 502 or 400 | Auto top-up | `502` after registration: the payment succeeded and **the wallet was credited**, but the bank returned no usable mandate. `400` on switching it on: there is no saved payment method to arm | Register a payment method again, or use a different card. Never read the `502` as a failed payment |
+| `invalid_contact` | 400 | Auto top-up | Your billing profile carries no mobile number, and a bank will not authorise a standing instruction for a customer it cannot reach | Add a mobile number to the profile, then set the payment method up again |
+| `billing_profile_incomplete` | 403 | Any payment | The account has no usable billing profile, so it may not pay at all. Checked on every path money can start: the dashboard, an embedded window, mandate registration and the unattended charge | Complete the billing details on your profile in the dashboard |
+| `pan_required` | 403 | Any payment | The profile is complete, but this single payment is above Rs 50,000 and no PAN is on file. Strictly above, so exactly Rs 50,000 needs none | Add a PAN to the profile, or pay a smaller amount |
+| `invalid_billing_profile` | 400 | Billing profile | Saving the profile failed one of its rules. `error` names which, for example a GSTIN whose embedded PAN disagrees with the PAN given | Fix the field named and save again |
+
+The last three are the billing identity a payment is admitted on rather than anything about
+the request. What makes a profile complete, and why exactly Rs 50,000 needs no PAN, is on its
+own page.
+[Billing profile →](/platform/billing-profile)
+
+<Note>
+  The three session codes are the reason `410` is not a Relay Voice recording story alone.
+  They reach your app as a window telling the payer it cannot continue, not as a response to
+  a call your backend made, and all three mean one thing: the permit is spent, and the fix is
+  a new one.
+  [Top up from your own app →](/platform/embedded-topup)
+</Note>
 
 ## What an error costs
 

@@ -17,10 +17,17 @@ wallet, and it must not also be able to put a card on file.
 The balance is checked against your threshold every fifteen minutes. Below it, a refill cycle
 starts and adds your refill amount to the wallet. Above it, nothing happens at all.
 
-The threshold defaults to 10000 paise (Rs 100), which is also the smallest the dashboard
-accepts, and it is tunable up to Rs 100,000. As everywhere else in the platform, these are
-integer paise: Rs 100 is `10000`, Rs 500 is `50000`, and there is no rupee field anywhere in
-the API.
+The threshold defaults to **Rs 100**, which is also the smallest the dashboard accepts, and
+it is tunable up to Rs 100,000.
+
+<Note>
+  **The wallet page takes rupees.** All three amounts below are rupee fields: type `500` for
+  Rs 500, not `50000`. The dashboard converts to paise before it saves, because the API
+  underneath is integer paise like everything else on the platform, and you only meet those
+  paise if you call it yourself. `PATCH /api/v1/wallet/auto-topup` takes `thresholdPaise`,
+  `amountPaise` and `dailyCapPaise`; `GET /v1/wallet` reports `autoTopUpThresholdPaise`.
+  [Money is always an integer in paise →](/platform/wallet)
+</Note>
 
 ## A charge is never immediate
 
@@ -65,9 +72,9 @@ that decides whether you stay online.
 
 | A normal day costs you | A threshold that survives the notice window |
 |---|---|
-| Rs 50 | Rs 100 (10000 paise), the default |
-| Rs 400 | Rs 600 (60000 paise) |
-| Rs 2,000 | Rs 3,000 (300000 paise) |
+| Rs 50 | Rs 100, the default |
+| Rs 400 | Rs 600 |
+| Rs 2,000 | Rs 3,000 |
 
 Raising the threshold means raising the other two amounts with it. The refill has to be
 **more** than the threshold, and it cannot exceed the daily cap, so a Rs 3,000 threshold
@@ -108,10 +115,18 @@ as a failure:
     Threshold, refill amount and daily cap. The refill amount has to be more than the
     threshold, and the dashboard refuses the combination if it is not.
   </Step>
-  <Step title="Give a mobile number" icon="phone">
-    An Indian mobile number, on the same panel. Your bank will not authorise a standing
-    instruction for a customer it has no number to reach, so this is required before the next
-    step and is not something Tristack holds anywhere else.
+  <Step title="Complete your billing profile" icon="id-card">
+    Open **Profile** from the menu in the top right and fill in the billing details, an Indian
+    mobile number among them. **The number is read from the profile**, not from a field on the
+    wallet page: your bank will not authorise a standing instruction for a customer it has no
+    number to reach, and taking it from anywhere else would let a mandate be authorised
+    against a number the billing identity does not claim.
+
+    An incomplete profile answers `403 billing_profile_incomplete`, and a complete one with no
+    mobile number answers `400 invalid_contact`. A refill above Rs 50,000 needs a PAN on the
+    profile as well, because the registration charge is that refill: without one it answers
+    `403 pan_required`.
+    [Billing profile →](/platform/billing-profile)
   </Step>
   <Step title="Add a payment method" icon="credit-card">
     Checkout opens and you authorise a mandate: a standing permission for Tristack to charge
@@ -146,9 +161,13 @@ as a failure:
 
 | Amount | Default | Protects you against |
 |---|---|---|
-| **Threshold** | 10000 paise (Rs 100) | Running out. It is the trigger point, and its real job is to cover the notice window |
-| **Refill amount** | 50000 paise (Rs 500) | Topping up too little to matter. It is what lands in the wallet each time, and what the registration charge costs |
-| **Daily cap** | 200000 paise (Rs 2,000) | A mistake. It is the ceiling on what automatic top-ups may spend in any rolling 24 hours |
+| **Threshold** | Rs 100 | Running out. It is the trigger point, and its real job is to cover the notice window |
+| **Refill amount** | Rs 500 | Topping up too little to matter. It is what lands in the wallet each time, and what the registration charge costs |
+| **Daily cap** | Rs 2,000 | A mistake. It is the ceiling on what automatic top-ups may spend in any rolling 24 hours |
+
+Those are the figures you type on the wallet page. The same three defaults reach
+`PATCH /api/v1/wallet/auto-topup` as `thresholdPaise: 10000`, `amountPaise: 50000` and
+`dailyCapPaise: 200000`, because that is the surface where amounts are paise.
 
 <Warning>
   **The refill amount must be more than the threshold.** Refill Rs 100 against a Rs 100
@@ -244,8 +263,10 @@ were.
   Automatic top-ups need recurring payments approved on the deployment's payment account.
   That is a separate approval from ordinary payments, granted separately, so a deployment can
   take one-off payments perfectly well and still not be able to charge a mandate. Where it has
-  not been granted, the feature answers `503 auto_topup_unavailable` and the dashboard does
-  not offer it.
+  not been granted, the two calls that arm the arrangement (adding a payment method, and
+  switching it on) answer `503 auto_topup_unavailable`. The panel still appears and still
+  saves your three amounts, so they are ready the day it becomes available; it just says so
+  and greys out the buttons that would arm it.
 
   **Manual top-ups always work regardless.** Nothing about automatic top-ups being unavailable,
   off, unfinished or suspended affects your ability to add money by hand, in the dashboard or
@@ -254,6 +275,7 @@ were.
 
 Your own backend can see where an account stands without anyone opening the dashboard.
 `GET /v1/wallet` returns `autoTopUpState` and `autoTopUpThresholdPaise` next to the balance,
-and its `lowBalance` flag is measured against your threshold whenever one is armed, so every
-integration means the same thing by "low".
+both in paise, and its `lowBalance` flag is measured against your threshold whenever an
+arrangement is armed (`Active` or `AwaitingMandate`) and against the Rs 100 minimum top-up
+otherwise, so every integration means the same thing by "low".
 [Top up from your own app →](/platform/embedded-topup)

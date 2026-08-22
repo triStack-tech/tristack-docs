@@ -71,6 +71,7 @@
             "pages": [
               "platform/projects-and-keys",
               "platform/wallet",
+              "platform/billing-profile",
               "platform/embedded-topup",
               "platform/auto-topup",
               "platform/errors",
