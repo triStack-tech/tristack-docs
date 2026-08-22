@@ -256,3 +256,18 @@ answers "what moved in the wallet".
 
 One thing it does not include: the Relay Voice activation fee. That is account spend rather
 than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.
+
+## Other ways to add money
+
+<CardGroup cols={2}>
+  <Card title="Top up from your own app" icon="window-maximize" href="/platform/embedded-topup">
+    Your backend mints a single-use permit and your page opens a Tristack-hosted top-up
+    window, so the account holder adds money without leaving your product.
+  </Card>
+
+  <Card title="Automatic top-ups" icon="rotate" href="/platform/auto-topup">
+    Refill from a saved payment method whenever the balance falls below a threshold you set,
+    with about a day's notice by email before every charge.
+  </Card>
+</CardGroup>
+

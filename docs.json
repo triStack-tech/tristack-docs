@@ -71,6 +71,8 @@
             "pages": [
               "platform/projects-and-keys",
               "platform/wallet",
+              "platform/embedded-topup",
+              "platform/auto-topup",
               "platform/errors",
               "platform/for-llms",
               "platform/support"
@@ -94,6 +96,13 @@
               "api-reference/relay-voice/send",
               "api-reference/relay-voice/job",
               "api-reference/relay-voice/voices"
+            ]
+          },
+          {
+            "group": "Wallet",
+            "pages": [
+              "api-reference/wallet/topup-sessions",
+              "api-reference/wallet/balance"
             ]
           }
         ]

@@ -1,0 +1,214 @@
+---
+title: "Open a top-up window"
+description: "POST /v1/wallet/topup-sessions: mint a single-use permit from your backend, every request field, the four response fields, and every error code with its fix."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/wallet/topup-sessions` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+Mints a single-use permit that opens a Tristack-hosted top-up window inside your own app, so
+the account holder adds money without ever coming to the dashboard. It answers `200` with an
+address to open and a token that exists only in that one response.
+
+Only your backend knows which of your signed-in people may spend the company's money, so
+Tristack never tries to work it out. Your server vouches for the payer by minting the permit,
+and the browser presents nothing else. The wiring on both sides, the click handler, the
+`postMessage` checks and the redirect fallback, is on
+[Top up from your own app](/platform/embedded-topup).
+
+## Server to server, in both directions
+
+<Warning>
+  **Call this from your backend. Never from a browser.**
+
+  The request carries a project API key, and a key that reaches a page is a key that can be
+  read out of it. The `token` in the response is the exact opposite: **it must reach a browser
+  and nowhere else.** Hand it, or the `url` that already carries it, straight to the window you
+  open. Do not log it, store it, email it, put it in a query string, or send it back through
+  any other service.
+
+  The two credentials never meet. The API key opens no top-up window, and the token reads no
+  project.
+</Warning>
+
+## Before the first call
+
+<Note>
+  Two per-project settings in the dashboard, both required, or minting is refused however the
+  other one is set:
+
+  - Switch on **"Allow this project's keys to open the top-up window"**, or every mint answers
+    `403 wallet_topup_disabled`.
+  - Add at least one **allowed origin**. Without one, the window's result message has nowhere
+    safe to go.
+
+  A key with this capability can also read the account balance and the account name on the
+  hosted page. It also exposes the account owner's email address, which prefills the payment form. It
+still cannot read the ledger, the top-up history, your other API keys, or anything else
+on the account. [Projects and keys →](/platform/projects-and-keys)
+</Note>
+
+## Mint a session
+
+```bash curl
+curl https://api.tristack.tech/v1/wallet/topup-sessions \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "https://app.example.com",
+    "amountPaise": 50000,
+    "mode": "popup",
+    "reference": "invoice 4471"
+  }'
+```
+
+## Request
+
+<ParamField body="origin" type="string" required>
+  The web origin that will open the window, for example `https://app.example.com`. It **must
+  already be on the project's allowed-origin list** in the dashboard. Anything else is
+  `403 origin_not_allowed`.
+
+  An origin is **scheme, host and port, and nothing else**. A value carrying a path, a query
+  string, a fragment or credentials is refused rather than trimmed, because trimming
+  `https://app.example.com/topup` would store something a browser will never send. Case and a
+  trailing slash are normalized away before the comparison, so `HTTPS://App.Example.com/` and
+  `https://app.example.com` are the same entry.
+
+  Plain `http` is accepted only for loopback (`http://localhost:3000`), which is where the
+  integration gets written. On a real host it would put the session token, and the balance that
+  comes back, on the wire in the clear.
+</ParamField>
+
+<ParamField body="amountPaise" type="integer">
+  What the payer is being asked for, in **paise**. Rs 100 is `10000` and Rs 500 is `50000`.
+
+  **Preset it and the payer cannot change it.** The window shows that amount and the server
+  charges it, ignoring whatever the page sends back, which is the whole point of presetting it.
+  **Omit it and the payer chooses** on the window instead.
+
+  The minimum top-up is `10000` paise (Rs 100). A smaller number here is `400
+  below_minimum_topup` at mint time; omit the field and the same floor is applied to whatever
+  the payer types.
+</ParamField>
+
+<ParamField body="mode" type="string" default="popup">
+  How the window is opened, `popup` or `redirect`. Any other value is a `400` naming the field.
+
+  In `popup` mode the hosted page reports its result back to `origin` with `postMessage`, and
+  your page stays where it is. In `redirect` mode the browser leaves and comes back to your
+  `returnUrl` with `?tristack_topup=credited|pending|cancelled`. Use `redirect` on
+  mobile, or anywhere a popup would be blocked.
+
+  <Warning>
+    Whichever mode you use, the query value and the posted message are hints for your loading
+    state only. Confirm the money with [`GET /v1/wallet`](/api-reference/wallet/balance): anything in a URL
+    the user's own browser carried is something the user can rewrite.
+  </Warning>
+</ParamField>
+
+<ParamField body="returnUrl" type="string">
+  Where the browser is sent when the window is finished. **Required in `redirect` mode**,
+  ignored in `popup` mode.
+
+  It must be absolute and **on `origin`**: same scheme, same host, same port. That binding is
+  what stops the return URL becoming an open redirect wearing a Tristack address, so a missing
+  or off-origin value is `400 invalid_return_url` rather than a silently dropped field.
+</ParamField>
+
+<ParamField body="reference" type="string">
+  Your own label for this top-up, up to 128 characters, **shown to the payer** on the window.
+  An invoice number or an order id both work. Tristack never interprets it. Anything longer is
+  truncated to 128 characters rather than refused.
+</ParamField>
+
+```json Let the payer choose the amount, and come back on mobile
+{
+  "origin": "https://app.example.com",
+  "mode": "redirect",
+  "returnUrl": "https://app.example.com/billing/done"
+}
+```
+
+## Response
+
+`200 OK`.
+
+```json 200 OK
+{
+  "sessionId": "5c9b0f22-9d51-4a2e-9e4f-0d6f3a71b2c8",
+  "token": "tsx_hcx6znpebwJr9Iw3sb-idCpMhGuaFQ_DcgxSlnbHDVw",
+  "url": "https://api.tristack.tech/topup.html#tsx=tsx_hcx6znpebwJr9Iw3sb-idCpMhGuaFQ_DcgxSlnbHDVw",
+  "expiresAt": "2026-08-21T18:37:03Z"
+}
+```
+
+<ResponseField name="sessionId" type="string">
+  A UUID naming this session on our side. Safe to log and to quote to support: it is not a
+  credential and cannot open anything.
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  The permit. `tsx_` plus 43 characters of base64url.
+
+  **Shown exactly once.** Only its SHA-256 hash is stored, so it cannot be retrieved again by
+  you or by us, and a read-only leak of the sessions table hands an attacker nothing usable.
+  Lose it and the fix is to mint another session, which costs nothing.
+
+  It is **single use**: the moment the window opens its payment the permit is spent, and
+  presenting it again answers `410 topup_session_used`. It **expires 15 minutes** after minting,
+  so mint it when the payer clicks rather than ahead of time. A payment already in flight keeps
+  a longer grace to confirm itself, because the bank can take longer than the permit's whole
+  lifetime and the money has left by then.
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  The address to open. It already carries the token, so open this rather than assembling your
+  own.
+
+  The token rides in the URL **fragment** (`#tsx=…`), never the query string. A fragment is
+  never sent to a server, which keeps the token out of our access logs, out of any proxy's, and
+  out of the `Referer` header on anything the page links to. The hosted page reads it from
+  `location.hash`.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  UTC ISO-8601 timestamp, 15 minutes after the mint. After it, an unused permit answers
+  `410 topup_session_expired` and your app should mint a fresh one.
+</ResponseField>
+
+<Note>
+  Tristack is the single source of truth for the balance, and anything you hold is a cache. When
+  the window reports back, refresh from [`GET /v1/wallet`](/api-reference/wallet/balance) rather than adding
+  the amount to a number of your own: an integration that keeps its own authoritative balance
+  ends up with two balances and no way to say which is right.
+</Note>
+
+## Errors
+
+```json
+{ "error": "A human-readable sentence.", "code": "snake_case_code" }
+```
+
+Every one of these is refused before any Razorpay order exists, so nothing is charged and no
+window opens.
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
+| 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `wallet_topup_disabled` | The project's keys are not allowed to open the top-up window. It is off on every new project. | Switch on "Allow this project's keys to open the top-up window" in the dashboard, under that project's settings. |
+| 403 | `origin_not_allowed` | `origin` is not on the project's list, or is not a usable origin at all: it carries a path, a query, a fragment or credentials, or it is plain `http` on something that is not localhost. | Add the exact origin in the dashboard, under the project's settings, and send scheme and host with no path. The `error` sentence quotes back what you sent. |
+| 403 | `account_owner_unverified` | The account owner's email address has never been verified. This is the API-key equivalent of the dashboard's verified-email gate, so an embedded window cannot become the way around it. | Have the owner verify their address from the dashboard, then retry. Nothing about the request needs to change. |
+| 400 | `invalid_return_url` | `mode` is `redirect` and `returnUrl` is missing, relative, or on a different origin than `origin`. | Send an absolute URL on the same scheme, host and port as `origin`. It is bound there on purpose: an unbound return URL is an open redirect. |
+| 400 | `below_minimum_topup` | `amountPaise` is under the `10000` paise (Rs 100) minimum. Remember the field is paise, so Rs 100 is `10000`, not `100`. | Send at least `10000`, or omit `amountPaise` and let the payer pick. |
+| 400 | (none) | `mode` is neither `popup` nor `redirect`. | Send one of the two, or omit the field for `popup`. |
+| 503 | `razorpay_disabled` | Payments are not configured on this deployment, so no order could be created even if the window opened. | Nothing you can fix in the request. Retry later or [contact support](mailto:support@tristack.tech). |
+
+<Note>
+  The three session codes (`401 topup_session_invalid`, `410 topup_session_expired`,
+  `410 topup_session_used`) belong to the hosted page, not to this endpoint. If your app ever
+  sees one bubble back, they all mean the same thing to you: mint a fresh session.
+</Note>

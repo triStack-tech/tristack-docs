@@ -1,0 +1,254 @@
+---
+title: "Automatic top-ups"
+description: "Refill the wallet from a saved payment method before it runs dry: why a charge is never immediate, how to size the threshold around that, and what the four states mean."
+---
+
+Automatic top-ups are a standing instruction. When the wallet falls below a threshold you
+set, Tristack refills it from a payment method you have saved, so a call is never refused at
+three in the morning because nobody was watching the balance.
+[Wallet and billing →](/platform/wallet)
+
+Everything below is set up on the **Wallet** page in the dashboard, under your account
+session. It is deliberately not on the API-key surface: a leaked key can already spend the
+wallet, and it must not also be able to put a card on file.
+
+## What it does
+
+The balance is checked against your threshold every fifteen minutes. Below it, a refill cycle
+starts and adds your refill amount to the wallet. Above it, nothing happens at all.
+
+The threshold defaults to 10000 paise (Rs 100), which is also the smallest the dashboard
+accepts, and it is tunable up to Rs 100,000. As everywhere else in the platform, these are
+integer paise: Rs 100 is `10000`, Rs 500 is `50000`, and there is no rupee field anywhere in
+the API.
+
+## A charge is never immediate
+
+<Warning>
+  **The money does not arrive the moment the threshold trips.** RBI's e-mandate framework
+  requires the payer to be notified before every recurring debit, so the cycle is always
+  threshold tripped, notice email, then the charge roughly **24 hours** later.
+
+  **Size your threshold to cover about a day of your own spend.** This is the one number on
+  the page that people get wrong. A threshold sized for an hour of traffic empties the wallet
+  inside the notice window, and the refill then lands *after* the outage instead of before
+  it, which is the exact failure this feature exists to prevent.
+</Warning>
+
+<Steps>
+  <Step title="The balance crosses the threshold" icon="arrow-trend-down">
+    The check that finds it opens one cycle and records the balance that triggered it. At most
+    one cycle per account is ever open, so a balance that keeps falling during the wait does
+    not stack up a second notice or a second charge.
+  </Step>
+  <Step title="A notice email goes out" icon="envelope">
+    Sent to the account owner. It names the amount, the last four digits of the payment
+    method, and the earliest moment the charge can happen. **Nothing has been charged at this
+    point.**
+  </Step>
+  <Step title="Roughly 24 hours pass" icon="clock">
+    The wallet carries on being spent normally throughout. This is the window your threshold
+    has to be big enough to survive.
+  </Step>
+  <Step title="The charge is presented" icon="credit-card">
+    The saved payment method is charged and the wallet is credited through the same path as a
+    manual top-up, so it appears in the ledger as an ordinary `Topup` row. Recurring payments
+    settle asynchronously, so the credit can land a few minutes after the charge.
+  </Step>
+</Steps>
+
+### Sizing the threshold
+
+Take what the account spends on a normal day and set the threshold at least that high, then
+add headroom for a busy one. The refill amount can be generous; the threshold is the number
+that decides whether you stay online.
+
+| A normal day costs you | A threshold that survives the notice window |
+|---|---|
+| Rs 50 | Rs 100 (10000 paise), the default |
+| Rs 400 | Rs 600 (60000 paise) |
+| Rs 2,000 | Rs 3,000 (300000 paise) |
+
+Raising the threshold means raising the other two amounts with it. The refill has to be
+**more** than the threshold, and it cannot exceed the daily cap, so a Rs 3,000 threshold
+needs a refill above Rs 3,000 and a cap at least as large as that refill. Left at the
+Rs 2,000 default cap, that arrangement will not save.
+
+Remember that Manifold reserves `max_tokens` in full while a request is in flight, so the
+balance a threshold has to outlast is the held one, not the settled one.
+[How holds work →](/platform/wallet)
+
+### What stands a charge down
+
+Once a notice is out, three things cancel the charge before it happens. None of them counts
+as a failure:
+
+- **The balance recovers on its own.** A refund, a released hold, or simply less traffic than
+  expected puts you back above the threshold, and the cycle stands down.
+- **You top up by hand during the notice period.** Same thing: the balance is above the
+  threshold when the charge comes due, so nothing is charged. This is the deliberate way to
+  cancel a pending automatic charge you did not want.
+- **You switch automatic top-ups off during the notice period.** The state is re-read at the
+  moment of the charge, not at the moment of the notice.
+
+<Note>
+  **No notice, no charge.** If the deployment cannot send email, no cycle is started at all.
+  There is no way to give the notice the rules require, and charging without it is not an
+  option, so the balance is left alone rather than quietly debited.
+</Note>
+
+## Setting it up
+
+<Steps>
+  <Step title="Open the wallet page" icon="wallet">
+    Automatic top-ups live in their own panel there. Your email has to be verified before you
+    can register a payment method, exactly as for a manual top-up.
+  </Step>
+  <Step title="Set the three amounts" icon="sliders">
+    Threshold, refill amount and daily cap. The refill amount has to be more than the
+    threshold, and the dashboard refuses the combination if it is not.
+  </Step>
+  <Step title="Add a payment method" icon="credit-card">
+    Checkout opens and you authorise a mandate: a standing permission for Tristack to charge
+    that instrument later, up to a ceiling, without you being present. Read the warning below
+    before you click through this step.
+  </Step>
+  <Step title="Check that it reads On" icon="circle-check">
+    The panel then shows the last four digits of the instrument, the per-charge ceiling it was
+    registered with, and when the mandate itself expires. Mandates are registered for five
+    years, so re-registration is rare.
+  </Step>
+</Steps>
+
+<Warning>
+  **Registering a payment method is a real charge, not a token one.** Card networks will not
+  authorise a mandate on a zero-value transaction, so the first refill doubles as the
+  registration payment: your refill amount is taken then and there, and it credits your wallet
+  like any other top-up.
+
+  It is not Rs 1 that gets reversed, and it is not an extra charge on top of your first
+  automatic refill. Expect that amount on your card statement dated the day you set this up.
+</Warning>
+
+<Note>
+  Occasionally the payment succeeds and the bank returns no usable mandate. **The money is not
+  lost**: it is credited to the wallet exactly like a manual top-up. Only the automatic part
+  failed, so the panel stays on "setup unfinished" and you can register again or use a
+  different card. Do not read that message as a failed payment.
+</Note>
+
+## The three amounts, and what each protects
+
+| Amount | Default | Protects you against |
+|---|---|---|
+| **Threshold** | 10000 paise (Rs 100) | Running out. It is the trigger point, and its real job is to cover the notice window |
+| **Refill amount** | 50000 paise (Rs 500) | Topping up too little to matter. It is what lands in the wallet each time, and what the registration charge costs |
+| **Daily cap** | 200000 paise (Rs 2,000) | A mistake. It is the ceiling on what automatic top-ups may spend in any rolling 24 hours |
+
+<Warning>
+  **The refill amount must be more than the threshold.** Refill Rs 100 against a Rs 100
+  threshold and the balance lands straight back in the trigger zone: the next check trips
+  again, another notice goes out, and the card is charged over and over for a wallet that is
+  never above water. The dashboard refuses that combination rather than letting you find it on
+  your statement. A refill worth several times the threshold is the comfortable shape.
+</Warning>
+
+Every rule is checked when you save, so nothing here can be discovered later by a worker:
+
+| Rule | Refused with |
+|---|---|
+| Threshold between Rs 100 and Rs 100,000 | `400 invalid_threshold` |
+| Refill amount between Rs 100 and Rs 100,000 | `400 invalid_amount` |
+| Refill amount more than the threshold | `400 amount_below_threshold` |
+| Refill amount no larger than the daily cap | `400 amount_above_daily_cap` |
+| Refill amount no larger than the ceiling on the saved payment method | `400 amount_above_mandate_limit` |
+
+### About the daily cap
+
+It counts only what automatic top-ups themselves have charged in the last 24 hours. Your own
+manual top-ups do not count against it, and the window rolls rather than resetting at
+midnight.
+
+A refill that would breach the cap is refused outright rather than trimmed to fit, because a
+part-refill would land back under the threshold and trigger again immediately. The wallet is
+therefore allowed to run down and a manual top-up is the fix, which is the correct behaviour
+for a limit that exists to bound a mistake.
+
+The cap does one more thing: it is the per-charge ceiling written into the mandate at the card
+network when you register. Raising the refill amount past a ceiling already burned in needs
+the payment method added again, because raising the cap in the dashboard cannot move a limit
+the network is holding.
+
+## The four states
+
+| Dashboard | State | What it means |
+|---|---|---|
+| **Off** | `Disabled` | The default, and where switching it off returns it. Any saved payment method is kept |
+| **Setup unfinished** | `AwaitingMandate` | Asked for, no usable payment method yet: the registration payment was not completed, or it completed without the bank confirming a mandate. Nothing is watched and nothing is charged |
+| **On** | `Active` | A confirmed payment method is on file and the balance is being watched. The only state that ever starts a cycle |
+| **Stopped after failed charges** | `Suspended` | The platform stopped it after three charges failed in a row |
+
+### Stopped after failed charges
+
+**Three consecutive failed charges suspend automatic top-ups and send you an email.** Three
+declines is a dead instrument rather than a bad afternoon, and a fourth attempt would only add
+another line to your statement without adding a rupee to your wallet.
+
+The two usual causes, in order:
+
+- **The card expired.** Easily the most common, and invisible until the first charge after the
+  expiry date.
+- **The mandate was cancelled at the bank.** Someone revoked the standing instruction in the
+  banking app, or the issuer reissued the card with a new number and did not carry the mandate
+  across.
+
+Any successful charge resets the streak to zero. Switching automatic top-ups back on also
+clears it, deliberately: an arrangement you have looked at and re-armed on purpose deserves a
+full set of attempts rather than one. If the instrument itself is dead, re-arming against it
+simply fails again, so add the payment method afresh instead.
+
+Suspended is kept separate from Off for one reason: you did not ask for it, so you have to be
+told about it.
+
+## Turning it off, and removing the payment method
+
+Two different levers, and the difference matters:
+
+| | Switch off | Remove the payment method |
+|---|:---:|:---:|
+| Refills stop | Yes | Yes |
+| Saved payment method | Kept | Forgotten by Tristack |
+| Turning it back on later | One click | Register again, with a real charge again |
+| A cycle already in its notice window | Stood down, nothing charged | Stood down, nothing charged |
+
+<Warning>
+  **Removing the payment method does not cancel the mandate at your bank.** It removes our
+  reference to it, so Tristack can no longer present it and never will again. The mandate
+  itself is an instruction registered at the card network, and only your card issuer can
+  revoke it. Do that in your bank's app or by asking them, the same way you would end any
+  other standing instruction.
+</Warning>
+
+Nothing here is destructive to your money. Switching off, removing the instrument and being
+suspended all leave the wallet balance, the ledger and every completed top-up exactly as they
+were.
+
+## Availability
+
+<Note>
+  Automatic top-ups need recurring payments approved on the deployment's payment account.
+  That is a separate approval from ordinary payments, granted separately, so a deployment can
+  take one-off payments perfectly well and still not be able to charge a mandate. Where it has
+  not been granted, the feature answers `503 auto_topup_unavailable` and the dashboard does
+  not offer it.
+
+  **Manual top-ups always work regardless.** Nothing about automatic top-ups being unavailable,
+  off, unfinished or suspended affects your ability to add money by hand, in the dashboard or
+  from your own app.
+</Note>
+
+Your own backend can see where an account stands without anyone opening the dashboard.
+`GET /v1/wallet` returns `autoTopUpState` and `autoTopUpThresholdPaise` next to the balance,
+and its `lowBalance` flag is measured against your threshold whenever one is armed, so every
+integration means the same thing by "low".
+[Top up from your own app →](/platform/embedded-topup)

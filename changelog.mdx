@@ -12,6 +12,36 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-08-22" description="Embedded top-up window and automatic top-ups">
+
+  Two new ways to put money in the wallet. Both credit the same account balance every
+  product spends from, and neither changes how a request is priced, held or settled.
+
+  **Top up from your own app**
+
+  - `POST /v1/wallet/topup-sessions` mints a single-use permit from your backend, and your
+    page opens a Tristack-hosted top-up window with it, so the account holder adds money
+    without ever coming to the dashboard. The permit expires in fifteen minutes and rides in
+    the URL fragment, so it never reaches a server log.
+  - `GET /v1/wallet` reads the balance with the same project API key: `balancePaise`,
+    `minTopUpPaise`, `lowBalance`, and where automatic top-up stands. Amounts are integer
+    paise as everywhere else, so Rs 100 is `10000`.
+  - Both need switching on per project in the dashboard, with at least one allowed origin.
+    See [Top up from your own app](/platform/embedded-topup).
+
+  **Automatic top-ups**
+
+  - Set a threshold on the Wallet page in the dashboard and the wallet refills itself from a
+    saved payment method. Dashboard only, never the API-key surface.
+  - A charge is never immediate. RBI's e-mandate framework requires notice before every
+    recurring debit, so a tripped threshold sends an email and the charge follows roughly
+    24 hours later. Size the threshold to cover about a day of your own spend, or the refill
+    lands after the outage instead of before it.
+  - Manual top-ups are unaffected whether automatic top-ups are unavailable, off or
+    suspended. See [Automatic top-ups](/platform/auto-topup).
+
+</Update>
+
 <Update label="2026-08-21" description="Manifold prices corrected to the published rate">
 
   <Warning>

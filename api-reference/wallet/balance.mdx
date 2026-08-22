@@ -1,0 +1,179 @@
+---
+title: "Read the balance"
+description: "GET /v1/wallet: the account balance in paise, whether it counts as low, and where automatic top-up stands, for your own backend to display."
+---
+
+<Info>
+  `GET https://api.tristack.tech/v1/wallet` · Auth: `Authorization: Bearer tsk_live_…` or
+  `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+The balance read for your **backend**: enough to put the number on a screen and to decide
+when to offer a top-up, and deliberately nothing more. Pair it with
+[`POST /v1/wallet/topup-sessions`](/api-reference/wallet/topup-sessions) and the account
+holder adds money without ever leaving your app.
+
+```bash Read the balance
+curl https://api.tristack.tech/v1/wallet \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "balancePaise": 4820,
+  "minTopUpPaise": 10000,
+  "lowBalance": true,
+  "autoTopUpThresholdPaise": 20000,
+  "autoTopUpState": "Active"
+}
+```
+
+Every amount here is an integer number of **paise**, never rupees and never a float. Rs 100
+is `10000`, so the account above holds Rs 48.20 against a Rs 200 refill threshold.
+[Wallet and billing →](/platform/wallet)
+
+## Response
+
+<ResponseField name="balancePaise" type="integer">
+  The spendable balance, in paise, at the moment of the read.
+
+  The wallet belongs to the **account**, not to the project the key was minted in. Two keys
+  from two different projects on the same account read the same number and spend the same
+  money. [Projects and keys →](/platform/projects-and-keys)
+
+  Money already reserved by a hold is not in this figure: a hold subtracts from the balance
+  when it is taken and is handed back at settlement, so what you read is what a new request
+  can actually draw on.
+</ResponseField>
+
+<ResponseField name="minTopUpPaise" type="integer">
+  The smallest top-up the platform will accept, `10000` paise (Rs 100).
+
+  It is the floor `amountPaise` is checked against when you mint a top-up window, and the
+  floor applied to whatever the payer types when you let them choose the amount. Anything
+  under it is `400 below_minimum_topup`.
+</ResponseField>
+
+<ResponseField name="lowBalance" type="boolean">
+  Whether the balance has fallen below this account's own idea of low. The exact rule is
+  below: read it before you build a warning banner on top of this field.
+</ResponseField>
+
+<ResponseField name="autoTopUpThresholdPaise" type="integer | null">
+  The balance at which the account's automatic refill trips, in paise.
+
+  `null` when automatic top-up is not armed, which covers `Disabled` and `Suspended` alike.
+  A threshold that nothing will act on is not reported as a threshold.
+</ResponseField>
+
+<ResponseField name="autoTopUpState" type="string">
+  Where automatic top-up stands on the account. One of four values:
+
+  | Value | Meaning | Armed |
+  |---|---|:---:|
+  | `Disabled` | Never set up, or switched off by the account owner. The default. | No |
+  | `AwaitingMandate` | Asked for, with no usable bank mandate on file yet. | Yes |
+  | `Active` | Armed against a mandate, refilling when the threshold is crossed. | Yes |
+  | `Suspended` | Stopped by the platform after repeated failed charges. | No |
+
+  This endpoint reports the state. It cannot change it: automatic top-up is armed from the
+  dashboard only, never from an API key, so a leaked key cannot put a card on file.
+</ResponseField>
+
+## What `lowBalance` means, exactly
+
+One rule, applied by the server so that every integration means the same thing by "low":
+
+<CodeGroup>
+```text Auto top-up armed (Active or AwaitingMandate)
+lowBalance = balancePaise < autoTopUpThresholdPaise
+```
+
+```text Anything else (Disabled or Suspended)
+lowBalance = balancePaise < minTopUpPaise
+```
+</CodeGroup>
+
+The comparison is strict, so a balance sitting exactly on the threshold is not low.
+
+`AwaitingMandate` counts as armed because the owner has already chosen a threshold and asked
+for refills, and that threshold is the number they think in. `Suspended` does not, because
+nothing is going to act on it: the account is back to being topped up by hand, and the
+floor it should be measured against is the minimum top-up again.
+
+```json 200 OK, no automatic top-up on the account
+{
+  "balancePaise": 4820,
+  "minTopUpPaise": 10000,
+  "lowBalance": true,
+  "autoTopUpThresholdPaise": null,
+  "autoTopUpState": "Disabled"
+}
+```
+
+<Warning>
+  `lowBalance: false` is not a promise that your next request will be admitted, and
+  `lowBalance: true` is not a refusal. The wallet holds the **estimate** of a request before
+  the work starts, so a balance that comfortably covers your usual call can still answer
+  `402 insufficient_balance` when `max_tokens` is large or a Relay Voice job has many
+  recipients. Treat this field as the cue to offer a top-up, not as an admission check.
+</Warning>
+
+<Note>
+  Tristack is the single source of truth for the balance, and anything you store is a cache.
+  Refresh from this endpoint after a top-up window reports back, rather than adding the
+  amount to a number of your own: an integration that keeps its own authoritative balance
+  ends up with two balances and no way to say which is right.
+</Note>
+
+## What it does and does not return
+
+<AccordionGroup>
+  <Accordion title="No ledger, no top-up history" icon="scissors">
+    Five fields is the whole response. The append-only ledger and the recent top-ups live
+    behind the dashboard's account session (`GET /api/v1/wallet` and
+    `GET /api/v1/wallet/transactions`, both JWT), not behind a project API key.
+
+    The narrowness is the point. A key that leaks should surrender as little as the flow can
+    still function on, and "how much money is left" is the whole of what an in-app wallet
+    display needs. [Reading the ledger →](/platform/wallet)
+  </Accordion>
+
+  <Accordion title="No product gate" icon="toggle-on">
+    Any live or test key on an unarchived project can read this, whatever the project's
+    Manifold and Relay Voice switches say. It also does not need the embedded top-up switch
+    that [minting a window](/api-reference/wallet/topup-sessions) requires: a balance you
+    cannot act on is still a balance worth showing.
+  </Accordion>
+
+  <Accordion title="A refill is never instant" icon="clock">
+    `autoTopUpState: "Active"` with `lowBalance: true` does not mean money is seconds away.
+    Recurring debits have to notify the payer first, so a tripped threshold opens an attempt,
+    sends a notice, and charges roughly a day later. If the balance recovers in the meantime,
+    the cycle stands down and nothing is charged.
+
+    So do not suppress your own top-up prompt just because the state is `Active`. Show the
+    balance, and let the account holder decide whether to wait.
+  </Accordion>
+
+  <Accordion title="Poll it, do not wait for a 402" icon="rotate">
+    Nothing pushes this number at you. Read it on a schedule your app can live with, or
+    around the moments that matter (a billing screen opening, a batch about to start), and
+    offer a top-up on `lowBalance` rather than after a request has already been refused.
+  </Accordion>
+</AccordionGroup>
+
+## Errors
+
+```json
+{ "error": "A human-readable sentence.", "code": "snake_case_code" }
+```
+
+| Status | `code` | What happened | What to do |
+|---|---|---|---|
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
+| 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+
+There is no `503` here. The read touches no payment provider, so it answers the same whether
+or not payments are configured on the deployment. Reading the balance costs nothing and moves
+nothing in the wallet.

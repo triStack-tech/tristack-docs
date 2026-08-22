@@ -112,8 +112,8 @@ Mintlify builds whatever is on `main`, correct or not. There is no staging step,
 `.github/workflows/docs-check.yml` is the only thing standing between a broken page and the
 published site. It runs on every push and pull request:
 
-- `python tools/verify_snippets.py` — every snippet import resolves, every imported snippet
+- `python tools/verify_snippets.py`: every snippet import resolves, every imported snippet
   is actually rendered, and no MkDocs syntax survived the migration.
-- `npx mint broken-links` — every internal link and anchor resolves against `docs.json`.
+- `npx mint broken-links`: every internal link and anchor resolves against `docs.json`.
 
 If either fails on `main`, the site has already published the broken version. Fix forward.

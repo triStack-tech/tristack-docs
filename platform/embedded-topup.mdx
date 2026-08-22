@@ -1,0 +1,364 @@
+---
+title: "Top up from your own app"
+description: "Open the Tristack-hosted top-up window from inside your product: mint the session on your server, open it on a click, read the result without trusting the browser."
+---
+
+Your app can open a Tristack-hosted top-up window instead of sending people to the Tristack
+dashboard. Your backend mints a short-lived permit, your page opens the window with it, and
+the money lands in the same account wallet every product spends from.
+[Wallet and billing →](/platform/wallet)
+
+<Info>
+  Two credentials, two audiences. `POST /v1/wallet/topup-sessions` and `GET /v1/wallet`
+  answer to a project API key and belong on your **backend**. The window itself carries a
+  session permit, and that permit is the only thing a browser ever holds.
+</Info>
+
+## Why your server mints the permit
+
+Only your backend knows which of your signed-in people may spend your company's money. The
+support agent who may read the balance is not the finance lead who may add to it, and that
+line lives in your product, in your roles table, behind your session cookie. Tristack cannot
+see it and does not try to guess: your server vouches for the payer by minting a permit, and
+the browser presents nothing else.
+
+Which is why the permit is deliberately small:
+
+- **Single use.** It opens exactly one payment. A second attempt on the same URL is refused.
+- **Fifteen minutes** from mint to the moment an order is created.
+- **Carried in the URL fragment**, not the query string. A fragment is never sent to a
+  server, so the permit stays out of our access logs, out of any proxy's, and out of the
+  `Referer` header on anything the page links to.
+- **Narrow.** The hosted page reads the account name, the balance, the minimum top-up and
+  the account owner's email address, which is used to prefill the payment form. It cannot
+  reach the ledger, the top-up history, your API keys, or anything else on the account.
+
+<Warning>
+  **`token` is returned once and stored only as a hash**, exactly like an API key. No screen,
+  no endpoint and nobody at Tristack Technologies LLP can show it to you again, which is
+  fine: it is meant to reach one browser and expire.
+
+  Your `tsk_live_…` key is the credential that can mint permits at all, so it stays on the
+  server. A key in a browser bundle is a key somebody else can spend from.
+  [Projects and keys →](/platform/projects-and-keys)
+</Warning>
+
+## Setup, once per project
+
+<Steps>
+  <Step title="Switch wallet top-up on for the project" icon="toggle-on">
+    Open the project in the dashboard and turn on **Allow this project's keys to open the
+    top-up window**. A key on a project without it authenticates correctly and is then
+    refused with `403 wallet_topup_disabled`, before any session exists.
+  </Step>
+
+  <Step title="Add at least one allowed origin" icon="globe">
+    The exact origin your page opens the window from: scheme, host and port, and nothing
+    else. Up to 10 per project.
+
+    | Written like this | Accepted | Why |
+    |---|:---:|---|
+    | `https://app.example.com` | Yes | Scheme and host, no path |
+    | `https://app.example.com:8443` | Yes | A non-default port is part of the origin |
+    | `http://localhost:3000` | Yes | Plain `http` is allowed for loopback, which is where the integration gets written |
+    | `https://app.example.com/wallet` | No | A path is not part of an origin. Store the origin here, put the path in `returnUrl` |
+    | `http://app.example.com` | No | Plain `http` in production would put the permit, and the balance that comes back, on the wire in the clear |
+    | `https://*.example.com` | No | There are no wildcards. List each origin you actually use |
+
+    Stored and compared exactly: lowercased, no trailing slash. A mismatch answers
+    `403 origin_not_allowed`, and the usual cause is a forgotten dashboard entry rather than
+    a typo in the code.
+  </Step>
+</Steps>
+
+<Note>
+  **Both are required, and the origin is not optional decoration.** With no origin on the
+  list, minting is refused however the switch is set. The window reports its outcome by
+  posting a message to one exact origin, and that message carries your balance. With nothing
+  recorded there is nowhere safe to send it, and the alternative (`postMessage(payload, "*")`)
+  hands the balance to whatever page ends up holding the window.
+</Note>
+
+One more gate worth knowing before you wire this into a checkout: the **account owner's email
+must be verified**, or minting answers `403 account_owner_unverified`. It is the API-key
+equivalent of the verified-email check the dashboard applies before it takes a payment.
+
+## The whole flow
+
+### 1. Mint the session on your server
+
+This is the call that decides someone may spend the wallet, so it runs where you already know
+who is signed in, with the API key that never leaves your servers.
+
+<CodeGroup>
+```js Node
+// Your backend. `req.user` is your session, not ours: this is the moment you decide
+// that this particular person is allowed to spend the company's money.
+if (!req.user.canTopUpWallet) return res.status(403).end();
+
+const mint = await fetch("https://api.tristack.tech/v1/wallet/topup-sessions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    origin: "https://app.example.com",
+    amountPaise: 50000,          // Rs 500. Omit this to let the payer choose.
+    reference: "invoice 4471",   // your own label, shown on the window
+  }),
+});
+
+const { url, expiresAt } = await mint.json();
+// Hand `url` to that browser and nowhere else. Do not log it, do not email it.
+```
+
+```bash curl
+curl -X POST https://api.tristack.tech/v1/wallet/topup-sessions \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "https://app.example.com",
+    "amountPaise": 50000,
+    "reference": "invoice 4471"
+  }'
+```
+</CodeGroup>
+
+<ParamField body="origin" type="string" required>
+  The origin your page will open the window from, and it must already be on the project's
+  list. You send it rather than us reading an `Origin` header, because this call comes from a
+  server, which has no meaningful one.
+</ParamField>
+
+<ParamField body="amountPaise" type="integer">
+  A preset amount in **paise**, so Rs 500 is `50000` and the Rs 100 minimum is `10000`.
+  Preset it and the payer cannot change it. Omit it and they choose on the window.
+</ParamField>
+
+<ParamField body="mode" type="string" default="popup">
+  `popup` or `redirect`. See [redirect mode](#redirect-mode-for-mobile-webviews).
+</ParamField>
+
+<ParamField body="returnUrl" type="string">
+  Required in redirect mode, ignored in popup mode. Must be on `origin`.
+</ParamField>
+
+<ParamField body="reference" type="string">
+  Your own label for this top-up, up to 128 characters, shown to the payer so they can see
+  which of your systems asked for it.
+</ParamField>
+
+```json 200 OK
+{
+  "sessionId": "5c9b0f22-9d51-4a2e-9e4f-0d6f3a71b2c8",
+  "token": "tsx_9tR2mVxK7pQ0aZ4bN6cD1eF3gH5jL8sW2yU4iO6kP0m",
+  "url": "https://api.tristack.tech/topup.html#tsx=tsx_9tR2mVxK7pQ0aZ4bN6cD1eF3gH5jL8sW2yU4iO6kP0m",
+  "expiresAt": "2026-08-21T09:27:44Z"
+}
+```
+
+`url` already carries `token` in its fragment, so hand the frontend `url` and forget `token`
+exists. When the mint is refused, nothing was created and nothing was charged:
+
+| Status | `code` | What happened |
+|---|---|---|
+| `403` | `wallet_topup_disabled` | The project's top-up switch is off |
+| `403` | `origin_not_allowed` | `origin` is not on the project's list, or is not a usable origin |
+| `403` | `account_owner_unverified` | The account owner's email is not verified yet |
+| `400` | `invalid_return_url` | Redirect mode with no `returnUrl`, or one that is not on `origin` |
+| `400` | `below_minimum_topup` | A preset `amountPaise` under `10000` (Rs 100) |
+| `503` | `razorpay_disabled` | Payments are not configured on this deployment |
+
+### 2. Open the window from the click
+
+```js Your frontend
+let topUpWindow = null;
+
+document.querySelector("#add-credit").addEventListener("click", async () => {
+  // window.open has to run INSIDE the click handler. A browser allows a popup only
+  // while a user gesture is still the reason the code is running, and an `await` ends
+  // that: open the window empty now, point it at the session URL when it arrives.
+  topUpWindow = window.open("about:blank", "tristack-topup", "width=460,height=680");
+
+  // null means the popup was blocked anyway, which is normal in a mobile webview.
+  if (!topUpWindow) return startRedirectTopUp();
+
+  // Your own endpoint, which mints the session with your API key.
+  const { url } = await fetch("/internal/topup-session", { method: "POST" }).then((r) => r.json());
+  topUpWindow.location = url;
+});
+
+window.addEventListener("message", (event) => {
+  // All three checks are required. Any page can post a message to yours, and this
+  // message carries a balance: skipping one means trusting a number a stranger made up.
+  if (event.origin !== "https://api.tristack.tech") return; // 1. who sent it
+  if (event.source !== topUpWindow) return;                 // 2. the window you opened
+  if (event.data?.source !== "tristack") return;            // 3. ours, not other traffic on your page
+
+  const { status, balancePaise, message } = event.data;
+
+  switch (status) {
+    case "credited":
+      // Done. balancePaise is the balance after the credit.
+      showBalance(balancePaise);
+      break;
+    case "pending":
+      // The money WAS taken and lands within minutes. Never offer to pay again here.
+      showNotice("Payment received. Your balance updates in a few minutes.");
+      break;
+    case "cancelled":
+      // The payer dismissed the payment form. Nothing was charged.
+      showNotice(message);
+      break;
+  }
+
+  refreshBalance(); // your backend, calling GET /v1/wallet
+});
+```
+
+<ResponseField name="source" type="string">
+  Always `"tristack"`. The marker that separates this from every other `postMessage` on your
+  page: analytics tags, embeds, browser extensions.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Always `"wallet.topup"`.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `credited`, `pending` or `cancelled`. Branch on this.
+</ResponseField>
+
+<ResponseField name="balancePaise" type="integer | null">
+  The balance in paise as Tristack read it when the message was sent, or null if the payment
+  never got far enough to read one. On `pending` it is the balance **before** the credit
+  settles, so treat it as stale.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  A sentence written for the payer. Safe to display, never safe to branch on.
+</ResponseField>
+
+The window does not close itself. It shows the payer what happened and leaves a Close
+button, so a result stays readable rather than vanishing at the moment it matters.
+
+`cancelled` means the payer dismissed the **payment form** while the window was still open.
+It does not mean they closed the window: a closed window runs no script, so it posts nothing
+at all. Treat "no message" as a real outcome, not an impossible one, and let your next
+balance read settle the question rather than the message.
+
+<Warning>
+  **`pending` means the money was taken.** It is not a failure and it is not "try again". The
+  payment succeeded at the bank; Tristack has not finished writing it to the wallet yet.
+  Three independent paths lead to the same credit (the browser confirmation, the payment
+  webhook, and an hourly sweep), and one of them lands within minutes.
+
+  Show "payment received, balance updating" and refresh from `GET /v1/wallet`. **Never
+  present a pay-again button on a `pending`.** That is precisely how somebody pays twice, and
+  the second charge is real money that then has to be refunded by hand.
+</Warning>
+
+## Redirect mode, for mobile webviews
+
+Inside most mobile webviews there is no popup to open and no opener to post a message back
+to. Same session mint, two extra fields:
+
+```bash Mint a redirect session
+curl -X POST https://api.tristack.tech/v1/wallet/topup-sessions \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "https://app.example.com",
+    "mode": "redirect",
+    "returnUrl": "https://app.example.com/wallet"
+  }'
+```
+
+`returnUrl` is required here and must sit on `origin`. That binding is what stops the return
+URL becoming an open redirect wearing a Tristack address, and `400 invalid_return_url` is the
+answer when it does not hold.
+
+Send the browser to `url` directly (`window.location.href = url`), with no popup and no
+message listener. When the payment ends, the browser comes back to your page with one query
+parameter appended:
+
+```text
+https://app.example.com/wallet?tristack_topup=credited
+```
+
+`tristack_topup` carries the same three values as `status`.
+
+<Warning>
+  **`tristack_topup` is a hint for your loading state and nothing else.** Confirm with
+  `GET /v1/wallet` before you show a number, unlock a feature or write anything down. Anything
+  in a URL the user's own browser carried is something the user can rewrite, and
+  `?tristack_topup=credited` is four seconds of typing.
+</Warning>
+
+## The balance is Tristack's to know
+
+```bash Refresh your cache
+curl https://api.tristack.tech/v1/wallet \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "balancePaise": 47500,
+  "minTopUpPaise": 10000,
+  "lowBalance": false,
+  "autoTopUpThresholdPaise": null,
+  "autoTopUpState": "Disabled"
+}
+```
+
+<ResponseField name="balancePaise" type="integer">
+  The whole account's balance in paise. Rs 475 is `47500`. Every amount on this API is an
+  integer in paise, in both directions.
+</ResponseField>
+
+<ResponseField name="lowBalance" type="boolean">
+  Measured against the account's auto top-up threshold when one is armed, and against
+  `minTopUpPaise` otherwise, so every integration means the same thing by "low" instead of
+  each inventing a number.
+</ResponseField>
+
+<ResponseField name="autoTopUpState" type="string">
+  `Disabled`, `AwaitingMandate`, `Active` or `Suspended`. Auto top-up itself is a dashboard
+  feature, deliberately out of reach of an API key: a leaked key must not be able to put a
+  card on file.
+</ResponseField>
+
+**Tristack holds the balance, and your copy is a cache.** Refresh it on a schedule, refresh
+it after every top-up result, and store it as a display value with a timestamp beside it. An
+app that keeps its own authoritative number ends up with two balances and no way to say which
+is right, and it finds out at the worst possible moment: when someone is asking why a request
+was refused while the screen still says there is money.
+
+## When a session stops working
+
+| Status | `code` | When | What your app does |
+|---|---|---|---|
+| `401` | `topup_session_invalid` | The permit is missing, unknown, or not one of ours | Mint a fresh session |
+| `410` | `topup_session_expired` | Fifteen minutes passed without a payment, or a paid window sat open past its confirmation grace | Mint a fresh session |
+| `410` | `topup_session_used` | It already opened an order. A reloaded window, or a stale URL out of browser history, lands here | Mint a fresh session |
+
+All three mean exactly the same thing to your app, which is why they are worth handling in
+one branch: the permit is spent, and the fix is a new one.
+
+<Note>
+  Your backend never sends the session header; the hosted page does. These three reach you as
+  a window telling the payer it cannot continue, so the recovery is a fresh click on your own
+  button, not a retry of the same URL. Do not cache a session URL, and do not put one in an
+  email: it is a single-use permit with a fifteen-minute life, not a payment link.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Wallet and billing" icon="wallet" href="/platform/wallet">
+    Where the money goes once it is in: holds, settlement, the ledger, and `402`.
+  </Card>
+  <Card title="Projects and keys" icon="key" href="/platform/projects-and-keys">
+    The key that mints these sessions, what it can reach, and how to revoke it.
+  </Card>
+</CardGroup>
