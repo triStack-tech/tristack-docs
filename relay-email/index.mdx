@@ -36,6 +36,24 @@ handful. It is not a marketing tool: there is no campaign builder, no list manag
 unsubscribe handling, and sending bulk marketing through it will damage the sending reputation
 of every domain on the platform.
 
+## Attaching a file
+
+A message can carry up to ten files, base64 encoded, and your own `X-` headers and tags
+alongside them. Give an attachment a `contentId` and it goes inline, so `<img src="cid:logo">`
+in your HTML resolves to it.
+
+<Warning>
+  The 10 MB ceiling applies to the message **once encoded**, and base64 adds about a third, so
+  a 9 MB file does not fit. Keep the files on one message under about 7 MB. Attachments are not
+  billed: the charge is per recipient whatever the message weighs.
+</Warning>
+
+Executable types (`.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar`) are
+refused, by extension and by declared content type. That is a reputation guard rather than a
+virus scan: nothing opens your file, and it exists because one customer mailing malware from a
+signed domain damages deliverability for everybody else on the platform. Full detail in the
+[API reference](/api-reference/relay-email/send).
+
 ## The two things to know before you start
 
 **You must own the domain.** There is no shared sending domain and no `@tristack.tech` address

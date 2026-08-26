@@ -1,6 +1,6 @@
 ---
 title: "Send an email"
-description: "POST /v1/relay/email: every request field, the 202 body, per-recipient billing, and every error code with its fix."
+description: "POST /v1/relay/email: every request field including attachments, headers and tags, the 202 body, per-recipient billing, and every error code with its fix."
 ---
 
 <Info>
@@ -40,7 +40,17 @@ curl https://api.tristack.tech/v1/relay/email \
   "replyTo": "support@yourdomain.com",
   "subject": "Your receipt",
   "text": "Thanks for your order.",
-  "html": "<p>Thanks for your order.</p>"
+  "html": "<p>Thanks for your order.</p>",
+  "attachments": [
+    {
+      "filename": "receipt.pdf",
+      "contentType": "application/pdf",
+      "content": "JVBERi0xLjQKJeLjz9M...",
+      "contentId": null
+    }
+  ],
+  "headers": { "X-Order-Id": "1234" },
+  "tags": { "campaign": "receipts" }
 }
 ```
 
@@ -57,9 +67,84 @@ curl https://api.tristack.tech/v1/relay/email \
 | `subject` | string | yes | Up to 998 characters. |
 | `text` | string | conditional | At least one of `text` or `html`. |
 | `html` | string | conditional | At least one of `text` or `html`. |
+| `attachments` | object[] | no | Files, base64 encoded. Up to 10. See below. |
+| `headers` | object | no | Your own headers. **`X-` prefixed only.** |
+| `tags` | object | no | Labels carried onto the send, filterable in delivery data. |
 
-**Limits.** At most **50 recipients** across `to`, `cc` and `bcc` combined, and **10 MB** total
-message size. Attachments are not supported yet.
+**Limits.** At most **50 recipients** across `to`, `cc` and `bcc` combined, at most **10
+attachments**, and **10 MB** for the whole message **once encoded**.
+
+## Attachments
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `filename` | string | yes | What the recipient sees and what their client saves. No path separators. |
+| `content` | string | yes | The file, base64 encoded. No `data:` prefix. |
+| `contentType` | string | no | Defaults to `application/octet-stream`. |
+| `contentId` | string | no | Present makes the part **inline**; absent makes it a download. |
+
+<Warning>
+  **The 10 MB limit is on the ENCODED size, not on your file.** Base64 is four characters for
+  every three bytes, so a 9 MB PDF is about 12 MB by the time it reaches the mail provider and
+  is refused. Roughly: **keep your files under about 7 MB in total.** A `message_too_large`
+  error states the encoded size, which is the figure the limit is about, so it will read larger
+  than the file you sent.
+</Warning>
+
+**The type is never guessed from the bytes.** If you want a PDF announced as a PDF, say
+`"contentType": "application/pdf"`. Sniffing it and getting it wrong is how a receipt arrives
+mislabelled and lands in spam, so a missing type is sent as `application/octet-stream`, which
+is at least honest.
+
+**Executable types are refused**, by extension and by declared content type: `.exe`, `.scr`,
+`.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar`. A file called `invoice.pdf.exe` is
+refused on its last extension, and a file called `receipt.pdf` declared as
+`application/x-msdownload` is refused on the type. This is a **reputation guard, not a virus
+scan**: nothing here opens your file, and a malicious document or a zipped executable passes
+straight through. It exists because the sending reputation is shared with every other domain
+on the platform.
+
+### Inline images
+
+Give an attachment a `contentId` and it is placed inline, so `cid:` in your HTML resolves to
+it instead of the recipient seeing a download beside a broken image. Send the bare id, with no
+angle brackets.
+
+```json Inline logo
+{
+  "html": "<p>Thanks!</p><img src=\"cid:logo\">",
+  "attachments": [
+    { "filename": "logo.png", "contentType": "image/png", "content": "iVBOR...", "contentId": "logo" }
+  ]
+}
+```
+
+## Headers
+
+Your own headers must start with `X-`. Anything else is **refused, not dropped**.
+
+That rule is not tidiness. A caller who could set `From`, `Received`, `Return-Path` or
+`DKIM-Signature` could forge the provenance of a message signed with a domain we vouch for, so
+the prefix is the whole allowlist. Carriage returns and line feeds are refused in both names
+and values, exactly as they are in `subject` and `replyTo`.
+
+```json
+"headers": { "X-Order-Id": "1234", "X-Environment": "production" }
+```
+
+## Tags
+
+Tags travel beside the message rather than inside it, and are what make your own labels
+filterable in delivery data later. Keys and values may contain **letters, digits, underscores
+and dashes** only, and neither may be empty or over 256 characters.
+
+An invalid tag is refused rather than silently dropped, because the mail provider rejects the
+**whole send** over one malformed tag: a space in a label would otherwise reach you as a
+gateway error rather than as the typo it is.
+
+```json
+"tags": { "campaign": "receipts_2026-08", "tier": "pro" }
+```
 
 ## Response
 
@@ -90,6 +175,9 @@ message size. Attachments are not supported yet.
 **Per recipient.** `costPaise` is 1.5 paise multiplied by `recipients`, rounded up to whole paise. An email to fifty people
 costs fifty times one to a single person. Full detail in [Pricing](/relay-email/pricing).
 
+**Attachments are not billed.** A message with a 5 MB PDF costs exactly what the same message
+without it costs. The attachment limits are what keep that sustainable rather than a price.
+
 ## Errors
 
 | Status | Code | What it means and what to do |
@@ -100,7 +188,12 @@ costs fifty times one to a single person. Full detail in [Pricing](/relay-email/
 | 400 | `empty_body` | Neither `text` nor `html` was supplied. |
 | 400 | `header_injection` | A carriage return or line feed appeared in `from`, `fromName`, `replyTo` or `subject`. Refused outright, never stripped. Strip newlines from user input before putting it in a header. |
 | 400 | `subject_too_long` | Over 998 characters. |
-| 400 | `message_too_large` | Over 10 MB. |
+| 400 | `message_too_large` | Over 10 MB **once encoded**. The message states the encoded size, which is larger than your file. |
+| 400 | `too_many_attachments` | More than 10 files on one message. |
+| 400 | `invalid_attachment` | A file is missing its `filename` or `content`, declares something that is not a `type/subtype`, has an unusable `contentId`, or its `content` is not valid base64. A leftover `data:` prefix is the usual cause. |
+| 400 | `attachment_type_not_allowed` | An executable type, by extension or by declared type. Zip it or link to it instead. |
+| 400 | `invalid_header` | A header key is not `X-` prefixed, or a name or value carried a line break. |
+| 400 | `invalid_tag` | A tag key or value used something outside letters, digits, underscores and dashes, or was empty. |
 | 400 | `invalid_request` | Malformed body, or too many recipients. |
 | 401 | `invalid_api_key` | Key missing, wrong, or revoked. |
 | 402 | `insufficient_balance` | Wallet cannot cover the send. The body carries `requiredPaise`. Nothing was sent. |
