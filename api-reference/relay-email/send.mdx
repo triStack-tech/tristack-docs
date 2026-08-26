@@ -1,0 +1,113 @@
+---
+title: "Send an email"
+description: "POST /v1/relay/email: every request field, the 202 body, per-recipient billing, and every error code with its fix."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/relay/email` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+Sends one transactional email from a domain this project has verified. It answers `202` once
+the provider has accepted the message; delivery happens afterwards.
+
+## Request
+
+<CodeGroup>
+
+```bash curl
+curl https://api.tristack.tech/v1/relay/email \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "no-reply@yourdomain.com",
+    "fromName": "Acme",
+    "to": ["customer@example.com"],
+    "replyTo": "support@yourdomain.com",
+    "subject": "Your receipt",
+    "text": "Thanks for your order.",
+    "html": "<p>Thanks for your order.</p>"
+  }'
+```
+
+```json body
+{
+  "from": "no-reply@yourdomain.com",
+  "fromName": "Acme",
+  "to": ["customer@example.com"],
+  "cc": [],
+  "bcc": [],
+  "replyTo": "support@yourdomain.com",
+  "subject": "Your receipt",
+  "text": "Thanks for your order.",
+  "html": "<p>Thanks for your order.</p>"
+}
+```
+
+</CodeGroup>
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `from` | string | yes | Any address at a domain this project has **verified**. |
+| `fromName` | string | no | Display name shown beside the address. |
+| `to` | string[] | yes | At least one address. |
+| `cc` | string[] | no | Billed the same as `to`. |
+| `bcc` | string[] | no | Billed the same as `to`. |
+| `replyTo` | string | no | Defaults to `from`. |
+| `subject` | string | yes | Up to 998 characters. |
+| `text` | string | conditional | At least one of `text` or `html`. |
+| `html` | string | conditional | At least one of `text` or `html`. |
+
+**Limits.** At most **50 recipients** across `to`, `cc` and `bcc` combined, and **10 MB** total
+message size. Attachments are not supported yet.
+
+## Response
+
+```json 202 Accepted
+{
+  "id": "rle_9f2c1a7b4e6d08a35c1b90fe",
+  "messageId": "010901a03e85875a-98c66005-e0a6-4276-af3e-51fb65d8cfc3-000000",
+  "costPaise": 5,
+  "recipients": 1
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `id` | Tristack's id for the send. Quote this in support requests. |
+| `messageId` | The provider's id, useful when tracing delivery. |
+| `costPaise` | What was actually **charged**, not quoted. See the note below. |
+| `recipients` | The multiplier behind `costPaise`. Deduplicated across `to`, `cc` and `bcc`. |
+
+<Note>
+  `costPaise` reports what the ledger recorded. In the rare case where the message was accepted
+  but settlement failed, this reads `0` and the charge is reconciled separately, rather than
+  claiming a debit that has no ledger row. Your message was still sent.
+</Note>
+
+## Billing
+
+**Per recipient.** `costPaise` is 5 paise multiplied by `recipients`. An email to fifty people
+costs fifty times one to a single person. Full detail in [Pricing](/relay-email/pricing).
+
+## Errors
+
+| Status | Code | What it means and what to do |
+| --- | --- | --- |
+| 400 | `from_domain_not_verified` | The `from` domain is not verified, or belongs to another project. Check the Relay Email tab. |
+| 400 | `invalid_address` | An address did not parse. |
+| 400 | `no_recipients` | `to`, `cc` and `bcc` were all empty. |
+| 400 | `empty_body` | Neither `text` nor `html` was supplied. |
+| 400 | `header_injection` | A carriage return or line feed appeared in `from`, `fromName`, `replyTo` or `subject`. Refused outright, never stripped. Strip newlines from user input before putting it in a header. |
+| 400 | `subject_too_long` | Over 998 characters. |
+| 400 | `message_too_large` | Over 10 MB. |
+| 400 | `invalid_request` | Malformed body, or too many recipients. |
+| 401 | `invalid_api_key` | Key missing, wrong, or revoked. |
+| 402 | `insufficient_balance` | Wallet cannot cover the send. The body carries `requiredPaise`. Nothing was sent. |
+| 403 | `relay_email_disabled` | Relay Email is switched off for this project. |
+| 429 | `rate_limited` | Over 5 per second for this project, or the platform ceiling. Honour `Retry-After`. |
+| 502 | `provider_error` | The provider refused the message. Nothing was charged. |
+| 503 | `relay_email_unavailable` | Misconfigured on our side. Nothing was charged. Contact support. |
+
+Every error body is `{ "error": "<sentence>", "code": "<code>" }`. Match on `code`, never on
+the sentence: the wording may change, the code will not.

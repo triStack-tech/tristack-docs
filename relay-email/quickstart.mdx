@@ -1,0 +1,106 @@
+---
+title: "Relay Email quickstart"
+description: "Add a domain, publish three DNS records, wait for verification, and send. About ten minutes of work plus however long your DNS takes."
+---
+
+You need a Tristack project, an API key on it, a wallet with a balance, and a domain whose DNS
+you can edit.
+
+<Steps>
+
+<Step title="Turn Relay Email on for the project">
+  Open your project in the dashboard, go to the **Relay Email** tab, and switch it on. Nothing
+  is charged for enabling it.
+</Step>
+
+<Step title="Add your domain">
+  Still on that tab, enter the domain you want to send from, for example `yourdomain.com`. Use
+  the registrable domain, not a subdomain and not an email address.
+
+  You can do the same over the API:
+
+  ```bash
+  curl https://api.tristack.tech/v1/relay/email/domains \
+    -H "Authorization: Bearer $TRISTACK_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{ "domain": "yourdomain.com" }'
+  ```
+
+  The response carries three DNS records, already assembled:
+
+  ```json 201 Created
+  {
+    "domain": "yourdomain.com",
+    "status": "Pending",
+    "records": [
+      { "type": "CNAME",
+        "name": "r73jcizhhvz5grb5cfuxusw7yogsnwd5._domainkey.yourdomain.com",
+        "value": "r73jcizhhvz5grb5cfuxusw7yogsnwd5.dkim.amazonses.com" },
+      { "type": "CNAME",
+        "name": "hmw6k7hh3ytykcd623rtaz64bksypfwz._domainkey.yourdomain.com",
+        "value": "hmw6k7hh3ytykcd623rtaz64bksypfwz.dkim.amazonses.com" },
+      { "type": "CNAME",
+        "name": "ggpy4zhmewgrqkzacfmy5pucx7gipgyj._domainkey.yourdomain.com",
+        "value": "ggpy4zhmewgrqkzacfmy5pucx7gipgyj.dkim.amazonses.com" }
+    ],
+    "createdAt": "2026-08-26T14:30:00Z",
+    "verifiedAt": null,
+    "lastCheckedAt": null,
+    "error": null
+  }
+  ```
+</Step>
+
+<Step title="Publish all three records">
+  Add every one of them as a `CNAME` at your DNS provider. All three, not one: they are a
+  rotating key set and verification does not complete until every record resolves.
+
+  <Warning>
+    Many DNS providers append the zone name automatically. If yours does, enter the name
+    **without** the trailing `.yourdomain.com`, or you will end up with
+    `..._domainkey.yourdomain.com.yourdomain.com` and the domain will sit Pending forever.
+    Check the record after saving it.
+  </Warning>
+</Step>
+
+<Step title="Wait for verification">
+  Tristack rechecks pending domains every few minutes. Nothing is required from you. Most DNS
+  changes are visible within minutes, some take hours, and a few registrars take a day.
+
+  The status moves `Pending` to `Verified` on its own. A domain that has not verified within
+  **seven days** is dropped and released, so you can add it again after fixing the records.
+</Step>
+
+<Step title="Send">
+  Once the domain reads `Verified`, any address at it works as the `from`:
+
+  ```bash
+  curl https://api.tristack.tech/v1/relay/email \
+    -H "Authorization: Bearer $TRISTACK_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "from": "no-reply@yourdomain.com",
+      "to": ["you@example.com"],
+      "subject": "First email from Tristack",
+      "text": "It works."
+    }'
+  ```
+
+  Send to yourself first. It is the fastest way to see how the message renders and whether it
+  lands in the inbox or the spam folder.
+</Step>
+
+</Steps>
+
+## Improving deliverability
+
+DKIM is set up by the three records above. Two more things are worth doing at your registrar,
+and neither is done for you:
+
+**SPF.** Add `amazonses.com` to your domain's SPF record. If you have none, start with
+`v=spf1 include:amazonses.com ~all`. If you already have one, add the `include` to it rather
+than publishing a second record: two SPF records is the same as none.
+
+**DMARC.** Publish `_dmarc.yourdomain.com` with something like
+`v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com` and read the reports before tightening
+`p` to `quarantine` or `reject`.

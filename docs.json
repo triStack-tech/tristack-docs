@@ -66,6 +66,16 @@
             ]
           },
           {
+            "group": "Relay Email",
+            "icon": "envelope",
+            "pages": [
+              "relay-email/index",
+              "relay-email/quickstart",
+              "relay-email/domains",
+              "relay-email/pricing"
+            ]
+          },
+          {
             "group": "Platform",
             "icon": "gear",
             "pages": [
@@ -97,6 +107,13 @@
               "api-reference/relay-voice/send",
               "api-reference/relay-voice/job",
               "api-reference/relay-voice/voices"
+            ]
+          },
+          {
+            "group": "Relay Email",
+            "pages": [
+              "api-reference/relay-email/send",
+              "api-reference/relay-email/domains"
             ]
           },
           {

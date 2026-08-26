@@ -1,28 +1,28 @@
 ---
-title: "Manifold and Relay Voice"
-description: "Two independent products on shared plumbing: what each one takes, returns and charges for, and why nothing passes between them."
+title: "The products"
+description: "Independent products on shared plumbing: what each one takes, returns and charges for, and why nothing passes between them."
 ---
 
-Manifold and Relay Voice are separate products. They share an account, a wallet and a key
-scheme, and nothing else. That shared plumbing is what makes them look like one product with
-two modes, so this page draws the line precisely.
+Manifold, Relay Voice and Relay Email are separate products. They share an account, a wallet
+and a key scheme, and nothing else. That shared plumbing is what makes them look like one
+product with several modes, so this page draws the line precisely.
 
 ## Side by side
 
-| | Manifold | Relay Voice |
-|---|---|---|
-| **Endpoint** | `POST /v1/manifold/messages` | `POST /v1/relay/voice` |
-| **Catalog** | `GET /v1/manifold/models` | `GET /v1/relay/voice/voices` |
-| **You send** | Messages, a model alias, `max_tokens` | Indian mobile numbers, and `text` or an `audioId` |
-| **You get** | Generated text, in the response or as SSE | `202` with a `jobId`, then per-call status |
-| **Timing** | Synchronous. The answer is the response | Asynchronous. Calls are dialed in the background, 3 at a time process-wide |
-| **JSON casing** | `snake_case` on the wire (`max_tokens`, `stop_sequences`) | `camelCase` on the wire (`audioId`, `callbackUrl`) |
-| **Charged for** | Every token in and out, at the model's rate | Every **answered** call (40 paise), plus 3 paise per character of newly synthesized speech |
-| **Charged nothing for** | A request refused before the provider is called | A phone that rings out, is engaged, or is refused |
-| **One-time charge** | None | Rs 200 (20000 paise) the first time Relay Voice is switched on for a project |
-| **Project switch** | Manifold | Relay Voice |
-| **Refused with, when off** | `403 manifold_disabled` | `403 relay_voice_disabled` |
-| **Identifiers** | `mfr_…` request id | `rvj_…` job id, `rvc_…` call id, `aud_…` recording id |
+| | Manifold | Relay Voice | Relay Email |
+|---|---|---|---|
+| **Endpoint** | `POST /v1/manifold/messages` | `POST /v1/relay/voice` | `POST /v1/relay/email` |
+| **Catalog** | `GET /v1/manifold/models` | `GET /v1/relay/voice/voices` | `GET /v1/relay/email/domains` |
+| **You send** | Messages, a model alias, `max_tokens` | Indian mobile numbers, and `text` or an `audioId` | A `from` at a verified domain, recipients, a subject and a body |
+| **You get** | Generated text, in the response or as SSE | `202` with a `jobId`, then per-call status | `202` with an `id`, the provider `messageId`, and what it cost |
+| **Timing** | Synchronous. The answer is the response | Asynchronous. Calls are dialed in the background, 3 at a time process-wide | Synchronous. The provider has accepted it by the time you get the id |
+| **JSON casing** | `snake_case` on the wire (`max_tokens`, `stop_sequences`) | `camelCase` on the wire (`audioId`, `callbackUrl`) | `camelCase` on the wire (`fromName`, `replyTo`) |
+| **Charged for** | Every token in and out, at the model's rate | Every **answered** call (40 paise), plus 3 paise per character of newly synthesized speech | Every **recipient** (5 paise), counting `to`, `cc` and `bcc` |
+| **Charged nothing for** | A request refused before the provider is called | A phone that rings out, is engaged, or is refused | A message the provider refuses, and anything rejected before sending. A **bounce is not a refund**: the send happened |
+| **One-time charge** | None | Rs 200 (20000 paise) the first time Relay Voice is switched on for a project | None. Enabling it and verifying domains are both free |
+| **Project switch** | Manifold | Relay Voice | Relay Email |
+| **Refused with, when off** | `403 manifold_disabled` | `403 relay_voice_disabled` | `403 relay_email_disabled` |
+| **Identifiers** | `mfr_…` request id | `rvj_…` job id, `rvc_…` call id, `aud_…` recording id | `rle_…` send id |
 
 <Warning>
   The casing difference is real and it bites, and it does **not** announce itself. Manifold

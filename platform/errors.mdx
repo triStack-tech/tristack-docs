@@ -68,6 +68,19 @@ Two fields ride along on specific failures:
 | `unknown_voice` | 400 | Relay Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
 | `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
 | `audio_not_found` | 404 | Relay Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
+| `relay_email_disabled` | 403 | Relay Email | Relay Email is not switched on for this project | Turn the switch on in the project's Relay Email tab. Enabling costs nothing |
+| `relay_email_unavailable` | 503 | Relay Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
+| `from_domain_not_verified` | 400 | Relay Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the Relay Email tab, and check the whole domain rather than the address |
+| `invalid_domain` | 400 | Relay Email | Not a registrable domain. Subdomains, email addresses and bare TLDs are refused | Send `yourdomain.com` |
+| `domain_taken` | 409 | Relay Email | Another project already holds this domain. Which one is deliberately not disclosed | Remove it from your other project, or contact support if you believe it is yours |
+| `domain_limit_reached` | 409 | Relay Email | This project already holds 25 domains, counting unverified ones | Remove one you are not using. Unverified claims expire after seven days |
+| `domain_not_found` | 404 | Relay Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/relay/email/domains` |
+| `invalid_address` | 400 | Relay Email | An address in `from`, `to`, `cc`, `bcc` or `replyTo` did not parse | Correct it. `error` names what failed |
+| `no_recipients` | 400 | Relay Email | `to`, `cc` and `bcc` were all empty | Supply at least one recipient |
+| `empty_body` | 400 | Relay Email | Neither `text` nor `html` was supplied | Send at least one of them |
+| `header_injection` | 400 | Relay Email | A carriage return or line feed appeared in `from`, `fromName`, `replyTo` or `subject`. Refused outright, never stripped, because stripping it silently would let a crafted value forge headers | Strip newlines from user input before putting it in a header |
+| `subject_too_long` | 400 | Relay Email | `subject` is over 998 characters, the limit the mail standard sets for a header line | Shorten it |
+| `message_too_large` | 400 | Relay Email | Over 10 MB | Send less. Attachments are not supported yet |
 | `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get the **same** `audioId` back, so nothing in your database needs updating. The per-character synthesis charge does apply again, because the file had to be re-made |
 | `invalid_callback_url` | 400 | Relay Voice | `callbackUrl` is not an absolute https URL | Use https. Plain http is refused because the body lists who was called |
 | `text_rejected` | 502 | Relay Voice | The speech provider would not synthesize this text, on length or content. The hold is released | Shorten or reword it. Nothing was charged |
@@ -135,13 +148,16 @@ Almost nothing, by design. The order of checks is deliberate:
 
 <Steps>
   <Step title="Authentication and product gates">
-    `invalid_api_key`, `project_archived`, `manifold_disabled`, `relay_voice_disabled` and
-    `relay_voice_unavailable` are decided before any money is touched.
+    `invalid_api_key`, `project_archived`, `manifold_disabled`, `relay_voice_disabled`,
+    `relay_voice_unavailable`, `relay_email_disabled` and `relay_email_unavailable` are decided
+    before any money is touched.
   </Step>
   <Step title="Validation and allowlists">
     `invalid_request`, `unknown_model`, `model_not_allowed`, `invalid_phone_number`,
     `unknown_voice`, `invalid_audio_id` and `invalid_callback_url` are all refused before the
-    wallet hold.
+    wallet hold. So are Relay Email's `from_domain_not_verified`, `invalid_address`,
+    `no_recipients`, `empty_body`, `header_injection`, `subject_too_long` and
+    `message_too_large`, and `rate_limited` is refused before the hold too.
   </Step>
   <Step title="The balance check">
     `insufficient_balance` is the hold itself failing. No provider has been contacted.
@@ -164,14 +180,18 @@ Almost nothing, by design. The order of checks is deliberate:
 
 | Surface | Limit | Answer |
 |---|---|---|
-| `/v1/manifold/*` and `/v1/relay/*` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/v1/manifold/*` and `/v1/relay/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/v1/relay/email` | 5 per second per project, plus a platform-wide ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | `/api/v1/account/*` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
 
 <Note>
-  The product API is not throttled on purpose: your wallet is the limit. That also means a
-  retry loop against a `402` or a `403` will spin as fast as you can send, writing nothing
-  but rejections. Back off on your side.
+  Manifold and Relay Voice are not throttled on purpose: your wallet is the limit. Relay Email
+  is the exception, because email sending capacity is a shared, rationed resource and one
+  caller saturating it would degrade delivery for every other domain on the platform.
+
+  Either way, a retry loop against a `402` or a `403` will spin as fast as you can send,
+  writing nothing but rejections. Back off on your side.
 </Note>
 
 An empty-body `429` is the only response on the API without the JSON envelope. Unknown routes

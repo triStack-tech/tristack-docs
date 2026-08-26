@@ -1,0 +1,73 @@
+---
+title: "Domains"
+description: "How domain ownership works, what each status means, why a domain can be refused, and how to fix verification that will not complete."
+---
+
+A domain has to be verified before anything can be sent from it, and a verified domain belongs
+to exactly one project.
+
+## The statuses
+
+| Status | Meaning |
+| --- | --- |
+| `Pending` | Added, DNS not yet confirmed. Rechecked automatically every few minutes. |
+| `Verified` | Usable. Any address at this domain can be a `from`. |
+| `Failed` | Something went wrong that rechecking will not fix. `error` says what. |
+| `Expired` | Not verified within seven days. Released, and can be added again. |
+
+You never poll for verification and you never trigger a recheck. Tristack does it.
+
+## One domain, one project
+
+A domain can be claimed by one project and no other, across every account on Tristack. A second
+claim is refused with `domain_taken`.
+
+That response deliberately does not say who holds it. Telling you would turn this endpoint into
+a way of discovering which companies are Tristack customers.
+
+If you hold the domain on another of your own projects, remove it there first and it becomes
+available immediately.
+
+## Limits
+
+A project may hold **25 domains** in any state, `Pending` included. The cap counts claims, not
+verifications, so abandoned attempts count against you until they expire or you remove them.
+
+## When verification will not complete
+
+Almost every stuck domain is one of these.
+
+**The record name got doubled.** Most DNS providers append the zone automatically. Saving a
+name of `abc._domainkey.yourdomain.com` in such a provider produces
+`abc._domainkey.yourdomain.com.yourdomain.com`, which resolves to nothing. Look at the saved
+record, not what you typed. If the provider shows the full name, enter only the part before
+your domain.
+
+**Only some of the records were added.** All three are required. One missing record means the
+domain never verifies, and nothing will tell you which one.
+
+**The records were added to the wrong zone.** A domain whose nameservers point at one provider
+while you edit the zone at another will never verify. Check where the nameservers actually
+point before editing anything.
+
+**A CAA or CNAME flattening feature rewrote them.** Some providers flatten CNAMEs at the apex
+or proxy them. These records must be plain, unproxied CNAMEs.
+
+Verify what is actually published rather than what you believe you saved:
+
+```bash
+dig +short r73jcizhhvz5grb5cfuxusw7yogsnwd5._domainkey.yourdomain.com CNAME
+```
+
+It should print the matching `....dkim.amazonses.com` value. If it prints nothing, DNS is the
+problem and Tristack cannot see the record either.
+
+## Removing a domain
+
+Removing a domain releases the name for anyone to claim and stops sending from it immediately.
+Mail already accepted is unaffected: it has been handed to the provider and will be delivered.
+
+```bash
+curl -X DELETE https://api.tristack.tech/v1/relay/email/domains/yourdomain.com \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```

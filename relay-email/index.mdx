@@ -1,0 +1,64 @@
+---
+title: "Relay Email"
+description: "Verify a domain you own, then send transactional email from it with a project API key. Billed per recipient, from the same wallet as everything else."
+---
+
+Tristack Relay Email sends transactional email from a domain you own. You prove the domain by
+publishing three DNS records, and after that any API key on that project can send from any
+address at it.
+
+```bash One request, one email
+curl https://api.tristack.tech/v1/relay/email \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "no-reply@yourdomain.com",
+    "fromName": "Acme",
+    "to": ["customer@example.com"],
+    "subject": "Your receipt",
+    "text": "Thanks for your order. Your receipt is attached to your account."
+  }'
+```
+
+```json 202 Accepted
+{
+  "id": "rle_9f2c1a7b4e6d08a35c1b90fe",
+  "messageId": "010901a03e85875a-98c66005-e0a6-4276-af3e-51fb65d8cfc3-000000",
+  "costPaise": 5,
+  "recipients": 1
+}
+```
+
+## What it is for
+
+Receipts, password resets, verification links, alerts. One message to one person, or to a
+handful. It is not a marketing tool: there is no campaign builder, no list management and no
+unsubscribe handling, and sending bulk marketing through it will damage the sending reputation
+of every domain on the platform.
+
+## The two things to know before you start
+
+**You must own the domain.** There is no shared sending domain and no `@tristack.tech` address
+you can borrow. That is deliberate: mail sent from a domain the recipient recognises is mail
+that arrives, and a shared domain means your deliverability depends on strangers.
+
+**You are billed per recipient, not per message.** An email addressed to fifty people costs
+fifty times one addressed to a single person, because that is fifty deliveries. `To`, `Cc` and
+`Bcc` all count. See [Pricing](/relay-email/pricing).
+
+## Getting started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/relay-email/quickstart">
+    Verify a domain and send your first email.
+  </Card>
+  <Card title="Domains" icon="globe" href="/relay-email/domains">
+    The DNS records, what each status means, and what to do when verification stalls.
+  </Card>
+  <Card title="Pricing" icon="indian-rupee-sign" href="/relay-email/pricing">
+    What a send costs and how per-recipient billing works.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/relay-email/send">
+    Every field, every error code, and its fix.
+  </Card>
+</CardGroup>

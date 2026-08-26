@@ -1,0 +1,60 @@
+---
+title: "Relay Email pricing"
+description: "Five paise per recipient, charged when the message is accepted. What counts as a recipient, what a failure costs, and how to check a charge."
+---
+
+**5 paise per recipient.** No monthly fee, no minimum, no charge for verifying a domain or for
+turning the product on.
+
+## Per recipient, not per message
+
+This is the part that surprises people, so it is worth being blunt about it. One email to
+fifty people is fifty deliveries and costs fifty times one email to one person.
+
+`To`, `Cc` and `Bcc` all count the same. An address that appears in more than one of them is
+one delivery and is counted once.
+
+| What you send | Recipients | Cost |
+| --- | --- | --- |
+| One address in `to` | 1 | 5 paise |
+| Ten in `to` | 10 | 50 paise |
+| Five in `to`, three in `cc` | 8 | 40 paise |
+| One address in both `to` and `cc` | 1 | 5 paise |
+
+Every response tells you what it charged and over how many recipients, so you can always check
+the arithmetic:
+
+```json
+{ "id": "rle_9f2c…", "messageId": "0109…", "costPaise": 40, "recipients": 8 }
+```
+
+## When you are charged
+
+At the moment the message is accepted by the provider. The amount is held before sending and
+settled after, so:
+
+- **A message that is accepted is charged.** Delivery happens afterwards and a bounce is not a
+  refund: the send was performed and paid for. That is how every email provider works.
+- **A message the provider refuses costs nothing.** The hold is released whole and your balance
+  is untouched.
+- **A message rejected before sending costs nothing.** A bad address, an unverified domain, or
+  a rate limit never reaches the provider.
+
+If your balance cannot cover the send it is refused with `insufficient_balance` and the
+required amount, before anything is sent.
+
+## Rate limits
+
+Two limits apply, and exceeding either returns `429` with a `Retry-After` header:
+
+- **5 sends per second per project.**
+- A platform-wide ceiling shared across all customers.
+
+These exist because email sending capacity is a shared, rationed resource, and one caller
+saturating it would degrade delivery for everyone including Tristack's own account emails.
+
+## Checking what you spent
+
+Relay Email appears in **Usage** alongside Manifold and Relay Voice, with recipients as the
+unit. Each row records the rate it was charged at, so a historical charge stays checkable even
+after prices change.

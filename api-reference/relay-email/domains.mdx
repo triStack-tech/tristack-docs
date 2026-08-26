@@ -1,0 +1,77 @@
+---
+title: "Manage sending domains"
+description: "List, add and remove the domains a project can send from, and read the DNS records that verify them."
+---
+
+<Info>
+  Base: `https://api.tristack.tech/v1/relay/email/domains` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…`
+</Info>
+
+Every endpoint here is scoped to the project the API key belongs to. A key can never see or
+touch another project's domains.
+
+## List domains
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/domains \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "domains": [
+    {
+      "domain": "yourdomain.com",
+      "status": "Verified",
+      "records": [
+        { "type": "CNAME", "name": "r73j…._domainkey.yourdomain.com",
+          "value": "r73j….dkim.amazonses.com" }
+      ],
+      "createdAt": "2026-08-26T14:30:00Z",
+      "verifiedAt": "2026-08-26T14:41:12Z",
+      "lastCheckedAt": "2026-08-26T15:10:00Z",
+      "error": null
+    }
+  ]
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `status` | `Pending`, `Verified`, `Failed` or `Expired`. See [Domains](/relay-email/domains). |
+| `records` | The three CNAMEs, fully assembled. Publish all of them. |
+| `lastCheckedAt` | When verification was last attempted. Checking is automatic. |
+| `error` | Why it is unusable, when it is. Null otherwise. |
+
+## Add a domain
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/domains \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "domain": "yourdomain.com" }'
+```
+
+Returns `201` with the same shape as one list entry, `status` of `Pending`, and the three
+records to publish. Verification then proceeds on its own.
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 400 | `invalid_domain` | Not a registrable domain. Send `yourdomain.com`, not a subdomain, an email address or a bare TLD. |
+| 409 | `domain_taken` | Claimed by another project. Deliberately does not say which. |
+| 409 | `domain_limit_reached` | This project already holds 25 domains in some state. |
+
+## Remove a domain
+
+```bash
+curl -X DELETE https://api.tristack.tech/v1/relay/email/domains/yourdomain.com \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+Returns `204`. Sending from it stops at once and the name is released for anyone to claim.
+Messages already accepted are still delivered.
+
+`404` with `domain_not_found` if this project does not hold it. A domain held by a different
+project returns the same `404`, not a `403`: whether some other customer owns a domain is not
+something this endpoint will confirm.
