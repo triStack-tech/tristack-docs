@@ -126,21 +126,47 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: npx --yes mint@latest broken-links
 
-      - name: Open a pull request
+      - name: Push the refreshed tables to a branch
+        # A BRANCH, not a pull request, and the difference is a permission rather than a
+        # preference. Opening a PR from a workflow needs "Allow GitHub Actions to create and
+        # approve pull requests", which is off on this repository; with it off,
+        # create-pull-request fails after every check has already passed, and a week's prices
+        # go unpublished for a reason that has nothing to do with the prices.
+        #
+        # Pushing a branch needs only the `contents: write` this job already has. The review
+        # step is unchanged: nothing reaches main until a human merges this branch, and the
+        # summary below says exactly what moved. Turn that setting on and this can go back to
+        # opening the PR itself.
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          branch: catalog-refresh
-          base: main
-          # The capture and everything generated from it, and nothing else.
-          add-paths: |
-            data/models.json
-            includes/
-            snippets/
-          commit-message: ${{ steps.diff.outputs.title }}
-          title: ${{ steps.diff.outputs.title }}
-          body: ${{ steps.diff.outputs.body }}
-          delete-branch: true
+        env:
+          TITLE: ${{ steps.diff.outputs.title }}
+          BODY: ${{ steps.diff.outputs.body }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # The capture and everything generated from it, and nothing else. Spelled out
+          # rather than `git add -A`, so a stray file written by a tool cannot ride along
+          # into a commit that claims to be a price refresh.
+          git add data/models.json snippets/
+          [ -d includes ] && git add includes/ || true
+
+          git commit -m "$TITLE" -m "$BODY"
+
+          # Force, because this branch is regenerated from scratch every run and carries no
+          # history worth keeping: an unmerged refresh from last week is superseded by this
+          # one, not something to rebase onto.
+          git push --force origin HEAD:catalog-refresh
+
+          {
+            echo "### Pushed to \`catalog-refresh\`"
+            echo
+            echo "$TITLE"
+            echo
+            echo "Open a pull request from that branch to publish it:"
+            echo "https://github.com/${GITHUB_REPOSITORY}/compare/main...catalog-refresh?expand=1"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the pages still import the generated tables
         # Deliberately last, and deliberately runs even when the catalog has not moved. A
