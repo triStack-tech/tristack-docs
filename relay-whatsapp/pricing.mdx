@@ -1,0 +1,50 @@
+---
+title: "Pricing"
+description: "A flat fee per code sent, from the same wallet as every other product. Meta bills you separately for the conversation."
+icon: "indian-rupee"
+---
+
+## Two bills, not one
+
+This is the only Tristack product where somebody else also charges you, so it is worth
+separating clearly.
+
+| Who charges | For what | Where it lands |
+| --- | --- | --- |
+| **Meta** | The WhatsApp authentication conversation | Your own Meta invoice, at their rates |
+| **Tristack** | Sending and verifying the code | Your Tristack wallet |
+
+Meta's rate is theirs to set and theirs to bill, and it varies by country. We never see it and
+never add to it.
+
+## What Tristack charges
+
+**25 paise per code sent.** A flat fee, whatever the destination country.
+
+Charged on the **send**, never on the verify. The send is what costs you a Meta conversation
+and what we did work for; checking a code is free and unlimited within the attempt cap, so a
+person fumbling their code four times costs you nothing extra.
+
+The balance is held before anything reaches WhatsApp. If it cannot be covered you get
+`insufficient_balance` with the amount required, and nothing is sent.
+
+## What is not charged
+
+- **A resend inside the resend window.** It returns the live code's `id` with
+  `costPaise: 0`, because nothing was sent, by us or by Meta.
+- **A send WhatsApp refused.** An unapproved template, an unreachable number, a token that
+  no longer works: the hold is released whole and you pay nothing. This applies to every
+  `502` from this endpoint.
+- **Verification, always.** However many attempts, up to the cap.
+- **A send refused by a rate limit.** Nothing is held, so nothing has to come back.
+
+## Reading it back
+
+Each send carries `costPaise` in its own response, and the wallet ledger records the charge
+against the same `otp_…` id, so a line on an invoice can be traced to the exact request that
+made it. Relay WhatsApp appears in **Usage** alongside the other products.
+
+<Note>
+  The rate is recorded on every send as it stood at that moment, so a price that changes later
+  never rewrites what an earlier send cost.
+</Note>

@@ -1,0 +1,65 @@
+---
+title: "Verify an OTP"
+api: "POST https://api.tristack.tech/v1/relay/whatsapp/otp/verify"
+description: "Checks a code against the id the send returned. Free, and unlimited within the attempt cap."
+---
+
+Never charged, however many attempts.
+
+## Request
+
+<ParamField body="id" type="string" required>
+  The `id` from the send. Another project's id answers exactly like one that never existed.
+</ParamField>
+
+<ParamField body="code" type="string" required>
+  What the person typed.
+</ParamField>
+
+## Response
+
+<ResponseField name="verified" type="boolean">
+  True only for the right code, on a live OTP, within the attempt cap. A verified code is
+  consumed on the spot and cannot be presented twice.
+</ResponseField>
+
+<ResponseField name="reason" type="string | null">
+  Why not, when `verified` is false. One of `incorrect`, `expired`, `exhausted`,
+  `superseded`, `already_verified`.
+</ResponseField>
+
+<ResponseField name="attemptsRemaining" type="number | null">
+  Guesses left, on `incorrect`. Zero on `exhausted`. Null otherwise.
+</ResponseField>
+
+```json 200 OK
+{ "verified": true }
+```
+
+```json 200 OK, wrong code
+{ "verified": false, "reason": "incorrect", "attemptsRemaining": 4 }
+```
+
+## The attempt cap consumes the code
+
+At the fifth wrong guess the code is **dead**, not merely refused. The correct code entered
+afterwards answers `exhausted`:
+
+```json
+{ "verified": false, "reason": "exhausted", "attemptsRemaining": 0 }
+```
+
+Send a new code. That is the intended path, and it is why the resend window exists.
+
+## Errors
+
+| Status | `code` | Means |
+| --- | --- | --- |
+| 400 | `invalid_request` | `id` or `code` missing |
+| 403 | `relay_whatsapp_disabled` | Not switched on for this project |
+| 404 | `otp_not_found` | No such id for this project |
+
+<Note>
+  A wrong code is **not** an error status. It is `200 OK` with `verified: false`, because the
+  request succeeded and the answer is no. Reserve your error path for the table above.
+</Note>

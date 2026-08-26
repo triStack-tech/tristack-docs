@@ -17,10 +17,11 @@ its own endpoint, its own request shape and its own price.
   <Card title="Relay Email" icon="envelope" href="/relay-email/index">
     **Available.** Transactional email from a domain you verify. Billed per recipient.
   </Card>
-  <Card title="Relay SMS" icon="comment-sms">
-    Not available yet. There is nothing to switch on and nothing is billed.
+  <Card title="Relay WhatsApp" icon="message-circle" href="/relay-whatsapp/index">
+    **Available.** One-time codes over WhatsApp, sent through your own Meta number. Billed per
+    code sent, and Meta bills you for the conversation separately.
   </Card>
-  <Card title="Relay OTP" icon="key">
+  <Card title="Relay SMS" icon="comment-sms">
     Not available yet. There is nothing to switch on and nothing is billed.
   </Card>
 </CardGroup>
@@ -44,11 +45,17 @@ Relay Email will not send a transcript of a call. Text produced by one product i
 another, and passing it across is something your code does deliberately.
 
 **Prices are per channel and not comparable.** A voice call is priced per answered call, an
-email per recipient. There is no shared unit, and a rupee buys a different amount of each.
+email per recipient, a WhatsApp code per code sent. There is no shared unit, and a rupee buys a
+different amount of each.
+
+**Relay WhatsApp has a second bill that the others do not.** You hold the Meta relationship, so
+Meta charges you for each conversation directly, on top of what Tristack charges. Relay Voice
+and Relay Email have one bill: ours.
 
 **Request shapes differ.** They all use `camelCase` on the wire, unlike Manifold's
 `snake_case`, but the fields themselves have nothing in common: Relay Voice takes phone numbers
-and a voice alias, Relay Email takes addresses and a verified sending domain.
+and a voice alias, Relay Email takes addresses and a verified sending domain, and Relay
+WhatsApp takes one number and returns an id to verify against.
 
 ## Relay and Manifold
 

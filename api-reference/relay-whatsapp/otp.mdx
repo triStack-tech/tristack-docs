@@ -1,0 +1,73 @@
+---
+title: "Send an OTP"
+api: "POST https://api.tristack.tech/v1/relay/whatsapp/otp"
+description: "Generates a one-time code, sends it through your own WhatsApp number, and returns the id you verify against."
+---
+
+Generates the code, sends it as your approved authentication template, and stores it hashed.
+The code is **never returned**: the `id` is your only handle on it.
+
+## Request
+
+<ParamField body="to" type="string" required>
+  The recipient, in international format. Spaces, hyphens, brackets and dots are stripped, and
+  a leading `00` is read as `+`, so `+91 98765 43210`, `+91-98765-43210` and `00919876543210`
+  are all the same number.
+
+  Between 8 and 15 digits after the country code. Not restricted to India.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  `otp_` plus 24 hex characters. Pass it to
+  [`/otp/verify`](/api-reference/relay-whatsapp/verify). It is also the reference the wallet
+  ledger records the charge against.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  When the code stops being valid, in UTC. Exact: verification after it answers `expired`.
+</ResponseField>
+
+<ResponseField name="costPaise" type="number">
+  What this call cost. **Zero** when `reused` is true.
+</ResponseField>
+
+<ResponseField name="reused" type="boolean">
+  True when a code was already live for this number and the request fell inside the resend
+  window, so the existing code's id is returned and **nothing was sent**. False when a new
+  code went out.
+
+  Worth reading rather than ignoring: it is the difference between a charge and no charge.
+</ResponseField>
+
+```json 200 OK
+{
+  "id": "otp_55ee1a65a6374e983b0a6dbd",
+  "expiresAt": "2026-08-27T09:10:18Z",
+  "costPaise": 25,
+  "reused": false
+}
+```
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 400 | `invalid_phone_number` | `to` is not an international number | Fix the number |
+| 400 | `whatsapp_not_configured` | The project has no WhatsApp credentials | Add them on the Relay WhatsApp tab |
+| 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
+| 403 | `relay_whatsapp_disabled` | Not switched on for this project | Turn it on. No new key needed |
+| 409 | `credential_unreadable` | The stored token could not be decrypted | Re-enter it in the dashboard |
+| 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
+| 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or let them try another route |
+| 502 | `whatsapp_token_invalid` | Meta refused the token, or the number is not ready | Paste a new token, or finish registering the number |
+| 502 | `whatsapp_template_not_approved` | The template name, language or parameter count does not match an approved template | Check it in WhatsApp Manager |
+| 502 | `whatsapp_recipient_unreachable` | Not on WhatsApp, or not accepting messages from this business | Nothing to retry |
+| 502 | `whatsapp_throttled` | Meta is throttling this number | Retry with backoff |
+| 503 | `relay_whatsapp_unavailable` | Off, or half-configured, on this deployment | Contact support |
+
+<Note>
+  **Every `502` is free.** A message WhatsApp would not take is nobody's to pay for, so the
+  hold is released whole and the balance is untouched.
+</Note>

@@ -1,0 +1,181 @@
+---
+title: "Relay WhatsApp"
+description: "One-time codes over WhatsApp, sent through your own Meta number. You call two endpoints; Tristack generates the code, sends it and verifies it."
+icon: "message-circle"
+---
+
+Two calls. `POST /v1/relay/whatsapp/otp` sends a code to a number, and
+`POST /v1/relay/whatsapp/otp/verify` checks what the person typed. You write no expiry, no
+attempt cap, no resend throttle and no storage.
+
+## You own the WhatsApp number, not us
+
+This is the part that is different from Relay Voice and Relay Email, and it is worth being
+plain about before you start.
+
+You create the WhatsApp Business Account, pass Meta's business verification, buy the number
+and get your own authentication template approved. Meta bills **you** for each conversation,
+directly, at their rates. Tristack never appears in that relationship.
+
+What you hand us is the credentials to send as you, and what you get back is that none of the
+one-time-code logic is yours to write or to get wrong.
+
+<Note>
+  Meta's charge for the conversation is separate from, and additional to, what Tristack
+  charges. See [Pricing](/relay-whatsapp/pricing).
+</Note>
+
+## What you need before the first call
+
+<Steps>
+  <Step title="A verified WhatsApp Business Account" icon="building">
+    Created in [Meta Business Manager](https://business.facebook.com), with business
+    verification passed. This takes Meta days rather than minutes, so start it first.
+  </Step>
+
+  <Step title="A phone number, registered to that account" icon="phone">
+    Bought or migrated inside WhatsApp Manager. You need its **phone number ID**, which is the
+    numeric id shown beside it, not the number itself.
+  </Step>
+
+  <Step title="An approved authentication template" icon="file-check">
+    Category **Authentication**, taking one body parameter: the code. Submit it in WhatsApp
+    Manager and wait for approval.
+
+    Tristack does not create or submit templates on your behalf. Doing that would need
+    broader permissions on your access token than sending does, and template approval is a
+    relationship between you and Meta.
+  </Step>
+
+  <Step title="A system user access token" icon="key">
+    From Business Settings, with `whatsapp_business_messaging` permission. Use a **system
+    user** token rather than a temporary one: temporary tokens expire in 24 hours, and the
+    first thing you will know about it is a customer who cannot log in.
+  </Step>
+</Steps>
+
+Then open the project's **Relay WhatsApp** tab in the dashboard and paste the four values.
+
+## What happens to your access token
+
+It is encrypted before it is stored, with a key that is not in the database, and it is bound
+to your project so a copy of the row is useless anywhere else.
+
+**It is write-only.** Nothing reads it back to you, in whole or in part. There is no reveal
+endpoint and no masked preview, because the only party who needs the token already has it.
+Replacing it is the only way to change it, and saving a new one rotates it.
+
+If it ever stops working, the dashboard says so on the Relay WhatsApp tab and the send answers
+`whatsapp_token_invalid` rather than a generic failure, so you know to paste a new one rather
+than to open a support ticket.
+
+## Sending a code
+
+```bash
+curl https://api.tristack.tech/v1/relay/whatsapp/otp \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "to": "+919876543210" }'
+```
+
+```json 200 OK
+{
+  "id": "otp_55ee1a65a6374e983b0a6dbd",
+  "expiresAt": "2026-08-27T09:10:18Z",
+  "costPaise": 25,
+  "reused": false
+}
+```
+
+Keep the `id`. It is what you verify against, and it is the only handle you get: the code
+itself is never returned to you, because a caller who could read it back could verify without
+the recipient, which is the whole property this exists to provide.
+
+`to` is an international number. Spaces, hyphens and brackets are fine, and a leading `00` is
+read as a `+`, so `+91 98765 43210` and `00919876543210` are the same number.
+
+## Verifying it
+
+```bash
+curl https://api.tristack.tech/v1/relay/whatsapp/otp/verify \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": "otp_55ee1a65a6374e983b0a6dbd", "code": "779291" }'
+```
+
+```json 200 OK
+{ "verified": true }
+```
+
+A failure says which of four things went wrong, so your own screen can say something useful:
+
+| `reason` | What happened | What to tell the person |
+| --- | --- | --- |
+| `incorrect` | Wrong code, and `attemptsRemaining` says how many guesses are left | "That code is not right." |
+| `expired` | The code timed out | Offer to send a new one |
+| `exhausted` | The attempt cap was reached and **the code is now dead** | Offer to send a new one |
+| `superseded` | A newer code was sent to this number | Ask for the most recent code |
+| `already_verified` | This code was already used | Nothing: they are through |
+
+Verifying is free and unlimited within the attempt cap. You are charged for sending, not for
+checking.
+
+## The rules that protect you
+
+These are not configuration. They apply to every project, and they exist because the failure
+they prevent lands on **your** Meta bill rather than ours.
+
+<AccordionGroup>
+  <Accordion title="Five wrong guesses kill the code, they do not merely fail" icon="shield">
+    At the fifth wrong attempt the code is consumed. The right code, entered afterwards, is
+    refused. An attacker therefore gets five guesses at a million, not an unlimited number.
+
+    This is the actual defence. A six-digit code is a million possibilities, and no way of
+    storing it survives someone who can guess without limit.
+  </Accordion>
+
+  <Accordion title="Only one code is live per number at a time" icon="layers">
+    Requesting a new code for a number invalidates the previous one, which is why
+    `superseded` exists as a reason. Without this rule an attacker could request a hundred
+    codes and then guess against any of them, which is a hundred times easier than guessing
+    against one.
+  </Accordion>
+
+  <Accordion title="A repeat within a minute resends nothing" icon="rotate-ccw">
+    Ask again for the same number inside the resend window and you get the **same** `id` back,
+    with `reused: true` and `costPaise: 0`. Nothing is sent to WhatsApp and nothing is
+    charged, by us or by Meta.
+
+    This is deliberately not a refusal. A refusal teaches every integration to build its own
+    retry loop, and the person is waiting for the code they were already sent. Wire your
+    "resend" button straight to this endpoint.
+  </Accordion>
+
+  <Accordion title="Three codes per number per hour, ten per day" icon="gauge">
+    Counted per recipient, so one number being hammered cannot stop your other customers
+    signing in. Over the cap answers `recipient_rate_limited`.
+
+    A reuse inside the resend window does not count against this, because nothing was sent.
+  </Accordion>
+
+  <Accordion title="Codes expire after ten minutes" icon="clock">
+    `expiresAt` in the send response is exact. After it, verification answers `expired`
+    whatever the code.
+  </Accordion>
+</AccordionGroup>
+
+## What this slice does not do
+
+Not oversights, and each is a deliberate line:
+
+- **No conversations, bots or flows.** One-time codes only.
+- **No non-OTP messaging.** Marketing and utility templates are not sent through this.
+- **No template creation.** Yours to submit, and yours to own.
+- **No media, no inbound messages, no webhooks.**
+- **No SMS fallback.** A number without WhatsApp answers
+  `whatsapp_recipient_unreachable`, and what to do next is yours to decide.
+- **One number per project.**
+
+<Card title="API reference" icon="code" href="/api-reference/relay-whatsapp/otp">
+  Both endpoints, every field, every error code.
+</Card>
