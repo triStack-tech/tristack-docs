@@ -29,7 +29,7 @@ SNIPPETS = ROOT / "snippets"
 # prefix ("Nova Micro"), so a name carries nothing that can be relied on as a grouping key.
 # Every alias in the catalog must appear here or the run fails.
 FAMILIES: list[tuple[str, tuple[str, ...]]] = [
-    ("Opus, Sonnet and Haiku", ("opus-5", "opus-4-8", "sonnet-5", "sonnet-4-6", "haiku-4-5")),
+    ("Opus, Sonnet and Haiku", ("opus-4-6", "sonnet-4-6", "haiku-4-5")),
     ("Nova", ("nova-micro", "nova-lite", "nova-pro", "nova-2-lite")),
     ("DeepSeek", ("deepseek-v3-2", "deepseek-r1")),
     ("Gemma 3", ("gemma-3-4b", "gemma-3-12b", "gemma-3-27b")),
@@ -64,27 +64,18 @@ FAMILIES: list[tuple[str, tuple[str, ...]]] = [
     ("GLM", ("glm-4-7", "glm-4-7-flash", "glm-5")),
 ]
 
-# Aliases carried in the settings but switched off on this deployment (Enabled = false).
-# A call to one answers 400 unknown_model, exactly as a misspelt alias does: the platform
-# refuses to make "switched off" and "does not exist" distinguishable, so a model it cannot
-# serve is not discoverable through the difference between two errors. Keyed on alias for
-# the same reason the families are: availability is not something a display name can tell
-# you.
-PENDING_ALIASES = {
-    "opus-5",
-    "opus-4-8",
-    "sonnet-5",
-    "sonnet-4-6",
-    "haiku-4-5",
-}
+# Aliases the catalog still lists but that cannot be served yet. Empty as of 2026-08-26:
+# GET /v1/manifold/models returns only servable models, so a switched-off one does not reach
+# a capture at all and there is nothing to warn about. Kept rather than deleted because the
+# machinery is what a "listed but not yet callable" state would need again, and because an
+# alias put back here is one line rather than a rewrite of three snippets.
+PENDING_ALIASES: set[str] = set()
 
 # Aliases that accept image content blocks. The catalog endpoint does not report this, so
 # it is tracked here and asserted against the catalog on every run. Delete this list in
 # favour of the API the day the catalog response carries a vision flag of its own.
 VISION_ALIASES = {
-    "opus-5",
-    "opus-4-8",
-    "sonnet-5",
+    "opus-4-6",
     "sonnet-4-6",
     "haiku-4-5",
     "nova-lite",
