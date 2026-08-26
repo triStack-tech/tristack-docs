@@ -20,26 +20,23 @@ model's own rate, and the response tells you what that came to.
 
 ## What a token costs
 
-Manifold takes the provider's own rate in USD, converts at **100 INR to the dollar**, and
-adds a **10 percent margin**:
+Every model has a published price in **paise per 1000 tokens**, one for input and one for
+output, from [`GET /v1/manifold/models`](/manifold/models):
 
 ```text
 costPaise = ceil(
-  (inputTokens * usdPerMTokIn + outputTokens * usdPerMTokOut)
-  / 1e6 * usdToInr * 100 * 1.10
+  (inputTokens  * paisePer1KTokensIn  / 1000) +
+  (outputTokens * paisePer1KTokensOut / 1000)
 )
 ```
 
-`usdToInr` is 100 today and comes back at the top of
-[`GET /v1/manifold/models`](/manifold/models); the second `100` turns rupees into paise, and
-`1.10` is the margin. That endpoint also lists each model's rate two ways: `usdPerMTok` per
-million tokens, and `paisePer1KTokens` per thousand with the margin already in it.
+Prices differ per model and change over time, so read them from that endpoint rather than
+hard-coding them.
 
 <Note>
-  The same 10 percent is applied to the pre-flight estimate, to the settled cost **and** to
-  the prices the catalog lists, all through one function in the pricing code. The catalog
-  therefore cannot drift from the invoice: what you are quoted per 1000 tokens is what you
-  are billed per 1000 tokens.
+  The price the catalog lists and the price you are billed come from one place, so they
+  cannot disagree: what you are quoted per 1000 tokens is what you are charged per 1000
+  tokens, for the pre-flight estimate and for the settled cost alike.
 </Note>
 
 Rounding up to a whole paise happens once, at the very end, so any call that used tokens
@@ -91,10 +88,10 @@ guessing means charging people wrong, so Manifold reserves money instead of taki
 
 ## A worked example
 
-One call to `nova-pro`, which the catalog lists at **0.80 USD per million input tokens** and
-**3.20 USD per million output tokens**, or 8.80 and 35.20 paise per 1000 tokens with the
-margin in. The request carries a 620-character system prompt and a 7,380-character user
-message, and sets `max_tokens: 2048`.
+One call to `nova-pro`. Suppose the catalog lists it at **8.80 paise per 1000 input tokens**
+and **35.20 paise per 1000 output tokens**; read the current figures from
+[`GET /v1/manifold/models`](/manifold/models), because they change. The request carries a
+620-character system prompt and a 7,380-character user message, and sets `max_tokens: 2048`.
 
 ### The hold
 
@@ -103,12 +100,9 @@ message, and sets `max_tokens: 2048`.
 | Billable characters | 620 + 7,380 | 8,000 |
 | Estimated input tokens | `ceil(8000 / 4)` | 2,000 |
 | Estimated output tokens | from `max_tokens` | 2,048 |
-| Input part | `2000 * 0.80` | 1,600 |
-| Output part | `2048 * 3.20` | 6,553.6 |
-| In USD | `(1600 + 6553.6) / 1e6` | 0.0081536 |
-| In rupees | `* usdToInr`, 100 | 0.81536 |
-| In paise | `* 100` paise to the rupee | 81.536 |
-| Plus margin | `* 1.10` | 89.6896 |
+| Input part | `2000 * 8.80 / 1000` | 17.6 paise |
+| Output part | `2048 * 35.20 / 1000` | 72.09 paise |
+| Total | `17.6 + 72.09` | 89.69 paise |
 | Rounded up | `ceil` | **90 paise held** |
 
 90 paise leave the available balance. Nothing has been spent yet.
@@ -135,12 +129,9 @@ reserved and 512 were written, because `max_tokens` was a ceiling the model neve
 
 | Step | Arithmetic | Value |
 |---|---|---|
-| Input part | `1984 * 0.80` | 1,587.2 |
-| Output part | `512 * 3.20` | 1,638.4 |
-| In USD | `(1587.2 + 1638.4) / 1e6` | 0.0032256 |
-| In rupees | `* usdToInr`, 100 | 0.32256 |
-| In paise | `* 100` paise to the rupee | 32.256 |
-| Plus margin | `* 1.10` | 35.4816 |
+| Input part | `1984 * 8.80 / 1000` | 17.46 paise |
+| Output part | `512 * 35.20 / 1000` | 18.02 paise |
+| Total | `17.46 + 18.02` | 35.48 paise |
 | Rounded up | `ceil` | **36 paise charged** |
 
 ### In the ledger

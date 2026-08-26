@@ -160,15 +160,6 @@ def lossless(value: Decimal, rendered: str) -> str:
     return rendered
 
 
-def usd(value: Decimal) -> str:
-    """USD per million tokens, at the precision the catalog actually carries."""
-    two = value.quantize(Decimal("0.01"))
-    # Two decimals where that is exact, otherwise every decimal the rate carries. `.3f`
-    # here would silently round a 4-decimal rate, and 4-decimal per-MTok rates are ordinary.
-    rendered = f"{two:.2f}" if two == value else format(value.normalize(), "f")
-    return lossless(value, rendered)
-
-
 def paise(value: Decimal) -> str:
     return lossless(value, f"{value:.2f}")
 
@@ -177,9 +168,9 @@ def servable(models: list[dict]) -> list[dict]:
     return [model for model in models if model["alias"] not in PENDING_ALIASES]
 
 
-def load() -> tuple[Decimal, list[dict]]:
+def load() -> list[dict]:
     payload = json.loads(SOURCE.read_text(), parse_float=Decimal, parse_int=Decimal)
-    return payload["usdToInr"], payload["models"]
+    return payload["models"]
 
 
 def group(models: list[dict]) -> dict[str, list[dict]]:
@@ -209,9 +200,7 @@ def group(models: list[dict]) -> dict[str, list[dict]]:
 
 
 def catalog_rows(models: list[dict]) -> list[str]:
-    # The upstream USD rate is deliberately not published beside the charged price: the two
-    # side by side are one division away from the conversion rate and the margin, which is
-    # how a price is arrived at rather than what a customer pays.
+    # Only the charged price is published. How a price is arrived at is not a column.
     header = [
         "| Alias | Model | Vision | Paise / 1K in | Paise / 1K out |",
         "|---|---|:--:|---:|---:|",
@@ -267,9 +256,7 @@ def write_catalog(target, families: dict[str, list[dict]]) -> None:
     (target.directory / f"model-catalog{target.suffix}").write_text("\n".join(lines))
 
 
-def write_summary(
-    target, fx: Decimal, models: list[dict], families: dict[str, list[dict]]
-) -> None:
+def write_summary(target, models: list[dict], families: dict[str, list[dict]]) -> None:
     lines = [
         target.banner,
         "",
@@ -348,17 +335,17 @@ def write_budget(target, models: list[dict], count: int = 10) -> None:
 
 
 def main() -> None:
-    fx, models = load()
+    models = load()
     mdx_safe(models)
     families = group(models)
     for target in targets():
         target.directory.mkdir(exist_ok=True)
         write_catalog(target, families)
-        write_summary(target, fx, models, families)
+        write_summary(target, models, families)
         write_vision(target, models)
         write_budget(target, models)
         print(f"wrote {target.directory.relative_to(ROOT)}/*{target.suffix}")
-    print(f"{len(models)} models, {len(families)} families, fx {fx}")
+    print(f"{len(models)} models, {len(families)} families")
     for family, entries in families.items():
         print(f"  {family}: {len(entries)}")
 

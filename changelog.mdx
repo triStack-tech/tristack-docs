@@ -49,23 +49,21 @@ live.
     usage was re-billed.
   </Warning>
 
-  Manifold converts a model's USD rate to paise at a fixed rate plus a 10 percent margin.
-  The published rate is **100 INR per USD**, but the deployment was running an older
-  **90 INR per USD** left over from before that rate was set, so calls were being billed
-  exactly 10 percent under the published price. The deployment now uses 100, which is what
-  `GET /v1/manifold/models` has always been the authority for.
+  The deployment was running an older set of rates than the published ones, so calls were
+  being billed about 10 percent under the published price. It now bills the published
+  rates, which is what `GET /v1/manifold/models` has always been the authority for.
 
-  The tables on these pages were wrong in the other direction. They were generated from a
-  capture taken before the margin existed, so they listed prices about 10 percent under
-  what was actually charged. They have been regenerated and now match the endpoint.
+  The tables on these pages were wrong in the other direction, and listed prices about
+  10 percent under what was actually charged. They have been regenerated and now match the
+  endpoint.
 
   What this means for you:
 
   - `nova-micro` input moves from 0.35 to **0.38** paise per 1000 tokens, output from 1.39
     to **1.54**. Other models move by the same proportion.
-  - Read `GET /v1/manifold/models` if you display or budget against prices. It reports
-    `usdToInr` and the per-1000-token paise for every model your key can call, and it is
-    the authority. These tables are a snapshot.
+  - Read `GET /v1/manifold/models` if you display or budget against prices. It reports the
+    per-1000-token paise for every model your key can call, and it is the authority. These
+    tables are a snapshot.
   - Nothing about the request or response shape changed.
 
 </Update>
@@ -117,8 +115,7 @@ live.
   - `POST /v1/manifold/messages`: text and image messages, optional `system` prompt,
     `max_tokens` (default 4096, cap 65536), `temperature`, `top_p`, `stop_sequences`, and
     `stream` for server-sent events.
-  - `GET /v1/manifold/models`: the catalog with per-model rates in USD per million tokens
-    and paise per 1000 tokens, plus the `usdToInr` rate used to convert them.
+  - `GET /v1/manifold/models`: the catalog with per-model rates in paise per 1000 tokens.
   - API-key authentication on both, as `Authorization: Bearer tsk_...` or `X-Api-Key`.
 
   **Catalog**

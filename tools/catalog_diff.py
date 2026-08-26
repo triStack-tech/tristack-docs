@@ -3,10 +3,9 @@
 
     python tools/catalog_diff.py before.json data/models.json
 
-Prints a markdown summary: models added, removed, renamed or reprised, and a change
-of conversion rate. The refresh workflow writes that summary into the pull request it
-opens, so a reviewer reads what changed instead of diffing a single line of minified
-JSON by eye.
+Prints a markdown summary: models added, removed, renamed or reprised. The refresh
+workflow writes that summary into the pull request it opens, so a reviewer reads what
+changed instead of diffing a single line of minified JSON by eye.
 
 Rates are rendered with the same functions that render the published tables, never a
 second copy of them: the numbers quoted in the pull request are the numbers the pages
@@ -28,20 +27,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from generate_pricing import paise, usd  # noqa: E402
+from generate_pricing import paise  # noqa: E402
 
 # Every rate on the pricing pages, with the column head and renderer each one uses.
 RATES = (
-    ("usdPerMTokIn", "USD / MTok in", usd),
-    ("usdPerMTokOut", "USD / MTok out", usd),
     ("paisePer1KTokensIn", "Paise / 1K in", paise),
     ("paisePer1KTokensOut", "Paise / 1K out", paise),
 )
 
 
-def load(path: Path) -> tuple[Decimal, dict[str, dict]]:
+def load(path: Path) -> dict[str, dict]:
     payload = json.loads(path.read_text(), parse_float=Decimal, parse_int=Decimal)
-    return payload["usdToInr"], {model["alias"]: model for model in payload["models"]}
+    return {model["alias"]: model for model in payload["models"]}
 
 
 def rate_row(model: dict) -> str:
@@ -53,7 +50,7 @@ def rate_table(models: list[dict]) -> list[str]:
     heads = " | ".join(head for _, head, _ in RATES)
     return [
         f"| Alias | Model | {heads} |",
-        "|---|---|---:|---:|---:|---:|",
+        "|---|---|---:|---:|",
         *(rate_row(model) for model in models),
     ]
 
@@ -80,8 +77,8 @@ def main() -> int:
     parser.add_argument("after", type=Path)
     args = parser.parse_args()
 
-    old_fx, old = load(args.before)
-    new_fx, new = load(args.after)
+    old = load(args.before)
+    new = load(args.after)
 
     added = [model for alias, model in new.items() if alias not in old]
     removed = [model for alias, model in old.items() if alias not in new]
@@ -111,14 +108,8 @@ def main() -> int:
         headline = f"{phrase(counts)}."
     else:
         headline = "No model was added, removed, renamed or reprised."
-    if old_fx != new_fx:
-        headline += f" The conversion rate moved from {old_fx:.1f} to {new_fx:.1f} INR per USD."
 
-    title = "Refresh the model catalog: " + (
-        phrase(counts)
-        if counts
-        else f"conversion rate {old_fx:.1f} to {new_fx:.1f} INR per USD"
-    )
+    title = "Refresh the model catalog: " + (phrase(counts) if counts else "no change")
 
     body.append(headline)
     body.append("")
@@ -161,7 +152,7 @@ def main() -> int:
             "",
         ]
 
-    changed = bool(counts) or old_fx != new_fx
+    changed = bool(counts)
     body.append(
         "`data/models.json` is the captured response and `snippets/` is generated from "
         "it by `tools/generate_pricing.py`. Neither was edited by hand."

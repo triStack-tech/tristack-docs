@@ -47,7 +47,6 @@ from generate_pricing import (  # noqa: E402
     Mintlify,
     paise,
     servable,
-    usd,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,8 +58,8 @@ VISION = SNIPPETS / "model-vision.mdx"
 BUDGET = SNIPPETS / "model-budget.mdx"
 GENERATED = (CATALOG, SUMMARY, VISION, BUDGET)
 
-# No USD columns: the upstream rate beside the charged price is one division away from the
-# conversion rate and the margin, which is not published.
+# The tables carry the charged price and nothing else. A column the catalog does not
+# publish must not appear here either.
 CATALOG_HEADER = [
     "Alias",
     "Model",
@@ -251,7 +250,7 @@ def check_vision(body: str, models: dict[str, dict], problems: list[str]) -> int
     return rows
 
 
-def check_summary(body: str, fx: Decimal, models: dict[str, dict], problems: list[str]) -> None:
+def check_summary(body: str, models: dict[str, dict], problems: list[str]) -> None:
     """The one place the tables are described in prose. A count left behind by a refresh
     reads as authoritative, so it is checked like a rate."""
     counted = {
@@ -282,7 +281,7 @@ def check_tables(problems: list[str]) -> None:
     check_catalog(text[CATALOG], models, problems)
     check_budget(text[BUDGET], models, problems)
     rows = check_vision(text[VISION], models, problems)
-    check_summary(text[SUMMARY], catalog["usdToInr"], models, problems)
+    check_summary(text[SUMMARY], models, problems)
     if not problems:
         print(
             f"OK: {len(models)} catalog rows and {rows} vision rows in "

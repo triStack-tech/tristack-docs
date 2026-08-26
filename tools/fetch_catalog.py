@@ -3,9 +3,9 @@
 
     TRISTACK_API_KEY=... python tools/fetch_catalog.py --out data/models.json
 
-The body is written byte for byte as the endpoint returned it, so data/models.json
-stays a captured response rather than something reshaped on the way in: rates arrive
-as `45.00` and are stored as `45.00`, and a re-serialised copy would quietly lose that.
+The body is validated as the endpoint returned it, then reduced to the fields the
+pages publish. Rates are carried across as written, so one that arrives as `45.00` is
+stored as `45.00` rather than round-tripped into `45.0`.
 
 The payload is validated before anything is written. An error page, a truncated body
 or a catalog with no models must never overwrite a good capture, because the published
@@ -30,8 +30,6 @@ DEFAULT_OUT = ROOT / "data" / "models.json"
 # The fields tools/generate_pricing.py reads. A response missing any of them is a
 # response the generator cannot turn into a table, so it is rejected here instead.
 REQUIRED_RATES = (
-    "usdPerMTokIn",
-    "usdPerMTokOut",
     "paisePer1KTokensIn",
     "paisePer1KTokensOut",
 )
@@ -73,10 +71,6 @@ def validate(raw: bytes) -> int:
     if not isinstance(payload, dict):
         raise SystemExit("The catalog response is not a JSON object")
 
-    fx = payload.get("usdToInr")
-    if not isinstance(fx, Decimal) or fx <= 0:
-        raise SystemExit(f"usdToInr is missing or not a positive number: {fx!r}")
-
     models = payload.get("models")
     if not isinstance(models, list) or not models:
         raise SystemExit("The catalog response carries no models")
@@ -106,6 +100,35 @@ def validate(raw: bytes) -> int:
     return len(models)
 
 
+# The response is captured into a public repository, so only the fields the pages
+# actually publish are kept. Anything the endpoint may grow later stays out by default
+# rather than being reviewed for disclosure after it has already been committed.
+PUBLISHED_FIELDS = ("alias", "displayName", "paisePer1KTokensIn", "paisePer1KTokensOut")
+TEXT_FIELDS = frozenset({"alias", "displayName"})
+
+
+def publishable(raw: bytes) -> bytes:
+    """The captured response reduced to the published fields, rates unchanged.
+
+    Rates are re-emitted as the endpoint wrote them rather than round-tripped through a
+    float, so a rate that arrived as `45.00` is stored as `45.00`. That is why the rows
+    are assembled here instead of handed to json.dumps, which has no way to write a
+    Decimal as a JSON number.
+    """
+    payload = json.loads(raw, parse_float=str, parse_int=str)
+    rows = [
+        "{"
+        + ", ".join(
+            f"{json.dumps(field)}: "
+            + (json.dumps(model[field]) if field in TEXT_FIELDS else model[field])
+            for field in PUBLISHED_FIELDS
+        )
+        + "}"
+        for model in payload["models"]
+    ]
+    return ('{"models": [' + ", ".join(rows) + "]}").encode("utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--url", default=DEFAULT_URL, help=f"default {DEFAULT_URL}")
@@ -122,6 +145,7 @@ def main() -> int:
 
     raw = fetch(args.url, key, args.timeout)
     count = validate(raw)
+    raw = publishable(raw)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(raw)
     print(f"{count} models captured into {args.out}")

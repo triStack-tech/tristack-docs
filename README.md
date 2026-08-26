@@ -18,8 +18,8 @@ their GitHub App, and Mintlify then builds and hosts the site itself on every pu
 
 The MkDocs site that used to be published here has been deleted, along with `mkdocs.yml`,
 `docs/`, `includes/`, `requirements.txt` and the workflow that deployed it. It was serving
-prices from before the margin existed, roughly 10 percent under what the API actually
-billed, and keeping a second set of pages accurate in parallel is how that happened.
+stale prices, roughly 10 percent under what the API actually billed, and keeping a second
+set of pages accurate in parallel is how that happened.
 
 The published address is <https://docs.tristack.tech>. The dashboard's Docs link already
 points there; the marketing site's links are the remaining ones to check.

@@ -102,7 +102,7 @@ So both products bill in two movements.
 </Steps>
 
 If the work never happened, there is nothing to settle and the hold is released in full. A
-provider that fails before producing anything, a model the AWS account cannot serve, speech
+provider that fails before producing anything, a model the provider cannot serve, speech
 that the voice provider refuses: all of them cost you nothing, and the ledger shows the
 reason in the release row's `description`.
 
@@ -113,8 +113,8 @@ reason in the release row's `description`.
 input_tokens  = ceil(characters in the request / 4)
 output_tokens = max_tokens, in full
 
-estimate = (input_tokens x input rate + output_tokens x output rate)
-           converted at 100 INR per USD, plus a 10 percent margin,
+estimate = (input_tokens  x paisePer1KTokensIn  / 1000)
+         + (output_tokens x paisePer1KTokensOut / 1000)
            rounded up to whole paise, never less than 1 paise
 ```
 
@@ -135,8 +135,8 @@ Two practical consequences:
   makes the character count zero: nothing is prepared, so nothing is charged for preparing
   it. [Reusing audio →](/relay-voice/reusing-audio)
 
-The prices `GET /v1/manifold/models` reports already include the currency conversion and the
-margin, so the rate you read there is the rate you are charged. Do not apply either yourself.
+The rates `GET /v1/manifold/models` reports are the rates you are charged. Use them as they
+stand: nothing is added on top of them at settlement.
 
 <Note>
   The Rs 200 Relay Voice activation fee goes through the same hold and settle, keyed to the

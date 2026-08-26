@@ -28,19 +28,14 @@ curl https://api.tristack.tech/v1/manifold/models \
 
 ```json 200 OK, trimmed to four rows
 {
-  "usdToInr": 100.0,
   "models": [
     { "alias": "nova-micro", "displayName": "Nova Micro",
-      "usdPerMTokIn": 0.035, "usdPerMTokOut": 0.14,
       "paisePer1KTokensIn": 0.38, "paisePer1KTokensOut": 1.54 },
     { "alias": "nova-lite", "displayName": "Nova Lite",
-      "usdPerMTokIn": 0.06, "usdPerMTokOut": 0.24,
       "paisePer1KTokensIn": 0.66, "paisePer1KTokensOut": 2.64 },
     { "alias": "nova-pro", "displayName": "Nova Pro",
-      "usdPerMTokIn": 0.80, "usdPerMTokOut": 3.20,
       "paisePer1KTokensIn": 8.80, "paisePer1KTokensOut": 35.20 },
     { "alias": "mistral-large-3", "displayName": "Mistral Large 3 675B",
-      "usdPerMTokIn": 0.50, "usdPerMTokOut": 1.50,
       "paisePer1KTokensIn": 5.50, "paisePer1KTokensOut": 16.50 }
   ]
 }
@@ -67,45 +62,27 @@ under you by whoever administers the project.
 |---|---|
 | `alias` | The name you put in `model`. |
 | `displayName` | A human label for a picker. Never send it as `model`. |
-| `usdPerMTokIn` / `usdPerMTokOut` | The provider's own rate, in USD per **million** tokens. Provenance, not a billing input. |
-| `usdToInr` | The exchange rate used to convert, at the top of the response because it applies to every row. |
-| `paisePer1KTokensIn` / `paisePer1KTokensOut` | **The billable rate**: paise per **1000** tokens, margin already included. |
+| `paisePer1KTokensIn` / `paisePer1KTokensOut` | **The billable rate**: paise per **1000** tokens. |
 
-Two different units sit in the same object, so read the field names carefully: the USD
-figures are per million tokens, the paise figures are per thousand.
+Note the unit: these are per **thousand** tokens, not per million.
 
-### Where the paise figure comes from
+### Prices change
 
-Manifold converts the provider's USD rate at **100 INR to the dollar** and adds a **10
-percent margin**:
-
-```text
-paisePer1KTokens = round(usdPerMTok * usdToInr * 1.10 / 10, 2)
-```
-
-The division by 10 is the unit change, from per-million tokens in dollars to per-thousand in
-paise. With `usdToInr` at 100, that comes to the USD-per-million rate multiplied by 11: Nova
-Lite input, at 0.06 USD per million tokens, lists at 0.66 paise per 1000 tokens.
+Read them from this endpoint rather than hard-coding them. Model rates are revised over time,
+and a price cached at integration time will eventually disagree with your invoice.
 
 <Note>
-  The same 10 percent is applied to the pre-flight estimate, to the settled cost, and to the
-  prices this endpoint lists. All three come out of one function in the pricing code, so the
-  number you are quoted cannot drift from the number you are billed.
+  The price listed here and the price you are billed come from one place, so the number you
+  are quoted cannot drift from the number you are charged. That holds for the pre-flight
+  estimate and for the settled cost alike.
 </Note>
-
-<Warning>
-  **Do not derive your own rate from `usdPerMTok` and `usdToInr`.** Those two fields are the
-  provider rate and the exchange rate: multiplying them gives the cost before margin, which
-  is 10 percent under what you will actually pay. `paisePer1KTokensIn` and
-  `paisePer1KTokensOut` are the numbers to compute against.
-</Warning>
 
 ### What a call costs
 
 ```text
 costPaise = ceil(
-  (inputTokens * usdPerMTokIn + outputTokens * usdPerMTokOut)
-  / 1e6 * usdToInr * 100 * 1.10
+  (inputTokens  * paisePer1KTokensIn  / 1000) +
+  (outputTokens * paisePer1KTokensOut / 1000)
 )
 ```
 

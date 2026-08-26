@@ -59,7 +59,7 @@ Two fields ride along on specific failures:
 | `unknown_model` | 400 | Manifold | `model` is neither a known alias nor a catalog model id, or it is one the platform cannot serve. Both answer identically | Copy an alias from `GET /v1/manifold/models`, which lists exactly what this key can call |
 | `model_not_allowed` | 403 | Manifold | The model is real and servable, but this project's allowlist does not carry it. Refused before the hold | Add the alias under the project's model settings, or call one that is on the list |
 | `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
-| `model_access_denied` | 403 | Manifold | The backing AWS account is not entitled to this model. The hold is released in full | Use another alias. Nothing was charged |
+| `model_access_denied` | 403 | Manifold | The platform is not entitled to serve this model. The hold is released in full | Use another alias. Nothing was charged |
 | `provider_throttled` | 429 | Manifold | The model provider is throttling. Not a Tristack rate limit | Retry with exponential backoff and jitter |
 | `provider_error` | 502 | Manifold | Any other provider failure. The hold is released | Retry. If it persists, send support the `mfr_…` id |
 | `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
