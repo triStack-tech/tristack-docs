@@ -71,3 +71,46 @@ Mail already accepted is unaffected: it has been handed to the provider and will
 curl -X DELETE https://api.tristack.tech/v1/relay/email/domains/yourdomain.com \
   -H "Authorization: Bearer $TRISTACK_API_KEY"
 ```
+
+## Check now
+
+A pending domain has a **Check now** button. It does not make verification happen: that runs
+on its own every few minutes either way. What it does is tell you **which record is wrong**,
+which the automatic check cannot.
+
+It resolves each of the three CNAMEs in public DNS and reports one of four things per record:
+
+| Verdict | Meaning |
+| --- | --- |
+| OK | Published, pointing where it should. |
+| Not published | Nothing resolves at that name. |
+| Wrong value | Something resolves, but not the value we issued. It shows you what it found. |
+| Wrong name | Found one zone deeper. Your provider appended the domain to a name that already ended with it. |
+
+That last one is the common failure, and it is invisible without this check: the correct name
+simply resolves to nothing, so it looks identical to having published nothing at all.
+
+Limited to one check per domain every 30 seconds. Checking a different domain is not affected.
+
+## Optional records
+
+Alongside the three required CNAMEs, the domain screen carries an **Optional records** section.
+Nothing in it is needed to verify or to send, and each entry says what it is for:
+
+**DMARC**, a TXT record at `_dmarc.yourdomain.com`. Tells receiving servers what to do with
+mail claiming to be from you that fails authentication, and asks them to send you reports.
+Gmail and Yahoo have required it from bulk senders since 2024, so its absence matters more as
+your volume grows.
+
+**A return path on your own domain**, an MX and a TXT record on `mail.yourdomain.com`. Publish
+both or neither. Without them, recipients on some clients see your mail annotated as sent
+"via" another domain, because the return path does not match your From address. They also mean
+bounce notifications reach a domain you control.
+
+<Note>
+  You will see advice elsewhere to add an SPF record to your domain itself. With the default
+  return path that does nothing: SPF is evaluated against the return-path domain, which is not
+  yours, so your record is never consulted. DMARC passes on DKIM alignment alone. SPF becomes
+  meaningful only alongside the MX record above, which is why it is offered there and not on
+  its own.
+</Note>

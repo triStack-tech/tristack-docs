@@ -67,7 +67,7 @@ message size. Attachments are not supported yet.
 {
   "id": "rle_9f2c1a7b4e6d08a35c1b90fe",
   "messageId": "010901a03e85875a-98c66005-e0a6-4276-af3e-51fb65d8cfc3-000000",
-  "costPaise": 5,
+  "costPaise": 2,
   "recipients": 1
 }
 ```
@@ -76,7 +76,7 @@ message size. Attachments are not supported yet.
 | --- | --- |
 | `id` | Tristack's id for the send. Quote this in support requests. |
 | `messageId` | The provider's id, useful when tracing delivery. |
-| `costPaise` | What was actually **charged**, not quoted. See the note below. |
+| `costPaise` | What was actually **charged**, rounded up to whole paise, not quoted. See the note below. |
 | `recipients` | The multiplier behind `costPaise`. Deduplicated across `to`, `cc` and `bcc`. |
 
 <Note>
@@ -87,7 +87,7 @@ message size. Attachments are not supported yet.
 
 ## Billing
 
-**Per recipient.** `costPaise` is 5 paise multiplied by `recipients`. An email to fifty people
+**Per recipient.** `costPaise` is 1.5 paise multiplied by `recipients`, rounded up to whole paise. An email to fifty people
 costs fifty times one to a single person. Full detail in [Pricing](/relay-email/pricing).
 
 ## Errors

@@ -1,10 +1,17 @@
 ---
 title: "Relay Email pricing"
-description: "Five paise per recipient, charged when the message is accepted. What counts as a recipient, what a failure costs, and how to check a charge."
+description: "1.5 paise per recipient, charged when the message is accepted. What counts as a recipient, why a single email settles at 2 paise, and what a failure costs."
 ---
 
-**5 paise per recipient.** No monthly fee, no minimum, no charge for verifying a domain or for
-turning the product on.
+**1.5 paise per recipient.** No monthly fee, no minimum, no charge for verifying a domain or
+for turning the product on.
+
+<Note>
+  A wallet holds whole paise and cannot be debited a fraction of one, so the total for a
+  message is rounded **up** to the next paise. A single-recipient email therefore settles at
+  **2 paise**, and larger sends average out to the true rate: ten recipients cost 15 paise,
+  a hundred cost 150.
+</Note>
 
 ## Per recipient, not per message
 
@@ -16,16 +23,16 @@ one delivery and is counted once.
 
 | What you send | Recipients | Cost |
 | --- | --- | --- |
-| One address in `to` | 1 | 5 paise |
-| Ten in `to` | 10 | 50 paise |
-| Five in `to`, three in `cc` | 8 | 40 paise |
-| One address in both `to` and `cc` | 1 | 5 paise |
+| One address in `to` | 1 | 2 paise (1.5, rounded up) |
+| Ten in `to` | 10 | 15 paise |
+| Five in `to`, three in `cc` | 8 | 12 paise |
+| One address in both `to` and `cc` | 1 | 2 paise |
 
 Every response tells you what it charged and over how many recipients, so you can always check
 the arithmetic:
 
 ```json
-{ "id": "rle_9f2c…", "messageId": "0109…", "costPaise": 40, "recipients": 8 }
+{ "id": "rle_9f2c…", "messageId": "0109…", "costPaise": 12, "recipients": 8 }
 ```
 
 ## When you are charged
