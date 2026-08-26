@@ -92,6 +92,23 @@ simply resolves to nothing, so it looks identical to having published nothing at
 
 Limited to one check per domain every 30 seconds. Checking a different domain is not affected.
 
+## A second DMARC record breaks DMARC
+
+If `_dmarc.yourdomain.com` returns **more than one** TXT record starting `v=DMARC1`, receivers
+treat your domain as having **no DMARC policy at all** and ignore every one of them. It is the
+same trap as publishing two SPF records.
+
+This is easy to do by accident: some DNS providers publish a DMARC record for you through a
+managed feature, and adding your own by hand leaves two. Check what is actually published
+rather than what you think you added:
+
+```bash
+dig +short _dmarc.yourdomain.com TXT
+```
+
+More than one line back means DMARC is not being applied. Delete until one remains. If one of
+them collects reports for you, keep that one.
+
 ## Optional records
 
 Alongside the three required CNAMEs, the domain screen carries an **Optional records** section.
@@ -103,9 +120,19 @@ Gmail and Yahoo have required it from bulk senders since 2024, so its absence ma
 your volume grows.
 
 **A return path on your own domain**, an MX and a TXT record on `mail.yourdomain.com`. Publish
-both or neither. Without them, recipients on some clients see your mail annotated as sent
-"via" another domain, because the return path does not match your From address. They also mean
-bounce notifications reach a domain you control.
+both or neither.
+
+They give you two things. Bounce notifications reach a domain you control rather than the
+sending platform's. And more usefully, they add **SPF alignment alongside DKIM alignment**, so
+DMARC has two independent ways to pass. Without them DMARC rests on DKIM alone, which means a
+key rotation problem, or a forwarding hop that breaks the signature, takes DMARC down with it.
+
+<Note>
+  You may read that a mismatched return path makes Gmail annotate your mail as sent "via"
+  another domain. That happens only when there is no aligned DKIM signature. Your mail is
+  DKIM-signed with a key on your own domain, so the signature aligns and no annotation appears.
+  Verified against a real delivery, not assumed.
+</Note>
 
 <Note>
   You will see advice elsewhere to add an SPF record to your domain itself. With the default
