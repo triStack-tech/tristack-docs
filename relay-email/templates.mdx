@@ -1,0 +1,205 @@
+---
+title: "Templates and batch send"
+description: "Store a named subject and body with {{variable}} placeholders, then send it to up to 500 recipients in one call, each with their own values. Why a missing variable is an error, and why HTML bodies escape what they substitute."
+---
+
+A template is a named subject and body with `{{variable}}` placeholders in it. A batch sends
+one template to up to **500 messages** in a single call, each with its own recipients and its
+own values.
+
+They exist together because they are the same job: the receipt that goes to four hundred
+customers is one piece of writing and four hundred sets of values.
+
+## It is a mail merge, not a template language
+
+There are no loops, no conditionals and no expressions. A placeholder is a plain name between
+two braces, and anything else between two braces is refused when you save the template.
+
+```
+Dear {{firstName}}, order {{orderId}} shipped.     ← fine
+Dear {{ firstName }}, spaces are fine too.          ← fine
+{{#each items}}…{{/each}}                           ← refused
+{{ user.name }}                                     ← refused
+{{ total | currency }}                              ← refused
+```
+
+This is deliberate. A template language is a large surface for something whose whole job is to
+put a name and an order number into a sentence, and every value being substituted is your own
+customer's data. If you need a formatted total, format it before you send it.
+
+Names are case sensitive: `{{Name}}` and `{{name}}` are different placeholders.
+
+## Three rules worth knowing before you write one
+
+### A missing variable is an error, not an empty string
+
+If a message supplies no value for a placeholder the template uses, **that message fails** and
+the response says which variable was missing. It is not rendered as nothing.
+
+Rendering "Dear ," instead would be delivered, read by your customer, and never reported back
+to you. A failure you can see beats a mistake you cannot.
+
+The rest of the batch still goes. Only the message with the missing value is refused.
+
+### HTML bodies escape what they substitute; text bodies do not
+
+A value going into the `html` body is HTML escaped, always, and there is no setting to turn it
+off. A value going into the `text` body is substituted exactly as you sent it.
+
+With `{{name}}` set to `Ben & Jerry's <b>`:
+
+| Body | What is sent |
+| --- | --- |
+| `text` | `Dear Ben & Jerry's <b>,` |
+| `html` | `<p>Dear Ben &amp; Jerry&#39;s &lt;b&gt;,</p>` |
+
+Your own markup in the template is untouched. Only the substituted values are escaped, which
+is what stops a customer named `<script>` becoming script in a recipient's mail client. The
+text body is not markup, so escaping it would put `&amp;` in front of anybody who typed an
+ampersand.
+
+### A bad placeholder is refused when you SAVE, not when you send
+
+A template with `{{#each}}` in it cannot be stored at all. That is on purpose: a template is
+written once and sent from thousands of times, so the error belongs in front of the person
+editing it rather than in a batch at three in the morning.
+
+## Storing a template
+
+From **Relay Email → Message templates** in the dashboard, or over the API:
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/templates \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "receipt",
+    "subject": "Your receipt, {{orderId}}",
+    "text": "Dear {{name}},\n\nOrder {{orderId}} came to {{total}}.",
+    "html": "<p>Dear {{name}},</p><p>Order {{orderId}} came to {{total}}.</p>"
+  }'
+```
+
+The response lists the variables it found, which is what a batch has to supply:
+
+```json
+{
+  "name": "receipt",
+  "subject": "Your receipt, {{orderId}}",
+  "variables": ["orderId", "name", "total"],
+  "createdAt": "2026-08-26T10:30:00Z",
+  "updatedAt": "2026-08-26T10:30:00Z"
+}
+```
+
+Names are lowercased and are unique **within your project**, so `receipt` being taken by
+somebody else's project is not your problem. A name cannot be changed after it exists, because
+every batch that names it would break: delete it and create the new one instead.
+
+At least one of `text` and `html` is required. Both is better, and is what most mail clients
+want.
+
+## Sending a batch
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/batch \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "receipt",
+    "from": "no-reply@yourdomain.com",
+    "messages": [
+      { "to": ["asha@example.com"], "variables": { "orderId": "A-1001", "name": "Asha", "total": "450" } },
+      { "to": ["ben@example.com"],  "variables": { "orderId": "A-1002", "name": "Ben",  "total": "1,200" } }
+    ]
+  }'
+```
+
+`from`, `fromName`, `replyTo`, `headers` and `tags` apply to the whole batch. Only the
+recipients and the variables change per message. Variable values may be strings, numbers or
+booleans; a number arrives as the characters you wrote.
+
+The answer reports every message, in the order you sent them:
+
+```json
+{
+  "id": "rle_0f4b2c9d7e1a3b5c6d8e9f01",
+  "accepted": 2,
+  "failed": 0,
+  "recipients": 2,
+  "costPaise": 3,
+  "messages": [
+    { "index": 0, "id": "rle_0f4b…-001", "messageId": "0100…", "recipients": 1, "status": "sent" },
+    { "index": 1, "id": "rle_0f4b…-002", "messageId": "0101…", "recipients": 1, "status": "sent" }
+  ]
+}
+```
+
+## One bad message does not fail the batch
+
+If one message has a bad address or a missing variable, that message is reported as failed and
+the others are sent:
+
+```json
+{
+  "accepted": 2,
+  "failed": 1,
+  "messages": [
+    { "index": 0, "id": "rle_0f4b…-001", "messageId": "0100…", "recipients": 1, "status": "sent" },
+    { "index": 1, "id": null, "messageId": null, "recipients": 0, "status": "failed",
+      "code": "missing_variable",
+      "error": "text uses {{total}}, and this message supplied no value for 'total'. A missing variable is an error, never an empty string." },
+    { "index": 2, "id": "rle_0f4b…-003", "messageId": "0102…", "recipients": 1, "status": "sent" }
+  ]
+}
+```
+
+`index` is the position in the array you sent, so a retry can target exactly the failures
+rather than re-sending the whole batch. Everything that failed is listed; nothing is dropped
+silently.
+
+## What it costs
+
+**Per recipient, at the ordinary rate, summed across the whole batch.** A batch is a
+convenience, not a discount, and `costPaise` on the response is what was charged.
+
+The rounding happens once on the batch total rather than once per message, so a batch is never
+more expensive than the same messages sent one at a time. Three single-recipient messages cost
+5 paise as a batch and 6 paise as three separate sends.
+
+Only the messages that were **accepted** are billed. The ones that failed are not.
+
+<Note>
+  **The balance is checked and held for the entire batch before any of it is sent.** If your
+  wallet cannot cover it, the whole batch is refused with `insufficient_balance` and the amount
+  required, and nothing goes out. A batch that ran out of money halfway would leave you with a
+  partial send you could not reason about.
+</Note>
+
+## Rate limits
+
+**A batch counts as its message count, not as one request.** A 500-message batch spends 500 of
+your per-second allowance, so the next send is refused with `429` and a `Retry-After` saying
+how long the batch has bought. At 5 per second, 500 messages is 100 seconds.
+
+That is the honest arithmetic: five hundred emails really is a hundred seconds of a
+five-a-second limit. Sending them as one call saves five hundred HTTP requests, not the rate
+limit.
+
+## Limits
+
+| | |
+| --- | --- |
+| Messages per batch | 500 |
+| Recipients per message | 50 |
+| Templates per project | 100 |
+| Template body | 64,000 characters each for `text` and `html` |
+| Subject | 998 characters |
+
+## What is not offered
+
+- **Per-message attachments**, and no batch-wide ones either: the same file mailed five hundred
+  times is a different product with a different bill.
+- **Per-message `from`**, so ownership of the sending domain is checked once for the batch.
+- **Template versioning and preview rendering.** A saved edit replaces what was there.
+- **Scheduling a batch.** It sends when you call it.

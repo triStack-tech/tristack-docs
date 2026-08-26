@@ -1,0 +1,71 @@
+---
+title: "Clear a suppression"
+description: "Take one address off the mail provider's suppression list after fixing it, so mail to it is attempted again. Scoped, logged, and capped per day."
+---
+
+<Info>
+  Base: `https://api.tristack.tech/v1/relay/email/suppression` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…`
+</Info>
+
+After an address hard-bounces, the mail provider suppresses it. Every later send to it is
+accepted, given a message id, billed, and silently dropped. That is the single most confusing
+thing an email API does, and it is the reason the dashboard lists your suppressed addresses at
+all.
+
+This endpoint undoes it for one address, after you have fixed whatever was wrong.
+
+## Clear one address
+
+```bash
+curl -X DELETE \
+  https://api.tristack.tech/v1/relay/email/suppression/nobody%40example.com \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{
+  "address": "nobody@example.com",
+  "cleared": true,
+  "remainingToday": 19
+}
+```
+
+URL-encode the address: the `@` has to be `%40`.
+
+`remainingToday` is how many clears this project has left in the rolling 24 hours. It is on
+the response so you find out where the line is before you hit it.
+
+## What it will refuse
+
+<Warning>
+  This is an override of a protection, not a routine call. Every clear is logged with who did
+  it and when, and an account that clears the same address repeatedly is a reputation problem
+  we will come and ask about.
+</Warning>
+
+| Status | Code | Why |
+| --- | --- | --- |
+| 400 | `invalid_address` | Not an email address. |
+| 404 | `not_suppressed` | This project has no permanent bounce on record for that address. |
+| 429 | `clear_limit_reached` | The project has spent its clears for the day. |
+| 502 | `provider_error` | The mail provider would not do it right now. Nothing was recorded; try again. |
+
+**A project may only clear an address it burned itself.** The check is made against our record
+of your own hard bounces, not by asking the provider, because the provider's suppression list
+is account-wide: asking it would let one customer un-suppress another customer's dead
+addresses. An address you never sent to, one that only ever bounced temporarily, and one that
+belongs to somebody else's project all answer the same `404 not_suppressed`.
+
+**Twenty a day per project.** Clearing hundreds of hard bounces means re-mailing a dead list,
+and that is exactly how a sending account gets suspended, taking every other project on it
+along. If you genuinely need more, talk to us.
+
+<Note>
+  Clearing an address that is still dead simply bounces again, suppresses it again, and costs
+  you the same reputation twice. Fix the address first. A permanent bounce means the mailbox
+  does not exist, so the fix is almost always in your own list rather than at the far end.
+</Note>
+
+Once cleared, the address leaves the suppressed list on your Relay Email tab, because it is no
+longer being dropped. If it bounces again afterwards it comes straight back.

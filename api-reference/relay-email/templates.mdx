@@ -1,0 +1,127 @@
+---
+title: "Templates"
+description: "POST, GET, PUT and DELETE on /v1/relay/email/templates: the fields, the placeholder rules enforced at save time, and every error code with its fix."
+---
+
+<Info>
+  Base: `https://api.tristack.tech/v1/relay/email/templates` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+A template is a named subject and body with `{{variable}}` placeholders, rendered per message
+by [batch send](/api-reference/relay-email/batch). Names are unique within your project and are
+lowercased on the way in.
+
+See [Templates and batch send](/relay-email/templates) for the substitution rules and why they
+are what they are.
+
+## Create
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/templates \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "receipt",
+    "subject": "Your receipt, {{orderId}}",
+    "text": "Dear {{name}},\n\nOrder {{orderId}} came to {{total}}.",
+    "html": "<p>Dear {{name}},</p>"
+  }'
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | yes | Up to 64 characters of letters, digits, `-` and `_`, starting with a letter or digit. Lowercased. |
+| `subject` | string | yes | Up to 998 characters. Placeholders allowed. No line breaks. |
+| `text` | string | conditional | At least one of `text` and `html`. Up to 64,000 characters. |
+| `html` | string | conditional | At least one of `text` and `html`. Up to 64,000 characters. |
+
+```json 201 Created
+{
+  "name": "receipt",
+  "subject": "Your receipt, {{orderId}}",
+  "text": "Dear {{name}},\n\nOrder {{orderId}} came to {{total}}.",
+  "html": "<p>Dear {{name}},</p>",
+  "variables": ["orderId", "name"],
+  "createdAt": "2026-08-26T10:30:00Z",
+  "updatedAt": "2026-08-26T10:30:00Z"
+}
+```
+
+`variables` is every distinct placeholder across all three fields, in the order they first
+appear. It is derived from the text on every read, so it always matches what is stored.
+
+## List
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/templates \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+```json 200 OK
+{ "templates": [ { "name": "receipt", "…": "…" } ] }
+```
+
+## Read one
+
+```bash
+curl https://api.tristack.tech/v1/relay/email/templates/receipt \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+Answers `404 template_not_found` for a name this project has not stored.
+
+## Replace
+
+```bash
+curl -X PUT https://api.tristack.tech/v1/relay/email/templates/receipt \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "subject": "Receipt {{orderId}}", "text": "Thanks, {{name}}." }'
+```
+
+Replaces the content and keeps the name. Any `name` in the body is ignored: **a template cannot
+be renamed**, because every batch that names the old one would start failing. Delete it and
+create the new one instead.
+
+There is no version history. The edit replaces what was there and `updatedAt` moves.
+
+## Delete
+
+```bash
+curl -X DELETE https://api.tristack.tech/v1/relay/email/templates/receipt \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+Answers `204`. Batches naming it are refused with `template_not_found` from the next one on.
+Mail already sent is unaffected.
+
+## Placeholder rules, enforced here
+
+Every `{{…}}` in the subject, the text body and the HTML body must be a plain variable name:
+ASCII letters, digits and `_`, starting with a letter or `_`, up to 64 characters. Optional
+spaces inside the braces are ignored, so `{{ name }}` and `{{name}}` are the same placeholder.
+
+Anything else is refused with `invalid_placeholder` and the offending text quoted back:
+
+```json 400 Bad Request
+{
+  "error": "text contains '{{#each items}}', which is not a variable name. This is a mail merge: a placeholder is a plain name such as {{customerName}}, and there are no loops, conditionals or expressions.",
+  "code": "invalid_placeholder"
+}
+```
+
+That includes `{{#if}}`, `{{/each}}`, `{{ a.b }}`, `{{ a | b }}`, `{{}}`, and a `{{` that is
+never closed.
+
+## Error codes
+
+| Code | Status | What to do |
+| --- | --- | --- |
+| `invalid_template_name` | 400 | Use letters, digits, `-` and `_`, up to 64, starting with a letter or digit. |
+| `invalid_template` | 400 | A missing subject, no body at all, a subject or body past its ceiling, or a line break in the subject. |
+| `invalid_placeholder` | 400 | Fix the `{{…}}` the message quotes. It is a plain name, nothing else. |
+| `template_exists` | 409 | This project already has that name. `PUT` to replace it. |
+| `template_limit_reached` | 409 | 100 per project. Delete one you no longer send from. |
+| `template_not_found` | 404 | No template of that name in this project. |
+| `relay_email_disabled` | 403 | Relay Email is off for this project. |

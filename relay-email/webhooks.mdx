@@ -1,0 +1,154 @@
+---
+title: "Webhooks"
+description: "Register one HTTPS endpoint and Relay Email POSTs every delivery event to it, signed. How to verify the signature, why the timestamp is inside it, and why delivery is at least once."
+---
+
+The dashboard shows what happened to your mail. A webhook puts the same events on your own
+server, so a hard bounce can remove an address from your list, close a ticket, or disable an
+account without anybody watching a screen.
+
+Register one endpoint per project, from **Relay Email → Delivery webhooks** in the dashboard.
+It hands you a signing secret, once.
+
+## What is POSTed
+
+One request per **recipient event**, not per message. One email to fifty people can produce
+fifty deliveries and one bounce, and each of them is its own POST.
+
+```json POST https://your-app.example/hooks/tristack
+{
+  "id": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+  "projectId": "9d0f4f36-6c0e-4a8f-9d6e-24e4f2a6b111",
+  "type": "Bounce",
+  "subType": "Permanent",
+  "recipient": "nobody@example.com",
+  "diagnostic": "smtp; 550 5.1.1 User unknown",
+  "requestId": "rle_0f4b2c9d7e1a3b5c6d8e9f01",
+  "messageId": "0100019218ab7c2e-9f0c-4c1e-8b2a-000000000000",
+  "occurredAt": "2026-08-26T10:31:00Z",
+  "recordedAt": "2026-08-26T10:31:12Z"
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `id` | Our id for the event. Also sent as `X-Tristack-Event-Id`, and the same on every retry. |
+| `type` | `Delivered`, `Bounce`, `Complaint` or `Reject`. |
+| `subType` | On a bounce: `Permanent`, `Transient` or `Undetermined`. Null otherwise. |
+| `recipient` | The one address this event is about. |
+| `diagnostic` | What the receiving server actually said, verbatim. Often null, which is not an error. |
+| `requestId` | The `id` we returned in the 202 for the send, so you can join this to your own record of it. |
+| `messageId` | The provider's message id, also returned in that 202. |
+| `occurredAt` | The mail provider's clock. |
+| `recordedAt` | When we wrote it down. The gap is queue lag. |
+
+Alongside those, every request carries `X-Tristack-Event: relay.email.delivery_event`.
+
+<Note>
+  `Bounce` with `subType: "Permanent"` is the one to act on. After it, the mail provider
+  suppresses that address account-wide, and every later send to it is accepted, billed, and
+  silently dropped. Take it out of your list.
+</Note>
+
+## Verify the signature
+
+Every request carries:
+
+```
+X-Tristack-Signature: t=1756205472,v1=557a60796a522161379fafda31877db77e9a65761a22ea9754323dea16cba5f1
+X-Tristack-Event-Id: 3f2504e0-4f89-11d3-9a0c-0305e82c3301
+```
+
+`v1` is an HMAC-SHA256, keyed with your signing secret, over the string `{t}.{body}`: the
+timestamp, a literal dot, then the **raw bytes of the body exactly as they arrived**.
+
+```python Verify it
+import hashlib, hmac, time
+
+def verify(secret: str, header: str, body: bytes) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t, v1 = parts["t"], parts["v1"]
+
+    expected = hmac.new(secret.encode(), f"{t}.".encode() + body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(v1, expected):
+        return False
+
+    # Reject anything older than five minutes, even with a valid signature.
+    return abs(time.time() - int(t)) <= 300
+```
+
+Two things about that snippet are the whole point.
+
+**Sign the bytes you received, not re-serialised JSON.** Most frameworks parse the body before
+your handler runs; re-encoding it changes key order, spacing and escaping, and the digest will
+never match. Reach for the raw request body.
+
+**Reject a timestamp older than five minutes.** The timestamp is inside the signed string, so
+it cannot be rewritten without breaking the signature, which means the age check actually
+means something. Without it, anybody who captures one request can replay it at you forever and
+it verifies perfectly every time.
+
+Use a constant-time comparison (`hmac.compare_digest` above). A plain `==` on a digest leaks,
+one character at a time, how much of a guess was right.
+
+## Delivery is at least once
+
+<Warning>
+  You will occasionally receive the same event twice. This is not a bug and we do not promise
+  exactly-once, because it is not deliverable: an endpoint that answered 200 after the
+  connection dropped on our side is indistinguishable, from here, from one that never got the
+  request at all.
+
+  `X-Tristack-Event-Id` is stable across every retry of the same event. Store the ids you have
+  handled and ignore a repeat.
+</Warning>
+
+## Retries
+
+Any **2xx** is success, including 202 and 204. Anything else is retried on a fixed schedule of
+six attempts:
+
+| Attempt | When |
+| --- | --- |
+| 1 | Immediately |
+| 2 | After 1 minute |
+| 3 | After 5 minutes |
+| 4 | After 15 minutes |
+| 5 | After 1 hour |
+| 6 | After 6 hours |
+
+That is a little over eight hours of trying, which covers a deploy, a restart and a night.
+After the sixth failure the delivery is marked failed and **stays visible in the dashboard**
+with the last status code and the last error. It is never silently dropped: you can always
+see what we could not hand you.
+
+**A 410 Gone switches the endpoint off** and emails your project's delivery-report address. A
+URL that has been torn down should not generate failures forever. A 404 does not: a route
+missing mid-deploy is the most ordinary transient failure there is, and it is retried like
+anything else.
+
+Redirects are not followed. A 3xx is reported as a failed delivery and retried, because
+following one would move the destination after it was checked. Register the final URL.
+
+## Endpoint rules
+
+**HTTPS only.** The request carries recipient addresses and a signature computed with your
+secret; http would put both in clear on the wire. There is no exception for localhost.
+
+**Public addresses only, checked on every delivery.** A hostname resolving to a loopback,
+link-local, or private address is refused at the moment we connect, not only when you register
+it, because DNS can change afterwards. If you need to receive these behind a private network,
+put a public endpoint in front of it.
+
+Ten seconds per attempt. An endpoint that accepts the connection and then thinks about it is a
+timeout, and a timeout is a failed attempt.
+
+## The signing secret
+
+It is shown **once**, when you register the endpoint. We store it encrypted rather than
+hashed, because we have to compute a signature with it, and there is no way to display it
+again. If you lose it, remove the endpoint and register it again; that issues a new secret,
+and whatever is verifying requests has to be updated.
+
+Removing the endpoint deletes its delivery log with it. Your delivery events are unaffected:
+they are still recorded and still shown in the dashboard.

@@ -50,12 +50,33 @@ settled after, so:
 If your balance cannot cover the send it is refused with `insufficient_balance` and the
 required amount, before anything is sent.
 
+## Batches
+
+A [batch](/relay-email/templates) is billed the same way: per recipient, summed across every
+message in it, at the same rate. A batch is a convenience, not a discount.
+
+The rounding is applied once to the batch total rather than once per message, so a batch is
+never dearer than the same messages sent one at a time:
+
+| What you send | Recipients | Cost |
+| --- | --- | --- |
+| Three single-recipient messages, separately | 3 | 6 paise (2 + 2 + 2) |
+| The same three as one batch | 3 | 5 paise (4.5, rounded up) |
+
+Only the messages that were accepted are billed. A message that failed inside a batch costs
+nothing, and the balance for the whole batch is held before any of it is sent: if it cannot be
+covered, nothing goes out.
+
 ## Rate limits
 
 Two limits apply, and exceeding either returns `429` with a `Retry-After` header:
 
 - **5 sends per second per project.**
 - An additional platform ceiling.
+
+A batch counts as its **message count**, not as one request, so 500 messages spend 500 of that
+allowance: at 5 per second, the next send is refused for 100 seconds. `Retry-After` says how
+long.
 
 These protect deliverability for your domain and everyone you send to.
 

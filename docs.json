@@ -77,6 +77,8 @@
                   "relay-email/quickstart",
                   "relay-email/index",
                   "relay-email/domains",
+                  "relay-email/templates",
+                  "relay-email/webhooks",
                   "relay-email/pricing"
                 ]
               }
@@ -123,7 +125,10 @@
                 "group": "Relay Email",
                 "pages": [
                   "api-reference/relay-email/send",
-                  "api-reference/relay-email/domains"
+                  "api-reference/relay-email/batch",
+                  "api-reference/relay-email/templates",
+                  "api-reference/relay-email/domains",
+                  "api-reference/relay-email/suppression"
                 ]
               }
             ]

@@ -1,0 +1,152 @@
+---
+title: "Send a batch"
+description: "POST /v1/relay/email/batch: one template to up to 500 messages, each with its own recipients and variables. The per-message result array, one hold for the whole batch, and every error code."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/relay/email/batch` · Auth:
+  `Authorization: Bearer tsk_live_…` or `X-Api-Key: tsk_live_…` · Fields are **camelCase**.
+</Info>
+
+Renders one [template](/api-reference/relay-email/templates) for up to 500 messages and sends
+them. Answers `202` with a per-message result, once every message has been attempted.
+
+## Request
+
+<CodeGroup>
+
+```bash curl
+curl https://api.tristack.tech/v1/relay/email/batch \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "receipt",
+    "from": "no-reply@yourdomain.com",
+    "messages": [
+      { "to": ["asha@example.com"], "variables": { "orderId": "A-1001", "name": "Asha" } },
+      { "to": ["ben@example.com"],  "variables": { "orderId": "A-1002", "name": "Ben" } }
+    ]
+  }'
+```
+
+```json body
+{
+  "template": "receipt",
+  "from": "no-reply@yourdomain.com",
+  "fromName": "Acme",
+  "replyTo": "support@yourdomain.com",
+  "headers": { "X-Campaign": "receipts" },
+  "tags": { "campaign": "receipts" },
+  "messages": [
+    {
+      "to": ["asha@example.com"],
+      "cc": [],
+      "bcc": [],
+      "variables": { "orderId": "A-1001", "name": "Asha", "total": 450 }
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `template` | string | yes | The name of a template in this project. |
+| `from` | string | yes | One address for the whole batch, at a **verified** domain. |
+| `fromName` | string | no | Applies to every message. |
+| `replyTo` | string | no | Applies to every message. |
+| `headers` | object | no | `X-` prefixed only. Applies to every message. |
+| `tags` | object | no | Applies to every message. |
+| `messages` | object[] | yes | 1 to 500. |
+| `messages[].to` | string[] | yes | At least one address. |
+| `messages[].cc` | string[] | no | Billed the same as `to`. |
+| `messages[].bcc` | string[] | no | Billed the same as `to`. |
+| `messages[].variables` | object | conditional | Required if the template has placeholders. |
+
+Variable values may be **strings, numbers or booleans**; a number is substituted as the
+characters you wrote. An object, an array or a `null` is refused with `invalid_variable`.
+
+Attachments are not accepted on a batch.
+
+## Response
+
+```json 202 Accepted
+{
+  "id": "rle_0f4b2c9d7e1a3b5c6d8e9f01",
+  "accepted": 2,
+  "failed": 1,
+  "recipients": 3,
+  "costPaise": 5,
+  "messages": [
+    { "index": 0, "id": "rle_0f4b…-001", "messageId": "0100…", "recipients": 2, "status": "sent" },
+    { "index": 1, "id": null, "messageId": null, "recipients": 0, "status": "failed",
+      "code": "invalid_address",
+      "error": "to[0] ('nope') is not a valid email address." },
+    { "index": 2, "id": "rle_0f4b…-003", "messageId": "0102…", "recipients": 1, "status": "sent" }
+  ]
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `id` | The batch id. Every message id is this plus a three-digit suffix. |
+| `accepted` / `failed` | How many messages went and how many did not. |
+| `recipients` | Recipients across the messages that went. The billing multiplier. |
+| `costPaise` | What was **charged**, not quoted. |
+| `messages[].index` | The position in the array you sent, so a retry can target the failures. |
+| `messages[].id` | The usage-log id for that message, or `null` if it was never attempted. |
+| `messages[].messageId` | The provider's message id, which delivery events carry. |
+| `messages[].status` | `sent` or `failed`. |
+| `messages[].code` | Why it failed, in the same vocabulary a single send uses. |
+
+## One bad message does not fail the batch
+
+A message with a bad address, a missing variable or a provider refusal is reported at its own
+index. The rest are sent, and only the accepted ones are billed.
+
+The batch as a whole is refused only when **nothing** in it could be sent, which answers `400`
+with `no_valid_messages` and the same per-message array, having charged nothing.
+
+## Billing
+
+Per recipient, summed across the whole batch, at the ordinary rate. The rounding is applied
+once to the batch total rather than per message, so a batch is never dearer than the same
+messages sent singly.
+
+**One hold covers the entire batch and is taken before anything is sent.** If the balance
+cannot cover it the batch is refused whole:
+
+```json 402 Payment Required
+{
+  "error": "The wallet balance cannot cover this batch: 500 messages to 500 recipients. Nothing was sent.",
+  "code": "insufficient_balance",
+  "requiredPaise": 750
+}
+```
+
+## Rate limits
+
+A batch counts as **its message count**, not as one request. A 500-message batch spends 500 of
+the per-second allowance and the next send is refused with `429` and a `Retry-After` saying how
+long to wait: at 5 per second, 100 seconds.
+
+Messages that were refused before sending do not spend anything.
+
+## Error codes
+
+| Code | Status | What to do |
+| --- | --- | --- |
+| `template_not_found` | 404 | No template of that name in this project. |
+| `no_messages` | 400 | `messages` was empty. |
+| `too_many_messages` | 400 | More than 500. Split it. |
+| `no_valid_messages` | 400 | Nothing in the batch could be sent. Each reason is in `messages`. |
+| `from_domain_not_verified` | 400 | The batch's `from` domain is not verified for this project. |
+| `header_injection` | 400 | A CR or LF in `from`, `fromName` or `replyTo`. Refused, never stripped. |
+| `insufficient_balance` | 402 | Top up. Nothing was sent. |
+| `rate_limited` | 429 | Wait `Retry-After` seconds. |
+| `relay_email_disabled` | 403 | Relay Email is off for this project. |
+
+Per-message `code` values are the ordinary send codes, plus `missing_variable` (the template
+used a placeholder this message gave no value for) and `invalid_variable` (a value that was not
+a string, a number or a boolean).
