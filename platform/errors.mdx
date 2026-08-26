@@ -83,7 +83,7 @@ Two fields ride along on specific failures:
 | `message_too_large` | 400 | Relay Email | Over 10 MB **once encoded**. Base64 adds about a third to every attachment, so a 9 MB file is roughly 12 MB on the wire | Send a smaller file. `error` states the encoded size, which is the figure the limit is about |
 | `too_many_attachments` | 400 | Relay Email | More than 10 files on one message | Send fewer, or split the message |
 | `invalid_attachment` | 400 | Relay Email | An attachment is missing a filename or its content, declares something that is not a `type/subtype` media type, has a `contentId` that cannot go in a header, or its `content` is not valid base64 | `error` names the index and what is wrong. A `data:` prefix left on the base64 is the usual cause |
-| `attachment_type_not_allowed` | 400 | Relay Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar`. A reputation guard, not a virus scan | Zip it, or link to it instead. The sending reputation is shared across every domain on the platform |
+| `attachment_type_not_allowed` | 400 | Relay Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar` | Host the file and send a link. Most mail providers reject executable attachments anyway |
 | `invalid_header` | 400 | Relay Email | A `headers` key is not `X-` prefixed, or a name or value carried a line break. Anything else would let a caller forge `From`, `Received`, `Return-Path` or `DKIM-Signature` on a domain we sign | Prefix your own headers with `X-` |
 | `invalid_tag` | 400 | Relay Email | A `tags` key or value used something outside letters, digits, underscores and dashes, or was empty. Refused rather than dropped, because the provider rejects the whole send over one bad tag | Use `campaign` / `receipts_2026-08` style tokens |
 | `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get the **same** `audioId` back, so nothing in your database needs updating. The per-character synthesis charge does apply again, because the file had to be re-made |
@@ -186,14 +186,13 @@ Almost nothing, by design. The order of checks is deliberate:
 | Surface | Limit | Answer |
 |---|---|---|
 | `/v1/manifold/*` and `/v1/relay/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
-| `/v1/relay/email` | 5 per second per project, plus a platform-wide ceiling | `429` with `rate_limited` and a `Retry-After` header |
+| `/v1/relay/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | `/api/v1/account/*` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
 
 <Note>
   Manifold and Relay Voice are not throttled on purpose: your wallet is the limit. Relay Email
-  is the exception, because email sending capacity is a shared, rationed resource and one
-  caller saturating it would degrade delivery for every other domain on the platform.
+  is the exception, because email sending is rate-limited to protect deliverability.
 
   Either way, a retry loop against a `402` or a `403` will spin as fast as you can send,
   writing nothing but rejections. Back off on your side.

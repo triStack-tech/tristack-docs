@@ -99,10 +99,10 @@ is at least honest.
 **Executable types are refused**, by extension and by declared content type: `.exe`, `.scr`,
 `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar`. A file called `invoice.pdf.exe` is
 refused on its last extension, and a file called `receipt.pdf` declared as
-`application/x-msdownload` is refused on the type. This is a **reputation guard, not a virus
-scan**: nothing here opens your file, and a malicious document or a zipped executable passes
-straight through. It exists because the sending reputation is shared with every other domain
-on the platform.
+`application/x-msdownload` is refused on the type.
+
+Most mail providers reject or quarantine executable attachments anyway, so sending one is
+unlikely to reach the recipient. Host the file and send a link instead.
 
 ### Inline images
 
@@ -191,7 +191,7 @@ without it costs. The attachment limits are what keep that sustainable rather th
 | 400 | `message_too_large` | Over 10 MB **once encoded**. The message states the encoded size, which is larger than your file. |
 | 400 | `too_many_attachments` | More than 10 files on one message. |
 | 400 | `invalid_attachment` | A file is missing its `filename` or `content`, declares something that is not a `type/subtype`, has an unusable `contentId`, or its `content` is not valid base64. A leftover `data:` prefix is the usual cause. |
-| 400 | `attachment_type_not_allowed` | An executable type, by extension or by declared type. Zip it or link to it instead. |
+| 400 | `attachment_type_not_allowed` | An executable type, by extension or by declared type. Host the file and send a link instead |
 | 400 | `invalid_header` | A header key is not `X-` prefixed, or a name or value carried a line break. |
 | 400 | `invalid_tag` | A tag key or value used something outside letters, digits, underscores and dashes, or was empty. |
 | 400 | `invalid_request` | Malformed body, or too many recipients. |

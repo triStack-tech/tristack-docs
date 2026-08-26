@@ -55,10 +55,9 @@ required amount, before anything is sent.
 Two limits apply, and exceeding either returns `429` with a `Retry-After` header:
 
 - **5 sends per second per project.**
-- A platform-wide ceiling shared across all customers.
+- An additional platform ceiling.
 
-These exist because email sending capacity is a shared, rationed resource, and one caller
-saturating it would degrade delivery for everyone including Tristack's own account emails.
+These protect deliverability for your domain and everyone you send to.
 
 ## Checking what you spent
 
