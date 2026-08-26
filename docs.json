@@ -38,41 +38,48 @@
             "group": "Start here",
             "pages": [
               "index",
-              "platform/products",
-              "platform/quickstart"
+              "platform/quickstart",
+              "platform/products"
             ]
           },
           {
             "group": "Manifold",
             "icon": "brain",
             "pages": [
-              "manifold/index",
               "manifold/quickstart",
+              "manifold/index",
               "manifold/models",
               "manifold/streaming",
               "manifold/pricing"
             ]
           },
           {
-            "group": "Relay Voice",
-            "icon": "phone",
+            "group": "Relay",
+            "icon": "tower-broadcast",
             "pages": [
-              "relay-voice/index",
-              "relay-voice/quickstart",
-              "relay-voice/voices",
-              "relay-voice/reusing-audio",
-              "relay-voice/callbacks",
-              "relay-voice/pricing"
-            ]
-          },
-          {
-            "group": "Relay Email",
-            "icon": "envelope",
-            "pages": [
-              "relay-email/index",
-              "relay-email/quickstart",
-              "relay-email/domains",
-              "relay-email/pricing"
+              "relay/index",
+              {
+                "group": "Relay Voice",
+                "icon": "phone",
+                "pages": [
+                  "relay-voice/quickstart",
+                  "relay-voice/index",
+                  "relay-voice/voices",
+                  "relay-voice/reusing-audio",
+                  "relay-voice/callbacks",
+                  "relay-voice/pricing"
+                ]
+              },
+              {
+                "group": "Relay Email",
+                "icon": "envelope",
+                "pages": [
+                  "relay-email/quickstart",
+                  "relay-email/index",
+                  "relay-email/domains",
+                  "relay-email/pricing"
+                ]
+              }
             ]
           },
           {
@@ -102,18 +109,23 @@
             ]
           },
           {
-            "group": "Relay Voice",
+            "group": "Relay",
             "pages": [
-              "api-reference/relay-voice/send",
-              "api-reference/relay-voice/job",
-              "api-reference/relay-voice/voices"
-            ]
-          },
-          {
-            "group": "Relay Email",
-            "pages": [
-              "api-reference/relay-email/send",
-              "api-reference/relay-email/domains"
+              {
+                "group": "Relay Voice",
+                "pages": [
+                  "api-reference/relay-voice/send",
+                  "api-reference/relay-voice/job",
+                  "api-reference/relay-voice/voices"
+                ]
+              },
+              {
+                "group": "Relay Email",
+                "pages": [
+                  "api-reference/relay-email/send",
+                  "api-reference/relay-email/domains"
+                ]
+              }
             ]
           },
           {

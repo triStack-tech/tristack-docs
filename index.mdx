@@ -1,39 +1,51 @@
 ---
 title: "Tristack developer docs"
-description: "Two products on one platform: Manifold answers with a language model, Relay Voice rings a phone. One account, one wallet, one kind of API key."
+description: "Manifold answers with a language model. Relay reaches people by phone or email. One account, one wallet, one kind of API key."
 mode: "wide"
 ---
 
-Tristack runs **two products**. They do different jobs and have different endpoints, and
-you can use one without ever touching the other.
+Tristack runs **two products**. Manifold generates text. Relay delivers messages to people.
+You can use one without ever touching the other.
 
 <CardGroup cols={2}>
-  <Card title="Manifold" icon="brain" href="/manifold/index" horizontal>
+  <Card title="Manifold" icon="brain" href="/manifold/quickstart" horizontal>
     **Text in, text out.** One HTTP API for language models: send messages, name a model
     by alias, read the answer back. Metered per token.
 
     `POST /v1/manifold/messages`
   </Card>
 
-  <Card title="Relay Voice" icon="phone" href="/relay-voice/index" horizontal>
-    **Text in, a phone rings.** Send Indian mobile numbers and a line of text; it is
-    spoken aloud and called out to every one of them. Metered per answered call.
+  <Card title="Relay" icon="tower-broadcast" href="/relay/index" horizontal>
+    **Reach a person.** A family of channels sharing one key and one wallet: a phone call
+    today, transactional email today, SMS and one-time passcodes to come.
 
-    `POST /v1/relay/voice`
+    `POST /v1/relay/voice` · `POST /v1/relay/email`
   </Card>
 </CardGroup>
 
-## They are separate products, not two halves of one
+## Relay is a family, not a single endpoint
 
-This is the thing worth being clear about up front, because the shared plumbing makes them
-look more connected than they are.
+Each Relay channel is its own product with its own endpoint, request shape and price. They
+share a key, a wallet and a project, and nothing else.
+
+| Channel | Status | Endpoint | Billed |
+| --- | --- | --- | --- |
+| [Relay Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per answered call |
+| [Relay Email](/relay-email/quickstart) | Available | `POST /v1/relay/email` | Per recipient |
+| Relay SMS | Not available yet | | |
+| Relay OTP | Not available yet | | |
+
+## They are separate products, not halves of one
+
+This is worth being clear about up front, because the shared plumbing makes them look more
+connected than they are.
 
 <Columns cols={2}>
   <div>
     **What they share**
 
     - One Tristack account and one dashboard
-    - One prepaid wallet: both products draw from the same balance
+    - One prepaid wallet: every product draws from the same balance
     - The same kind of API key (`tsk_live_…`), scoped to a project
     - The same error envelope and the same base URL
   </div>
@@ -42,10 +54,10 @@ look more connected than they are.
     **What they do not share**
 
     - Different endpoints, request shapes and responses
-    - Separate per-project switches: enabling one does nothing to the other
+    - A separate per-project switch each: enabling one does nothing to the others
     - Separate pricing, on entirely different units
-    - Nothing passes between them. Manifold's answer is not spoken by Relay Voice unless
-      you send it there yourself
+    - Nothing passes between them. Manifold's answer is not spoken down a phone or put in an
+      email unless you send it there yourself
   </div>
 </Columns>
 
@@ -72,16 +84,24 @@ look more connected than they are.
     [Relay Voice quickstart →](/relay-voice/quickstart)
   </Accordion>
 
-  <Accordion title="I want a model to write the message, then phone people with it" icon="arrow-right-arrow-left">
-    That is **both products, called in sequence, by your code**. Ask Manifold for the text,
-    take the string out of the response, and send it to Relay Voice as `text`.
+  <Accordion title="I want to send a receipt, a password reset or an alert by email" icon="envelope">
+    That is **Relay Email**. You verify a domain you own with three DNS records, then send
+    from any address at it. Billing is per recipient, so one email to fifty people costs
+    fifty times one email to one person.
 
-    There is no shortcut that does it in one call, and no hidden coupling: to Relay Voice,
-    text written by a model is just text.
+    [Relay Email quickstart →](/relay-email/quickstart)
+  </Accordion>
+
+  <Accordion title="I want a model to write the message, then send it" icon="arrow-right-arrow-left">
+    That is **two products, called in sequence, by your code**. Ask Manifold for the text,
+    take the string out of the response, and pass it to Relay as `text`.
+
+    There is no shortcut that does it in one call, and no hidden coupling: to Relay, text
+    written by a model is just text.
   </Accordion>
 </AccordionGroup>
 
-## Everything below this line is common to both
+## Everything below this line is common to all of them
 
 <Steps>
   <Step title="Create a project">
@@ -108,7 +128,7 @@ look more connected than they are.
   </Step>
 </Steps>
 
-```bash Both products, same key, same base URL
+```bash Three products, one key, one base URL
 export TRISTACK_API_KEY="tsk_live_your_key_here"
 
 # Manifold: a model answers
@@ -123,6 +143,13 @@ curl https://api.tristack.tech/v1/relay/voice \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"to":["+91XXXXXXXXXX"],"text":"Your delivery arrives between 4 and 6 today."}'
+
+# Relay Email: a message lands in an inbox
+curl https://api.tristack.tech/v1/relay/email \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"from":"no-reply@yourdomain.com","to":["customer@example.com"],
+       "subject":"Your receipt","text":"Thanks for your order."}'
 ```
 
 <Info>

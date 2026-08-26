@@ -1,0 +1,57 @@
+---
+title: "Relay"
+description: "Tristack Relay is the messaging family: one API key and one wallet, reaching people by phone, email, SMS or a one-time passcode."
+---
+
+Relay is how a Tristack project reaches a person. Every channel takes the same API key, settles
+against the same wallet, and is switched on per project, but each one is its own product with
+its own endpoint, its own request shape and its own price.
+
+## The channels
+
+<CardGroup cols={2}>
+  <Card title="Relay Voice" icon="phone" href="/relay-voice/index">
+    **Available.** Turns a line of text into a phone call and dials a list of Indian mobile
+    numbers. Billed per answered call, so a phone that rings out costs nothing.
+  </Card>
+  <Card title="Relay Email" icon="envelope" href="/relay-email/index">
+    **Available.** Transactional email from a domain you verify. Billed per recipient.
+  </Card>
+  <Card title="Relay SMS" icon="comment-sms">
+    Not available yet. There is nothing to switch on and nothing is billed.
+  </Card>
+  <Card title="Relay OTP" icon="key">
+    Not available yet. There is nothing to switch on and nothing is billed.
+  </Card>
+</CardGroup>
+
+## What they share
+
+**One key.** A project API key works across every Relay channel it has switched on, and across
+Manifold too. There is no per-product credential.
+
+**One wallet.** A call, an email and a Manifold request all draw on the same balance. There is
+no per-product or per-project balance to top up separately.
+
+**One switch each.** Every channel is enabled per project, independently. Turning Relay Email
+on does nothing to Relay Voice, and a key on a project with the channel off is refused with
+that channel's own `..._disabled` code.
+
+## What they do not share
+
+**Nothing passes between them automatically.** Relay Voice will not read an email out loud, and
+Relay Email will not send a transcript of a call. Text produced by one product is just text to
+another, and passing it across is something your code does deliberately.
+
+**Prices are per channel and not comparable.** A voice call is priced per answered call, an
+email per recipient. There is no shared unit, and a rupee buys a different amount of each.
+
+**Request shapes differ.** They all use `camelCase` on the wire, unlike Manifold's
+`snake_case`, but the fields themselves have nothing in common: Relay Voice takes phone numbers
+and a voice alias, Relay Email takes addresses and a verified sending domain.
+
+## Relay and Manifold
+
+Manifold is the other product, and it is not part of Relay. Manifold generates text; Relay
+delivers messages to people. They share an account, a wallet and a key scheme and nothing else.
+[The products page](/platform/products) draws that line in detail.
