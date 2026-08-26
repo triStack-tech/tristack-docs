@@ -88,8 +88,8 @@ guessing means charging people wrong, so Manifold reserves money instead of taki
 
 ## A worked example
 
-One call to `nova-pro`. Suppose the catalog lists it at **8.80 paise per 1000 input tokens**
-and **35.20 paise per 1000 output tokens**; read the current figures from
+One call to `nova-pro`. Suppose the catalog lists it at **8.4 paise per 1000 input tokens**
+and **33.59 paise per 1000 output tokens**; read the current figures from
 [`GET /v1/manifold/models`](/manifold/models), because they change. The request carries a
 620-character system prompt and a 7,380-character user message, and sets `max_tokens: 2048`.
 
@@ -100,12 +100,12 @@ and **35.20 paise per 1000 output tokens**; read the current figures from
 | Billable characters | 620 + 7,380 | 8,000 |
 | Estimated input tokens | `ceil(8000 / 4)` | 2,000 |
 | Estimated output tokens | from `max_tokens` | 2,048 |
-| Input part | `2000 * 8.80 / 1000` | 17.6 paise |
-| Output part | `2048 * 35.20 / 1000` | 72.09 paise |
-| Total | `17.6 + 72.09` | 89.69 paise |
-| Rounded up | `ceil` | **90 paise held** |
+| Input part | `2000 * 8.4 / 1000` | 16.80 paise |
+| Output part | `2048 * 33.59 / 1000` | 68.79 paise |
+| Total | `16.80 + 68.79` | 85.59 paise |
+| Rounded up | `ceil` | **86 paise held** |
 
-90 paise leave the available balance. Nothing has been spent yet.
+86 paise leave the available balance. Nothing has been spent yet.
 
 ### The response
 
@@ -117,7 +117,7 @@ and **35.20 paise per 1000 output tokens**; read the current figures from
   "content": [{ "type": "text", "text": "..." }],
   "stop_reason": "end_turn",
   "usage": { "input_tokens": 1984, "output_tokens": 512 },
-  "cost": { "paise": 36 }
+  "cost": { "paise": 34 }
 }
 ```
 
@@ -129,10 +129,10 @@ reserved and 512 were written, because `max_tokens` was a ceiling the model neve
 
 | Step | Arithmetic | Value |
 |---|---|---|
-| Input part | `1984 * 8.80 / 1000` | 17.46 paise |
-| Output part | `512 * 35.20 / 1000` | 18.02 paise |
-| Total | `17.46 + 18.02` | 35.48 paise |
-| Rounded up | `ceil` | **36 paise charged** |
+| Input part | `1984 * 8.4 / 1000` | 16.67 paise |
+| Output part | `512 * 33.59 / 1000` | 17.20 paise |
+| Total | `16.67 + 17.20` | 33.86 paise |
+| Rounded up | `ceil` | **34 paise charged** |
 
 ### In the ledger
 
@@ -140,11 +140,11 @@ Three lines, all carrying `mfr_4b8e17c0a9d2f6135ec70b44` as their reference:
 
 | Type | Paise | Meaning |
 |---|---:|---|
-| `Hold` | 90 | The estimate, reserved before the call. |
-| `HoldRelease` | 90 | The whole hold coming back, not the unused part. |
-| `Debit` | 36 | The settled cost, taken from the returned money. |
+| `Hold` | 86 | The estimate, reserved before the call. |
+| `HoldRelease` | 86 | The whole hold coming back, not the unused part. |
+| `Debit` | 34 | The settled cost, taken from the returned money. |
 
-The call cost 36 paise and the other 54 are back in the balance. **Read the `Debit` line for
+The call cost 34 paise and the other 52 are back in the balance. **Read the `Debit` line for
 what a call cost**: the release line is always the full hold, so subtracting one from the
 other tells you nothing.
 

@@ -21,13 +21,13 @@ curl https://api.tristack.tech/v1/manifold/models \
 {
   "models": [
     { "alias": "nova-micro", "displayName": "Nova Micro",
-      "paisePer1KTokensIn": 0.38, "paisePer1KTokensOut": 1.54 },
+      "paisePer1KTokensIn": 0.37, "paisePer1KTokensOut": 1.47 },
     { "alias": "nova-lite", "displayName": "Nova Lite",
-      "paisePer1KTokensIn": 0.66, "paisePer1KTokensOut": 2.64 },
+      "paisePer1KTokensIn": 0.63, "paisePer1KTokensOut": 2.52 },
     { "alias": "nova-pro", "displayName": "Nova Pro",
-      "paisePer1KTokensIn": 8.80, "paisePer1KTokensOut": 35.20 },
+      "paisePer1KTokensIn": 8.4, "paisePer1KTokensOut": 33.59 },
     { "alias": "mistral-large-3", "displayName": "Mistral Large 3 675B",
-      "paisePer1KTokensIn": 5.50, "paisePer1KTokensOut": 16.50 }
+      "paisePer1KTokensIn": 5.25, "paisePer1KTokensOut": 15.74 }
   ]
 }
 ```
@@ -79,11 +79,11 @@ Reading one row end to end, for `nova-lite`:
 
 <Steps>
   <Step title="Read the rate">
-    `paisePer1KTokensIn` is `0.66` and `paisePer1KTokensOut` is `2.64`, both per 1000 tokens.
+    `paisePer1KTokensIn` is `0.63` and `paisePer1KTokensOut` is `2.52`, both per 1000 tokens.
   </Step>
 
   <Step title="Price a real call">
-    1000 input tokens and 500 output tokens costs `0.66 + (2.64 / 2) = 1.98` paise, and money
+    1000 input tokens and 500 output tokens costs `0.63 + (2.52 / 2) = 1.89` paise, and money
     moves in whole paise, so the bill is **2 paise**. Rounding is always up, and a call is
     never free.
   </Step>
