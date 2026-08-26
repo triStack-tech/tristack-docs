@@ -1,0 +1,145 @@
+---
+title: "Setting up with Meta"
+description: "The four values Tristack needs, where each one lives in Meta's own tools, and the order to do it in."
+icon: "settings"
+---
+
+Everything on this page happens in **Meta's** tools, not ours. You end with four values to
+paste into the project's Relay WhatsApp tab:
+
+| Value | Where it comes from |
+| --- | --- |
+| Phone number ID | WhatsApp Manager, beside the number |
+| WhatsApp Business Account ID | WhatsApp Manager, account overview |
+| Access token | Business Settings, system user |
+| Template name and language | The template you got approved |
+
+<Warning>
+  **Business verification takes days, not minutes.** Meta reviews documents. Start step 1
+  before you plan the rest of the work, or you will be waiting on it at the end.
+</Warning>
+
+## 1. Business Manager and verification
+
+Create a business portfolio at [business.facebook.com](https://business.facebook.com) if you
+do not have one, then complete **business verification** under
+[Business Settings → Security Centre](https://business.facebook.com/settings/security).
+
+Meta asks for documents proving the business exists and that you represent it: in India that
+is usually a certificate of incorporation or GST registration, plus a utility bill or bank
+statement showing the registered address. The legal name you enter must match those documents
+exactly.
+
+Until this is done, an unverified account can send only to a handful of test numbers.
+
+## 2. A WhatsApp Business Account and a number
+
+In [WhatsApp Manager](https://business.facebook.com/wa/manage/), add a phone number.
+
+The number must not currently be registered on WhatsApp or WhatsApp Business. If it is, delete
+that account from the phone first and wait a few minutes. A number already in use is the most
+common thing to get stuck on here.
+
+Meta verifies it by SMS or voice call, so you need to be able to receive on it once.
+
+Once it is added, WhatsApp Manager shows:
+
+- The **phone number ID**, a long number beside the phone number itself. **This is what
+  Tristack needs, not the phone number.**
+- The **WhatsApp Business Account ID**, on the account overview.
+
+<Tip>
+  Both are numeric. If what you have starts with a `+` or looks like a phone number, it is the
+  wrong value: Tristack refuses it rather than letting you find out on your first send.
+</Tip>
+
+## 3. An approved authentication template
+
+In WhatsApp Manager, open
+[Message Templates](https://business.facebook.com/wa/manage/message-templates/) and create one:
+
+<Steps>
+  <Step title="Category: Authentication">
+    Not Marketing and not Utility. Authentication templates are the only category allowed to
+    carry a one-time code, and they are the cheapest per conversation.
+  </Step>
+
+  <Step title="One body parameter">
+    Meta supplies the wording for authentication templates; you choose the options. Take the
+    default body, which carries a single `{{1}}` placeholder. Tristack fills it with the code.
+
+    A template with two placeholders, or none, will be rejected at send time with
+    `whatsapp_template_not_approved`.
+  </Step>
+
+  <Step title="Add the copy-code button">
+    Choose the **copy code** or **one-tap autofill** option. Tristack sends the code as the
+    button's parameter as well as the body's, which is what an authentication template expects.
+  </Step>
+
+  <Step title="Note the name and language exactly">
+    For example `otp_login` and `en`. Both are case sensitive, and a language of `en` is not
+    the same as `en_US`. Copy them rather than typing them.
+  </Step>
+</Steps>
+
+Approval is usually minutes for authentication templates, occasionally hours. The status shows
+in Message Templates, and only **Approved** works.
+
+## 4. A system user access token
+
+<Warning>
+  Use a **system user** token. The temporary token shown on the API setup page expires in 24
+  hours, and the first sign that it has expired will be a customer who cannot log in.
+</Warning>
+
+<Steps>
+  <Step title="Create the system user">
+    [Business Settings → Users → System users](https://business.facebook.com/settings/system-users),
+    then **Add**. Give it a name like `tristack-otp` and the **Employee** role.
+  </Step>
+
+  <Step title="Give it the WhatsApp account">
+    **Add assets** → **WhatsApp accounts** → pick yours → enable **Full control**.
+
+    Without this the token authenticates but every send is refused, because the token has no
+    access to the number it is trying to send from.
+  </Step>
+
+  <Step title="Generate the token">
+    **Generate new token**, pick your app, and tick **`whatsapp_business_messaging`**. Tick
+    **`whatsapp_business_management`** too if you want the same token to manage templates
+    later; Tristack does not need it and never uses it.
+
+    Set expiry to **Never** unless your own policy says otherwise.
+  </Step>
+
+  <Step title="Copy it now">
+    Meta shows the token once. Copy it straight into the Tristack dashboard, because neither
+    Meta nor we can show it to you again.
+  </Step>
+</Steps>
+
+## 5. Paste them into Tristack
+
+Open your project in the [dashboard](https://tristack.tech/projects), go to the **Relay
+WhatsApp** tab, fill in the four values and save. Turn the product on with the switch on
+Overview.
+
+Then send one code to your own number. If it arrives, you are done.
+
+## When something is refused
+
+Every failure names which of these steps to go back to:
+
+| `code` | Go back to |
+| --- | --- |
+| `whatsapp_token_invalid` | Step 4. Expired, revoked, or the system user has no access to the number. Also step 2 if the number is still in onboarding. |
+| `whatsapp_template_not_approved` | Step 3. Wrong name, wrong language, not approved yet, or a parameter count that does not match. |
+| `whatsapp_recipient_unreachable` | Nothing here. That number is not on WhatsApp, or will not accept messages from this business. |
+| `whatsapp_throttled` | Nothing here. Meta is rate-limiting the number. Retry with backoff. |
+
+<Note>
+  Meta bills you directly for each conversation, separately from what Tristack charges. See
+  [Pricing](/relay-whatsapp/pricing).
+</Note>

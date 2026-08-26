@@ -87,6 +87,7 @@
                 "icon": "message-circle",
                 "pages": [
                   "relay-whatsapp/index",
+                  "relay-whatsapp/meta-setup",
                   "relay-whatsapp/pricing"
                 ]
               }

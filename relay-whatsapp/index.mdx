@@ -27,34 +27,18 @@ one-time-code logic is yours to write or to get wrong.
 
 ## What you need before the first call
 
-<Steps>
-  <Step title="A verified WhatsApp Business Account" icon="building">
-    Created in [Meta Business Manager](https://business.facebook.com), with business
-    verification passed. This takes Meta days rather than minutes, so start it first.
-  </Step>
+Four values, all from Meta's own tools: a **phone number ID**, a **WhatsApp Business Account
+ID**, an **access token**, and the **name and language of an approved authentication
+template**.
 
-  <Step title="A phone number, registered to that account" icon="phone">
-    Bought or migrated inside WhatsApp Manager. You need its **phone number ID**, which is the
-    numeric id shown beside it, not the number itself.
-  </Step>
+Getting them means business verification, a registered number, an approved template and a
+system user token, in that order. Business verification alone takes days, so start it first.
 
-  <Step title="An approved authentication template" icon="file-check">
-    Category **Authentication**, taking one body parameter: the code. Submit it in WhatsApp
-    Manager and wait for approval.
+<Card title="Setting up with Meta, step by step" icon="settings" href="/relay-whatsapp/meta-setup">
+  Every screen, every link, and which failure sends you back to which step.
+</Card>
 
-    Tristack does not create or submit templates on your behalf. Doing that would need
-    broader permissions on your access token than sending does, and template approval is a
-    relationship between you and Meta.
-  </Step>
-
-  <Step title="A system user access token" icon="key">
-    From Business Settings, with `whatsapp_business_messaging` permission. Use a **system
-    user** token rather than a temporary one: temporary tokens expire in 24 hours, and the
-    first thing you will know about it is a customer who cannot log in.
-  </Step>
-</Steps>
-
-Then open the project's **Relay WhatsApp** tab in the dashboard and paste the four values.
+Then open the project's **Relay WhatsApp** tab in the dashboard and paste the four values in.
 
 ## What happens to your access token
 
