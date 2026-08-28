@@ -205,6 +205,10 @@ curl -X POST https://api.tristack.tech/v1/wallet/topup-sessions \
 <ParamField body="amountPaise" type="integer">
   A preset amount in **paise**, so Rs 500 is `50000` and the Rs 100 minimum is `10000`.
   Preset it and the payer cannot change it. Omit it and they choose on the window.
+
+  Presetting it also **opens the payment form straight away**: there is nothing left on the
+  window for the payer to decide, so it does not ask for another click. Leave it out and the
+  window offers the amount picker instead.
 </ParamField>
 
 <ParamField body="mode" type="string" default="popup">
@@ -331,6 +335,11 @@ button, so a result stays readable rather than vanishing at the moment it matter
 It does not mean they closed the window: a closed window runs no script, so it posts nothing
 at all. Treat "no message" as a real outcome, not an impossible one, and let your next
 balance read settle the question rather than the message.
+
+**A `cancelled` can be followed by a `credited`.** Dismissing the form leaves the payment
+offered again on the window, because a tap outside it looks exactly like a change of mind, so
+the payer may pay after all. Keep your listener attached until the window closes, and treat a
+later message as the newer truth rather than an impossible one.
 
 <Warning>
   **`pending` means the money was taken.** It is not a failure and it is not "try again". The

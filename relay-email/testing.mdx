@@ -59,10 +59,10 @@ Everything a real send produces, so the code you are testing is the code that wi
 failing.
 
 <Note>
-  **Webhooks.** A simulated event is queued for delivery exactly as a real one is, so when
-  delivery webhooks are switched on for your deployment your endpoint receives it like any
-  other. They are not switched on yet, so today a simulated event reaches your analytics and
-  not your endpoint.
+  **Webhooks.** A simulated event is queued for delivery exactly as a real one is, so if you
+  have registered an endpoint it receives the simulated bounce like any other event, signed
+  the same way. Which makes the simulator the honest way to test your signature check: a real
+  bounce to prove your handler works is a real bounce on your record.
 </Note>
 
 <Note>
