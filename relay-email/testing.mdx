@@ -49,14 +49,21 @@ Your ordinary send rate limit still applies. It reaches nobody, but it is still 
 Everything a real send produces, so the code you are testing is the code that will run:
 
 - A message in **Usage**, marked as a test.
-- A **delivery event**, which drives your analytics and fires your
-  [webhook](/relay-email/webhooks) exactly as a real one does.
+- A **delivery event**, recorded through the same code path a real one takes, so it moves the
+  same counters your analytics read.
 - A `messageId` beginning `simulated-`, so nobody chasing it later mistakes it for something
   a mail provider issued.
 
 `reject@` is the odd one out and earns its place: every other address tests what happens
 *after* a send is accepted, and your integration also has to survive the send call itself
 failing.
+
+<Note>
+  **Webhooks.** A simulated event is queued for delivery exactly as a real one is, so when
+  delivery webhooks are switched on for your deployment your endpoint receives it like any
+  other. They are not switched on yet, so today a simulated event reaches your analytics and
+  not your endpoint.
+</Note>
 
 <Note>
   Simulated bounces appear in your own analytics, because seeing them arrive is the point. They

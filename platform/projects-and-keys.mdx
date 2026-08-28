@@ -206,6 +206,76 @@ authorized when the job was created.
   per project, so the overlap is free.
 </Tip>
 
+### What a key may do
+
+A key can be given **scopes**: the specific things it is allowed to do. A key with none may do
+everything the project has switched on, which is what every key created before scopes existed
+still does.
+
+Scopes only ever take access away. A key scoped `relay-email:send` on a project where Relay
+Email is switched off still gets `relay_email_disabled`: the product switch decides what the
+project can do, and the scope decides which part of that this key may reach.
+
+| Scope | Lets the key |
+| --- | --- |
+| `manifold:read` | Read the model catalog and prices |
+| `manifold:invoke` | Send messages, which spends the wallet |
+| `relay-email:send` | Send email, single and batch |
+| `relay-email:templates` | Create, read, update and delete templates |
+| `relay-email:domains` | List, add and remove sending domains |
+| `relay-email:suppression` | Clear a suppressed address |
+| `relay-voice:send` | Place calls, which spends the wallet |
+| `relay-voice:read` | Read voices and job status |
+| `relay-whatsapp:send` | Send a code, which spends the wallet |
+| `relay-whatsapp:verify` | Verify a code |
+| `wallet:read` | Read the balance |
+| `wallet:topup` | Open top-up windows |
+
+Send and verify are separate for WhatsApp on purpose. A front end that checks codes needs one
+and not the other, and the one that spends money is the one worth withholding.
+
+```bash A key that can only read the model catalog
+curl -X POST https://api.tristack.tech/api/v1/projects/$PROJECT_ID/keys \
+  -H "Authorization: Bearer $TRISTACK_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "price-table", "mode": "live", "scopes": ["manifold:read"] }'
+```
+
+That key can read prices and nothing else. If it leaks, it cannot send a message, place a
+call or open a top-up window.
+
+A call outside a key's scopes is refused with `403 insufficient_scope`, naming the scope it
+would need:
+
+```json
+{
+  "error": "This API key is not permitted to do that. It needs the 'manifold:invoke' scope.",
+  "code": "insufficient_scope",
+  "requiredScope": "manifold:invoke"
+}
+```
+
+A scope this platform does not recognise is refused with `unknown_scope`, and the response
+lists the ones that exist. Nothing is created: a key holding a scope that matches no endpoint
+would look configured and be able to do nothing.
+
+<Note>
+  Omitting `scopes` creates a key that can do everything. Sending an **empty** array is not
+  the same thing: it creates a key that can do nothing, which is occasionally what you want
+  and never what you want by accident.
+</Note>
+
+<Warning>
+  Scopes are fixed when the key is created. There is no way to widen or narrow one afterwards,
+  deliberately: a key whose reach can change is one whose reach nobody can reason about. To
+  change what a key may do, create a new one and revoke the old.
+</Warning>
+
+A project can require it. Turn on **Require scoped keys** in the project's settings and a
+request to create a key without scopes is refused with `scopes_required`. It applies only when
+a key is created: keys already issued keep working exactly as they are, because a setting that
+retroactively narrowed a live integration would be an outage wearing the clothes of a policy.
+
 ## Archiving a project
 
 Archiving is the off switch for a whole project.

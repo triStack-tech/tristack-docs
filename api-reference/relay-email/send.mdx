@@ -198,6 +198,7 @@ without it costs. The attachment limits are what keep that sustainable rather th
 | 401 | `invalid_api_key` | Key missing, wrong, or revoked. |
 | 402 | `insufficient_balance` | Wallet cannot cover the send. The body carries `requiredPaise`. Nothing was sent. |
 | 403 | `relay_email_disabled` | Relay Email is switched off for this project. |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 429 | `rate_limited` | Over 5 per second for this project, or the platform ceiling. Honour `Retry-After`. |
 | 502 | `provider_error` | The provider refused the message. Nothing was charged. |
 | 503 | `relay_email_unavailable` | Misconfigured on our side. Nothing was charged. Contact support. |

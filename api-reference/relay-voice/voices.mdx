@@ -109,6 +109,7 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
 | 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it on for the project. This endpoint runs the same gate a send does, so it refuses rather than showing you a menu you cannot order from. |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. | Retry later or [contact support](mailto:support@tristack.tech). A deployment with no configured voice reports itself unavailable rather than returning an empty list. |
 
 Listing voices costs nothing and touches no wallet.

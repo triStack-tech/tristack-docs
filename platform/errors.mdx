@@ -52,6 +52,7 @@ Two fields ride along on specific failures:
 | `code` | Status | Product | What happened | What to do |
 |---|:---:|---|---|---|
 | `invalid_api_key` | 401 | Both | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
+| `insufficient_scope` | 403 | Both | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
 | `project_archived` | 401 | Both | The key's project is archived. Checked before any product gate | Unarchive the project, or use a key from an active one |
 | `invalid_request` | 400 | Both | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Relay Voice is `camelCase` |
 | `insufficient_balance` | 402 | Both | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
@@ -69,6 +70,9 @@ Two fields ride along on specific failures:
 | `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
 | `audio_not_found` | 404 | Relay Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
 | `relay_email_disabled` | 403 | Relay Email | Relay Email is not switched on for this project | Turn the switch on in the project's Relay Email tab. Enabling costs nothing |
+| `recipient_domain_undeliverable` | 400 | Relay Email | A recipient domain publishes no mail exchanger and no address record, or is reserved for documentation (`example.com`, anything ending `.test` or `.invalid`). Refused before anything is charged, because it would certainly bounce | Use a real address. To test, send to a [simulator address](/relay-email/testing) |
+| `simulator_recipient_mixed` | 400 | Relay Email | One message addressed to both a simulator address and a real one. Nothing is sent for a simulator address, so the message would be half sent and half invented | Send them as two requests |
+| `unknown_simulator_address` | 400 | Relay Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/relay-email/testing) |
 | `relay_email_unavailable` | 503 | Relay Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
 | `from_domain_not_verified` | 400 | Relay Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the Relay Email tab, and check the whole domain rather than the address |
 | `invalid_domain` | 400 | Relay Email | Not a registrable domain. Subdomains, email addresses and bare TLDs are refused | Send `yourdomain.com` |

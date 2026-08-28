@@ -57,6 +57,7 @@ Send a new code. That is the intended path, and it is why the resend window exis
 | --- | --- | --- |
 | 400 | `invalid_request` | `id` or `code` missing |
 | 403 | `relay_whatsapp_disabled` | Not switched on for this project |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 404 | `otp_not_found` | No such id for this project |
 
 <Note>

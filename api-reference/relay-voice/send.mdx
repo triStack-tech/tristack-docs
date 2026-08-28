@@ -367,6 +367,7 @@ below the estimate and the difference goes back to the wallet.
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
 | 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it on for the project. The first time charges the one-time activation fee. |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. Half configured is refused rather than half served. | Nothing you can fix in the request. Retry later or [contact support](mailto:support@tristack.tech). |
 | 400 | `invalid_request` | `to` empty or over 500, both or neither of `text` and `audioId`, `text` over 1500 characters, `voice` sent with `audioId`, or `reference` over 128 characters. `error` names which. | Fix the field named in `error`. |
 | 400 | `invalid_phone_number` | A number in `to` is not a dialable Indian mobile. `error` gives the index and the exact string you sent. | Fix that row. Landlines and foreign numbers cannot be dialed by this product. |

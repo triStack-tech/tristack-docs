@@ -137,5 +137,6 @@ and sending an image to a text-only model answers `400 provider_rejected`. The
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
 | 403 | `manifold_disabled` | Manifold is switched off on the project. | Turn Manifold on for the project. This endpoint runs the same gate a real call does, so it refuses rather than advertising models the key could not use. |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 
 Listing models costs nothing and touches no wallet.

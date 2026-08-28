@@ -278,6 +278,7 @@ print("charged", job["costPaise"], "paise of", job["estimatedCostPaise"], "held"
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
 | 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it back on. Jobs already sent keep running and stay readable once it is. |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing part of its voice configuration. | Retry later. Reads are gated the same way sends are. |
 | 404 | `job_not_found` | No job with that id on this account. A job belonging to another account answers identically, on purpose, so a guessed id cannot be confirmed as real. | Check the `jobId` came from one of your own sends, on a key from the same account. |
 

@@ -45,7 +45,7 @@ The code is **never returned**: the `id` is your only handle on it.
 {
   "id": "otp_55ee1a65a6374e983b0a6dbd",
   "expiresAt": "2026-08-27T09:10:18Z",
-  "costPaise": 25,
+  "costPaise": 20,
   "reused": false
 }
 ```
@@ -58,6 +58,7 @@ The code is **never returned**: the `id` is your only handle on it.
 | 400 | `whatsapp_not_configured` | The project has no WhatsApp credentials | Add them on the Relay WhatsApp tab |
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_whatsapp_disabled` | Not switched on for this project | Turn it on. No new key needed |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 409 | `credential_unreadable` | The stored token could not be decrypted | Re-enter it in the dashboard |
 | 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
 | 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or let them try another route |
