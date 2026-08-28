@@ -80,7 +80,7 @@ you can edit.
     -H "Content-Type: application/json" \
     -d '{
       "from": "no-reply@yourdomain.com",
-      "to": ["you@example.com"],
+      "to": ["REPLACE_WITH_YOUR_ADDRESS"],
       "subject": "First email from Tristack",
       "text": "It works."
     }'
@@ -88,6 +88,16 @@ you can edit.
 
   Send to yourself first. It is the fastest way to see how the message renders and whether it
   lands in the inbox or the spam folder.
+
+  <Warning>
+    **Replace the recipient before you run this.** It is deliberately not a valid address, so
+    pasting it unchanged fails immediately and tells you so.
+
+    Do not put `example.com`, `example.org` or anything ending `.test` or `.invalid` there
+    either. Those are reserved for documentation and can never receive mail: the send is
+    accepted, you are charged for it, and it bounces up to fourteen hours later after the
+    provider gives up retrying. Relay Email refuses them for that reason.
+  </Warning>
 </Step>
 
 </Steps>

@@ -148,7 +148,7 @@ curl https://api.tristack.tech/v1/relay/voice \
 curl https://api.tristack.tech/v1/relay/email \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"from":"no-reply@yourdomain.com","to":["customer@example.com"],
+  -d '{"from":"no-reply@yourdomain.com","to":["REPLACE_WITH_YOUR_ADDRESS"],
        "subject":"Your receipt","text":"Thanks for your order."}'
 ```
 
