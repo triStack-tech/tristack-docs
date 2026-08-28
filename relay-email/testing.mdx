@@ -1,0 +1,82 @@
+---
+title: "Testing without sending"
+description: "Addresses that are never delivered to and always behave the same way, so you can exercise your bounce handling before a real customer produces one."
+icon: "flask-conical"
+---
+
+Your code has to handle a bounce before a real recipient produces one. Without somewhere safe
+to aim, the usual approach is to find an address that genuinely fails, which is how
+documentation domains end up in production traffic and how real money gets spent on mail that
+was never going to arrive.
+
+These addresses are the safe place to aim.
+
+## The addresses
+
+| Send to | What happens |
+| --- | --- |
+| `sink@sandbox.tristack.tech` | Accepted, then **delivered** |
+| `bounce@sandbox.tristack.tech` | Accepted, then a **permanent bounce** |
+| `soft-bounce@sandbox.tristack.tech` | Accepted, then a **transient bounce** |
+| `complaint@sandbox.tristack.tech` | Accepted, then a **complaint** |
+| `reject@sandbox.tristack.tech` | **Refused at the send call**, as a provider error |
+
+```bash
+curl https://api.tristack.tech/v1/relay/email \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "no-reply@yourdomain.com",
+    "to": ["bounce@sandbox.tristack.tech"],
+    "subject": "Testing my bounce handling",
+    "text": "This will never be delivered to anyone."
+  }'
+```
+
+`from` still has to be a domain you have verified. Everything else about the request is
+checked exactly as it would be for a real send, because that is half of what you are testing.
+
+## What it costs
+
+**Nothing.** No hold, no debit, `costPaise` comes back as `0`. Charging for a message that is
+never handed to a mail provider would be indefensible, and a test suite that costs money is
+one you run once.
+
+Your ordinary send rate limit still applies. It reaches nobody, but it is still an API call.
+
+## What you get back
+
+Everything a real send produces, so the code you are testing is the code that will run:
+
+- A message in **Usage**, marked as a test.
+- A **delivery event**, which drives your analytics and fires your
+  [webhook](/relay-email/webhooks) exactly as a real one does.
+- A `messageId` beginning `simulated-`, so nobody chasing it later mistakes it for something
+  a mail provider issued.
+
+`reject@` is the odd one out and earns its place: every other address tests what happens
+*after* a send is accepted, and your integration also has to survive the send call itself
+failing.
+
+<Note>
+  Simulated bounces appear in your own analytics, because seeing them arrive is the point. They
+  are **excluded** from the bounce-rate alert: a test must never tell you your sending
+  reputation is at risk.
+</Note>
+
+## What you cannot do
+
+**Mix a simulator address with a real recipient.** One message cannot be half sent and half
+invented, so a request carrying both is refused with `simulator_recipient_mixed`.
+
+**Use a mailbox that is not in the table.** A typo on the right domain answers
+`unknown_simulator_address` and lists the real ones, rather than being sent nowhere.
+
+## Do not use documentation domains instead
+
+`example.com`, `example.org`, anything ending `.test` or `.invalid`: these are reserved and
+can never receive mail. Relay Email refuses them outright, because when it did not, a send to
+one was accepted, charged, retried by the mail provider for fourteen hours, and only then
+bounced.
+
+The addresses above exist so there is somewhere better to aim.

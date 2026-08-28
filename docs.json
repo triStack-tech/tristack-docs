@@ -79,6 +79,7 @@
                   "relay-email/domains",
                   "relay-email/templates",
                   "relay-email/webhooks",
+                  "relay-email/testing",
                   "relay-email/pricing"
                 ]
               },
