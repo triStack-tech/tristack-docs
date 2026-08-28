@@ -1,11 +1,15 @@
 ---
-title: "Top up from your own app"
-description: "Open the Tristack-hosted top-up window from inside your product: mint the session on your server, open it on a click, read the result without trusting the browser."
+title: "Top up from your own admin console"
+description: "Put wallet top-up inside your own product, under your own name and your own domain: mint the session on your server, open it on a click, read the result without trusting the browser."
 ---
 
-Your app can open a Tristack-hosted top-up window instead of sending people to the Tristack
-dashboard. Your backend mints a short-lived permit, your page opens the window with it, and
-the money lands in the same account wallet every product spends from.
+Your own admin console can take a top-up, instead of sending your operators to the Tristack
+dashboard. Your backend mints a short-lived permit, your page opens a window with it, and the
+money lands in the same account wallet every product spends from.
+
+The window can carry **your** name, **your** logo and **your** domain, so the people who use
+it see the console they already work in.
+[Put your own name on it →](#your-own-name-on-the-window)
 [Wallet and billing →](/platform/wallet)
 
 <Info>
@@ -82,6 +86,73 @@ Which is why the permit is deliberately small:
 One more gate worth knowing before you wire this into a checkout: the **account owner's email
 must be verified**, or minting answers `403 account_owner_unverified`. It is the API-key
 equivalent of the verified-email check the dashboard applies before it takes a payment.
+
+## Your own name on the window
+
+The window is for **your own people**: your operators, topping up your own wallet, from your
+own admin screen. So it can carry your name rather than ours. Pass `brandName` and
+`brandLogoUrl` when you mint, and both the window and the Razorpay payment sheet show your
+brand.
+
+With `brandName`, `brandLogoUrl` and a hostname of your own, an operator opening this window
+sees your logo, your name and your domain, and never leaves your console.
+
+Three things still say Tristack, and none of them is a setting we can flip:
+
+- **The card statement.** We are the merchant of record: the money is paid to us, and lands in
+  your wallet. A statement line naming you would be false, and banks treat that as a
+  descriptor violation rather than a branding choice.
+- **"Secured by Razorpay" on the payment sheet.** It is their sheet, and that line is how a
+  payer knows the card form is not a page you drew.
+- **The receipt email**, sent to the account owner's address once the balance actually moves.
+  It is our record of money we received, and it goes to your billing contact, not to whoever
+  happened to be at the keyboard.
+
+<Warning>
+  Do not put your brand on this window for anyone who is not you: not your own customers, not
+  a third party paying on your behalf. The payment goes to Tristack, and dressing that screen
+  in your name for someone whose money it is would misrepresent who is being paid. Between you
+  and your own staff, there is nobody to mislead: they know whose wallet they are filling.
+</Warning>
+
+### Serving it from your own domain
+
+The window is a page on `api.tristack.tech`, so by default that is what the address bar reads.
+To serve it from `pay.example.com` instead:
+
+<Steps>
+  <Step title="Tell us the hostname" icon="envelope">
+    Write to [support@tristack.tech](mailto:support@tristack.tech) with the project and the
+    hostname you want. We add it, and reply with the exact CNAME target and the validation
+    record to create. It is not self-serve: a certificate has to be issued for your hostname,
+    and that cannot happen from an API call alone.
+  </Step>
+
+  <Step title="Add the records we send back" icon="server">
+    Two records on your domain:
+
+    | Type | Name | Value |
+    |---|---|---|
+    | `CNAME` | `pay` | the target we send you |
+    | `TXT` | the validation name we send you | the validation value we send you |
+
+    The `TXT` record proves to the certificate authority that you control the name. Leave both
+    in place: the `CNAME` is how traffic arrives, and the `TXT` is re-checked at every renewal,
+    every 90 days. Deleting it after issue works until the day it silently does not.
+  </Step>
+
+  <Step title="Point the origin at it" icon="link">
+    Add `https://pay.example.com` to the project's allowed origins, and mint as usual. The URL
+    that comes back is on your hostname, so the address bar reads your domain.
+  </Step>
+</Steps>
+
+<Note>
+  **Nothing to register with Razorpay.** Checkout opens from a key and an order id and reports
+  back into a JavaScript callback; there is no allowed-domain list to keep, and no per-URL
+  registration whatever hostname the page is served from. The only work is the certificate,
+  and that is ours.
+</Note>
 
 ## The whole flow
 
@@ -308,66 +379,6 @@ https://app.example.com/wallet?tristack_topup=credited
   in a URL the user's own browser carried is something the user can rewrite, and
   `?tristack_topup=credited` is four seconds of typing.
 </Warning>
-
-## Your own name on the window
-
-The window is for **your own people**: your operators, topping up your own wallet, from your
-own admin screen. So it can carry your name rather than ours. Pass `brandName` and
-`brandLogoUrl` when you mint, and both the window and the Razorpay payment sheet show your
-brand.
-
-Two things do not change, and neither is a setting:
-
-- **The card statement says Tristack.** We are the merchant of record; the money is being paid
-  to us and lands in your wallet. A statement line naming you would be false.
-- **Razorpay's own sheet says "Secured by Razorpay".** It is their sheet, and that line is how
-  a payer knows the card form is not a page you drew.
-
-<Warning>
-  Do not put your brand on this window for anyone who is not you: not your own customers, not
-  a third party paying on your behalf. The payment goes to Tristack, and dressing that screen
-  in your name for someone whose money it is would misrepresent who is being paid. Between you
-  and your own staff, there is nobody to mislead: they know whose wallet they are filling.
-</Warning>
-
-### Serving it from your own domain
-
-The window is a page on `api.tristack.tech`, so by default that is what the address bar reads.
-To serve it from `pay.example.com` instead:
-
-<Steps>
-  <Step title="Tell us the hostname" icon="envelope">
-    Write to [support@tristack.tech](mailto:support@tristack.tech) with the project and the
-    hostname you want. We add it, and reply with the exact CNAME target and the validation
-    record to create. It is not self-serve: a certificate has to be issued for your hostname,
-    and that cannot happen from an API call alone.
-  </Step>
-
-  <Step title="Add the records we send back" icon="server">
-    Two records on your domain:
-
-    | Type | Name | Value |
-    |---|---|---|
-    | `CNAME` | `pay` | the target we send you |
-    | `TXT` | the validation name we send you | the validation value we send you |
-
-    The `TXT` record proves to the certificate authority that you control the name. Leave both
-    in place: the `CNAME` is how traffic arrives, and the `TXT` is re-checked at every renewal,
-    every 90 days. Deleting it after issue works until the day it silently does not.
-  </Step>
-
-  <Step title="Point the origin at it" icon="link">
-    Add `https://pay.example.com` to the project's allowed origins, and mint as usual. The URL
-    that comes back is on your hostname, so the address bar reads your domain.
-  </Step>
-</Steps>
-
-<Note>
-  **Nothing to register with Razorpay.** Checkout opens from a key and an order id and reports
-  back into a JavaScript callback; there is no allowed-domain list to keep, and no per-URL
-  registration whatever hostname the page is served from. The only work is the certificate,
-  and that is ours.
-</Note>
 
 ## The balance is Tristack's to know
 
