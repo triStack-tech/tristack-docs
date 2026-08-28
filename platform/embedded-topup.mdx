@@ -144,6 +144,18 @@ curl -X POST https://api.tristack.tech/v1/wallet/topup-sessions \
   Required in redirect mode, ignored in popup mode. Must be on `origin`.
 </ParamField>
 
+<ParamField body="brandName" type="string">
+  Your own name, shown to the payer instead of ours: on the window, and on the payment sheet
+  itself. Up to 64 characters. Omit it and the window shows your account name and the sheet
+  shows ours.
+</ParamField>
+
+<ParamField body="brandLogoUrl" type="string">
+  An **https** URL for your logo, shown on the window and the payment sheet. Anything else is
+  refused with `invalid_brand_logo`: a logo is fetched by the payer's browser on a payment
+  screen, and an `http` one is a mixed-content warning exactly where a warning does most harm.
+</ParamField>
+
 <ParamField body="reference" type="string">
   Your own label for this top-up, up to 128 characters, shown to the payer so they can see
   which of your systems asked for it.
@@ -167,6 +179,7 @@ exists. When the mint is refused, nothing was created and nothing was charged:
 | `403` | `origin_not_allowed` | `origin` is not on the project's list, or is not a usable origin |
 | `403` | `account_owner_unverified` | The account owner's email is not verified yet |
 | `400` | `invalid_return_url` | Redirect mode with no `returnUrl`, or one that is not on `origin` |
+| `invalid_brand_logo` | `brandLogoUrl` was not an `https` URL | Serve the logo over `https`. A payment screen is the worst place for a mixed-content warning |
 | `400` | `below_minimum_topup` | A preset `amountPaise` under `10000` (Rs 100) |
 | `503` | `razorpay_disabled` | Payments are not configured on this deployment |
 
@@ -295,6 +308,66 @@ https://app.example.com/wallet?tristack_topup=credited
   in a URL the user's own browser carried is something the user can rewrite, and
   `?tristack_topup=credited` is four seconds of typing.
 </Warning>
+
+## Your own name on the window
+
+The window is for **your own people**: your operators, topping up your own wallet, from your
+own admin screen. So it can carry your name rather than ours. Pass `brandName` and
+`brandLogoUrl` when you mint, and both the window and the Razorpay payment sheet show your
+brand.
+
+Two things do not change, and neither is a setting:
+
+- **The card statement says Tristack.** We are the merchant of record; the money is being paid
+  to us and lands in your wallet. A statement line naming you would be false.
+- **Razorpay's own sheet says "Secured by Razorpay".** It is their sheet, and that line is how
+  a payer knows the card form is not a page you drew.
+
+<Warning>
+  Do not put your brand on this window for anyone who is not you: not your own customers, not
+  a third party paying on your behalf. The payment goes to Tristack, and dressing that screen
+  in your name for someone whose money it is would misrepresent who is being paid. Between you
+  and your own staff, there is nobody to mislead: they know whose wallet they are filling.
+</Warning>
+
+### Serving it from your own domain
+
+The window is a page on `api.tristack.tech`, so by default that is what the address bar reads.
+To serve it from `pay.example.com` instead:
+
+<Steps>
+  <Step title="Tell us the hostname" icon="envelope">
+    Write to [support@tristack.tech](mailto:support@tristack.tech) with the project and the
+    hostname you want. We add it, and reply with the exact CNAME target and the validation
+    record to create. It is not self-serve: a certificate has to be issued for your hostname,
+    and that cannot happen from an API call alone.
+  </Step>
+
+  <Step title="Add the records we send back" icon="server">
+    Two records on your domain:
+
+    | Type | Name | Value |
+    |---|---|---|
+    | `CNAME` | `pay` | the target we send you |
+    | `TXT` | the validation name we send you | the validation value we send you |
+
+    The `TXT` record proves to the certificate authority that you control the name. Leave both
+    in place: the `CNAME` is how traffic arrives, and the `TXT` is re-checked at every renewal,
+    every 90 days. Deleting it after issue works until the day it silently does not.
+  </Step>
+
+  <Step title="Point the origin at it" icon="link">
+    Add `https://pay.example.com` to the project's allowed origins, and mint as usual. The URL
+    that comes back is on your hostname, so the address bar reads your domain.
+  </Step>
+</Steps>
+
+<Note>
+  **Nothing to register with Razorpay.** Checkout opens from a key and an order id and reports
+  back into a JavaScript callback; there is no allowed-domain list to keep, and no per-URL
+  registration whatever hostname the page is served from. The only work is the certificate,
+  and that is ours.
+</Note>
 
 ## The balance is Tristack's to know
 
