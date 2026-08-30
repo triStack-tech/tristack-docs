@@ -13,8 +13,8 @@
     "dark": "/assets/favicon-dark.svg"
   },
   "logo": {
-    "light": "/assets/wordmark.svg",
-    "dark": "/assets/wordmark-dark.svg",
+    "light": "/assets/wordmark-dark.svg",
+    "dark": "/assets/wordmark.svg",
     "href": "https://tristack.tech"
   },
   "contextual": {

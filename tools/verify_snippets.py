@@ -46,6 +46,7 @@ from generate_pricing import (  # noqa: E402
     SNIPPETS,
     VISION_ALIASES,
     Mintlify,
+    embedding_cell,
     paise,
     servable,
     unit_paise,
@@ -316,9 +317,10 @@ def check_embeddings(body: str, models: dict[str, dict], problems: list[str]) ->
             for field, got in zip(fields, [cell(value) for value in row[2:]]):
                 if field is None:
                     continue
-                # A dimension the model does not bill on prints n/a, never 0.00, because a
-                # zero in a price column reads as free.
-                want = unit_paise(model[field]) if model[field] != 0 else "n/a"
+                # The SAME function the generator rendered it with, so the rounding, the
+                # per-million token unit and the base-plus-increment image price cannot drift
+                # between the two tools.
+                want = embedding_cell(model, field)
                 if got != want:
                     problems.append(
                         f"embeddings: {alias}.{field} is {got!r}, expected {want!r}"

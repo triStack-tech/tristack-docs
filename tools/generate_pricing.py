@@ -17,7 +17,7 @@ request when anything moved. To do the same locally:
 from __future__ import annotations
 
 import json
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -168,6 +168,45 @@ def unit_paise(value: Decimal) -> str:
     """
     rendered = f"{value:.4f}".rstrip("0").rstrip(".")
     return lossless(value, rendered or "0")
+
+
+def rounded_paise(value: Decimal) -> str:
+    """A published embedding price, rounded to the nearest whole paise.
+
+    Operator decision, 2026-08-30: "round off to nearest paise, no worries, if its 1.85 make
+    it 2 paise simple". So this does NOT go through lossless(), which exists to refuse exactly
+    this. That refusal is still right for the chat tables, where the catalog rate is the
+    published rate; here the operator has chosen readability over the last fraction, and the
+    page says so.
+
+    ROUND_HALF_UP explicitly, never Python's default. Decimal rounds half-to-even out of the
+    box, so 1.85 would publish as 1.8 rather than the 2 that was asked for. That is the same
+    banker's-rounding trap this codebase has already been bitten by on the .NET side.
+    """
+    return str(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def embedding_cell(model: dict, field: str) -> str:
+    """One published cell of the embeddings table, used by the generator AND the verifier.
+
+    Two of the columns are not a bare field lookup, and both exist to stop a real price
+    publishing as zero:
+
+    * The token column is per MILLION, not per 1000. Embeddings are cheap enough that
+      titan-embed-2 is a quarter of a paise per 1000 tokens, which rounds to 0 and reads as
+      free. Per million it is 250 paise, which is both whole and true.
+    * The image column is the per-request base PLUS the per-image increment, because that is
+      what one image call actually costs. Marengo prices an image as 0.88 + 0.38; publishing
+      the 0.38 alone would round to 0 and would not be the price of anything a caller can buy.
+    """
+    if field == TOKEN_DIMENSION[1]:
+        value = model[field] * 1000
+    elif field == "paisePerImage":
+        value = model["paisePerRequest"] + model[field]
+    else:
+        value = model[field]
+    # n/a and never 0: a zero in a price column reads as free.
+    return rounded_paise(value) if value != 0 else "n/a"
 
 
 def servable(models: list[dict]) -> list[dict]:
@@ -343,21 +382,31 @@ def write_budget(target, models: list[dict], count: int = 10) -> None:
 # The billable dimensions of an embedding model, as (column heading, catalog field). Rendered
 # only when some row actually prices that dimension, so a text-only lineup does not publish
 # four empty columns and a reader is never shown a 0.00 that means "not applicable".
-EMBEDDING_DIMENSIONS = (
-    ("Paise / 1K tokens", "paisePer1KTokensIn"),
+TOKEN_DIMENSION = ("Paise / million tokens", "paisePer1KTokensIn")
+
+# Only three of the nine models bill on any of these, so they get their own smaller table
+# rather than four mostly-empty columns beside the token rate.
+UNIT_DIMENSIONS = (
     ("Paise / image", "paisePerImage"),
     ("Paise / video sec", "paisePerVideoSecond"),
     ("Paise / audio sec", "paisePerAudioSecond"),
     ("Paise / request", "paisePerRequest"),
 )
 
+# Every dimension, for the verifier's header lookup.
+EMBEDDING_DIMENSIONS = (TOKEN_DIMENSION, *UNIT_DIMENSIONS)
+
 
 def write_embeddings(target, models: list[dict]) -> None:
-    """The embeddings table, which cannot share the chat one.
+    """The embeddings tables, which cannot share the chat one.
 
     A chat row is priced in and out per 1K tokens. An embedding row has no output tokens and
-    may be priced per image, per second of media, or per request instead, so the two need
-    different columns rather than one table with blanks in it.
+    may be priced per image, per second of media, or per request instead.
+
+    TWO TABLES, not one. Seven of the nine models bill on tokens alone, so folding every
+    dimension into a single table left it about sixty percent "n/a" and made the common case
+    hard to read. The token rate every reader wants is its own table; the media and
+    per-request rates get a second one carrying only the models that actually have them.
     """
     if not models:
         (target.directory / f"embedding-catalog{target.suffix}").write_text(
@@ -365,33 +414,47 @@ def write_embeddings(target, models: list[dict]) -> None:
         )
         return
 
-    used = [
-        (heading, field)
-        for heading, field in EMBEDDING_DIMENSIONS
-        if any(model[field] != 0 for model in models)
-    ]
-
+    token_field = TOKEN_DIMENSION[1]
     lines = [
         target.banner,
         "",
-        "| Alias | Model | " + " | ".join(h for h, _ in used) + " |",
-        "|---|---|" + "|".join("---:" for _ in used) + "|",
+        f"| Alias | Model | {TOKEN_DIMENSION[0]} |",
+        "|---|---|---:|",
     ]
-    lines += [
-        "| `{alias}` | {name} | {cells} |".format(
-            alias=model["alias"],
-            name=model["displayName"],
-            # A zero here means the model is not priced on that dimension at all, not that
-            # it is free. "0.00" in a price column reads as free, so it is never printed:
-            # a model that does not bill per image has no per-image price, which is a
-            # different statement from one that bills nothing for it.
-            cells=" | ".join(
-                unit_paise(model[field]) if model[field] != 0 else "n/a"
-                for _, field in used
-            ),
-        )
+    for model in models:
+        # "n/a" and never "0.00": a zero in a price column reads as free, and a model with no
+        # token rate at all is not one that embeds text for nothing.
+        rate = embedding_cell(model, token_field)
+        lines.append(f"| `{model['alias']}` | {model['displayName']} | {rate} |")
+
+    used = [
+        (heading, field)
+        for heading, field in UNIT_DIMENSIONS
+        if any(model[field] != 0 for model in models)
+    ]
+    priced = [
+        model
         for model in models
+        if any(embedding_cell(model, field) != "n/a" for _, field in used)
     ]
+
+    if used and priced:
+        lines += [
+            "",
+            "These models also bill per image, per second of media, or per request:",
+            "",
+            "| Alias | Model | " + " | ".join(heading for heading, _ in used) + " |",
+            "|---|---|" + "|".join("---:" for _ in used) + "|",
+        ]
+        lines += [
+            "| `{alias}` | {name} | {cells} |".format(
+                alias=model["alias"],
+                name=model["displayName"],
+                cells=" | ".join(embedding_cell(model, field) for _, field in used),
+            )
+            for model in priced
+        ]
+
     lines.append("")
     (target.directory / f"embedding-catalog{target.suffix}").write_text("\n".join(lines))
 

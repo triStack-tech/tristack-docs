@@ -56,8 +56,13 @@ Identical work, identical tokens, twenty times the cost. The `input` array exist
 
 <EmbeddingCatalog />
 
-Prices are what you are billed, in full. A dimension shown as `n/a` is one the model does not
-bill on, which is not the same as free.
+Prices are what you are billed, with nothing added at invoice time, **rounded to the nearest
+paise for readability**. The exact unrounded rate is always on `GET /v1/manifold/models`, and
+that is what settlement uses.
+
+A dimension shown as `n/a` is one the model does not bill on, which is not the same as free.
+Where a model charges per request and per image both, the per-image figure is what one image
+call costs in total, not an increment to add on top.
 
 ## How each model is metered
 
