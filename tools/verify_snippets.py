@@ -40,6 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from generate_pricing import (  # noqa: E402
+    EMBEDDING_DIMENSIONS,
     FAMILIES,
     PENDING_ALIASES,
     SNIPPETS,
@@ -47,6 +48,7 @@ from generate_pricing import (  # noqa: E402
     Mintlify,
     paise,
     servable,
+    unit_paise,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -56,7 +58,8 @@ CATALOG = SNIPPETS / "model-catalog.mdx"
 SUMMARY = SNIPPETS / "catalog-summary.mdx"
 VISION = SNIPPETS / "model-vision.mdx"
 BUDGET = SNIPPETS / "model-budget.mdx"
-GENERATED = (CATALOG, SUMMARY, VISION, BUDGET)
+EMBEDDINGS = SNIPPETS / "embedding-catalog.mdx"
+GENERATED = (CATALOG, SUMMARY, VISION, BUDGET, EMBEDDINGS)
 
 # The tables carry the charged price and nothing else. A column the catalog does not
 # publish must not appear here either.
@@ -266,13 +269,87 @@ def check_summary(body: str, models: dict[str, dict], problems: list[str]) -> No
             problems.append(f"summary: {what} says {found.group(1)}, expected {want}")
 
 
+def check_embeddings(body: str, models: dict[str, dict], problems: list[str]) -> None:
+    """
+    The embeddings table, whose columns are not fixed.
+
+    Unlike the three chat tables, this one only carries the dimensions some row actually
+    prices, so the header is read and used to decide which fields to check rather than being
+    compared against a constant. The header labels and the "n/a" convention both come from
+    generate_pricing, never re-stated here: a second copy would agree with the generator by
+    construction, which is not verification.
+    """
+    if not models:
+        return
+
+    by_heading = dict(EMBEDDING_DIMENSIONS)
+    seen: set[str] = set()
+
+    for table in tables(body):
+        header = [cell(value) for value in table[0]]
+        if header[:2] != ["Alias", "Model"]:
+            problems.append(f"embedding-catalog.mdx: unexpected table header {table[0]}")
+            continue
+
+        fields = []
+        for heading in header[2:]:
+            if heading not in by_heading:
+                problems.append(f"embedding-catalog.mdx: unknown column {heading!r}")
+                fields.append(None)
+            else:
+                fields.append(by_heading[heading])
+
+        for row in table[1:]:
+            alias = cell(row[0])
+            model = models.get(alias)
+            if model is None:
+                problems.append(f"embeddings: {alias} is not in the source JSON")
+                continue
+            seen.add(alias)
+
+            if cell(row[1]) != model["displayName"]:
+                problems.append(
+                    f"embeddings: {alias}.displayName is {cell(row[1])!r}, "
+                    f"expected {model['displayName']!r}"
+                )
+
+            for field, got in zip(fields, [cell(value) for value in row[2:]]):
+                if field is None:
+                    continue
+                # A dimension the model does not bill on prints n/a, never 0.00, because a
+                # zero in a price column reads as free.
+                want = unit_paise(model[field]) if model[field] != 0 else "n/a"
+                if got != want:
+                    problems.append(
+                        f"embeddings: {alias}.{field} is {got!r}, expected {want!r}"
+                    )
+
+    missing = sorted(set(models) - seen)
+    if missing:
+        problems.append(f"embeddings: aliases missing from the snippet: {missing}")
+
+
 def check_tables(problems: list[str]) -> None:
     if not SOURCE.exists():
         problems.append(f"{SOURCE.relative_to(ROOT)} is missing: run tools/fetch_catalog.py")
         return
 
     catalog = json.loads(SOURCE.read_text(), parse_float=Decimal, parse_int=Decimal)
-    models = {model["alias"]: model for model in catalog["models"]}
+
+    # The four original snippets describe CHAT models only. Every one of them is built around
+    # a per-1K input and output rate, and an embedding has no output tokens at all, so an
+    # embedding row checked against them reports as missing from a table it does not belong
+    # in. They get their own snippet and their own check.
+    models = {
+        model["alias"]: model
+        for model in catalog["models"]
+        if model.get("kind") != "embedding"
+    }
+    embeddings = {
+        model["alias"]: model
+        for model in catalog["models"]
+        if model.get("kind") == "embedding"
+    }
 
     text = check_mdx(problems)
     if len(text) != len(GENERATED):
@@ -282,10 +359,11 @@ def check_tables(problems: list[str]) -> None:
     check_budget(text[BUDGET], models, problems)
     rows = check_vision(text[VISION], models, problems)
     check_summary(text[SUMMARY], models, problems)
+    check_embeddings(text[EMBEDDINGS], embeddings, problems)
     if not problems:
         print(
-            f"OK: {len(models)} catalog rows and {rows} vision rows in "
-            f"{SNIPPETS.relative_to(ROOT)}/ match {SOURCE.relative_to(ROOT)}"
+            f"OK: {len(models)} chat rows, {len(embeddings)} embedding rows and {rows} vision "
+            f"rows in {SNIPPETS.relative_to(ROOT)}/ match {SOURCE.relative_to(ROOT)}"
         )
 
 
