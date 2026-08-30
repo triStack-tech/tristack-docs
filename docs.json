@@ -50,6 +50,7 @@
               "manifold/index",
               "manifold/models",
               "manifold/streaming",
+              "manifold/embeddings",
               "manifold/pricing"
             ]
           },
@@ -117,7 +118,8 @@
             "group": "Manifold",
             "pages": [
               "api-reference/manifold/messages",
-              "api-reference/manifold/models"
+              "api-reference/manifold/models",
+              "api-reference/manifold/embeddings"
             ]
           },
           {

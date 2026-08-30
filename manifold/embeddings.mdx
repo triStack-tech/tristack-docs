@@ -1,0 +1,152 @@
+---
+title: "Embeddings"
+description: "Turn text, images, video and audio into vectors: the native endpoint, the OpenAI-compatible alias, how each model is metered, and why batching changes what you pay."
+sidebarTitle: "Embeddings"
+icon: "vector-square"
+---
+
+import EmbeddingCatalog from '/snippets/embedding-catalog.mdx';
+
+`POST /v1/manifold/embeddings` turns text or an image into a vector, billed from the same
+prepaid wallet as everything else in Manifold. Video and audio go through a job instead,
+because they take longer than a request should stay open.
+
+```json A request
+{
+  "model": "titan-embed-2",
+  "input": ["first chunk", "second chunk"]
+}
+```
+
+```json The reply
+{
+  "id": "emb_9f2c...",
+  "model": "titan-embed-2",
+  "embeddings": [
+    { "index": 0, "vector": [0.0121, -0.0034] },
+    { "index": 1, "vector": [0.0455, 0.0091] }
+  ],
+  "usage": { "input_tokens": 34, "images": 0, "metered": true },
+  "cost": { "paise": 1 }
+}
+```
+
+`input` takes a bare string or an array. Every vector carries the `index` of the input it
+came from, so the order you send is the order you can rely on.
+
+## Batch, or you will pay twenty times more
+
+**This is the one thing on this page that changes your bill by an order of magnitude, so it
+is not in a footnote.**
+
+Every request has a **minimum charge of 1 paise**. Embeddings are cheap enough that one paise
+buys roughly four thousand tokens on `titan-embed-2`, so the minimum only ever binds on small
+requests. Send your chunks in batches and it never binds at all.
+
+Embedding ten thousand chunks of about two hundred tokens each:
+
+| How you send it | Requests | You pay |
+|---|---:|---:|
+| Batched, 96 chunks per request | 105 | about **Rs 5** |
+| One chunk per request | 10,000 | **Rs 100** |
+
+Identical work, identical tokens, twenty times the cost. The `input` array exists for this.
+
+## Models
+
+<EmbeddingCatalog />
+
+Prices are what you are billed, in full. A dimension shown as `n/a` is one the model does not
+bill on, which is not the same as free.
+
+## How each model is metered
+
+Some models report exactly how many tokens they read. Others report nothing at all, and for
+those we count the input ourselves, deliberately generously, so the estimate is never below
+what the work actually cost.
+
+Every reply tells you which happened:
+
+```json
+"usage": { "input_tokens": 34, "metered": true }
+```
+
+- **`"metered": true`** means the model reported its own token count and you were billed on
+  that exact number.
+- **`"metered": false`** means the count is our estimate. The estimate is based on the byte
+  length of your input, which for English prose runs roughly two and a half times higher than
+  the true token count, and for scripts like Hindi, Tamil or Bengali sits much closer to it.
+
+If you care about paying the true token count rather than a safe over-estimate, prefer a
+model that reports `"metered": true`. `titan-embed-2` is both the cheapest in the catalog and
+one that meters, which is why it is the sensible default.
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| Inputs per request | 2048 |
+| Total input size per request | 8 MB |
+
+Both are refused with `input_too_large` before anything is charged. Some models have their own
+shorter input limit, which is refused the same way.
+
+## Video and audio
+
+These are not request-and-reply. Submit a job:
+
+```json POST /v1/manifold/embeddings/jobs
+{
+  "model": "marengo-3",
+  "media": { "kind": "video", "s3_uri": "s3://your-bucket/clip.mp4", "duration_seconds": 42 },
+  "reference": "your-own-id"
+}
+```
+
+You get a job id back, then poll `GET /v1/manifold/embeddings/jobs/{id}` until it completes
+and the vectors are on the response. Media is billed per second, and the seconds you are
+billed for are the ones actually processed, not the ones you declared.
+
+`reference` is your own identifier, echoed back on reads, up to 128 characters.
+
+## OpenAI-compatible alias
+
+If you already have code written against an OpenAI client, point its base URL at
+`https://api.tristack.tech/v1` and it works unchanged:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="tsk_...", base_url="https://api.tristack.tech/v1")
+
+vectors = client.embeddings.create(model="titan-embed-2", input=["first", "second"])
+```
+
+That route is a translation of the native one. It bills identically, because it runs the same
+code underneath rather than a second copy of it. The reply carries an extra `cost` field,
+which OpenAI clients ignore.
+
+## Where your input is processed
+
+Most models in the catalog are served from within India. A few are served from outside it,
+because they are offered nowhere closer, so input sent to those leaves the country. If that
+matters for your data, use `titan-embed-2`, `titan-embed-image`, `embed-english-3`,
+`embed-multilingual-3` or `embed-4`, all of which are served from India.
+
+## Keys and scopes
+
+A scoped key needs `manifold:embed`. `manifold:invoke` does **not** grant it: a key that may
+send messages does not silently gain a second thing it can spend your wallet on. A key with no
+scopes at all can do everything, as always.
+
+## Errors
+
+| Code | Meaning |
+|---|---|
+| `invalid_input` | `input` is missing, empty, or not a string or array |
+| `input_too_large` | Beyond the input count, size, or the model's own limit |
+| `unsupported_input_modality` | Video or audio sent to the synchronous route; use a job |
+| `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages`, or a chat model sent here |
+| `embedding_job_not_found` | No such job, or it belongs to another project |
+
+See [platform errors](/platform/errors) for the codes every product shares.

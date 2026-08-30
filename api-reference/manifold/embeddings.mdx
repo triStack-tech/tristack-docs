@@ -1,0 +1,187 @@
+---
+title: "Create embeddings"
+description: "POST /v1/manifold/embeddings: every request field, the response, the OpenAI-compatible alias, and every error code with its status."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/manifold/embeddings` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Scope: `manifold:embed` · Request and response fields are
+  **snake_case** on the wire (`input_type`, `input_tokens`).
+</Info>
+
+Turns text or images into vectors. One request, one array of vectors, billed to the wallet in
+paise.
+
+The wallet is charged hold-then-settle, exactly as messages are: an estimate is reserved
+before the model is called, the real cost is debited when it finishes, and the difference is
+refunded. A request refused during admission costs nothing.
+
+**Every request has a minimum charge of 1 paise**, so batching your inputs into one call
+rather than sending them one at a time is the difference between paying about Rs 5 and paying
+Rs 100 for the same ten thousand chunks. See [Embeddings](/manifold/embeddings#batch-or-you-will-pay-twenty-times-more).
+
+## Send a request
+
+<CodeGroup>
+
+```bash curl
+curl https://api.tristack.tech/v1/manifold/embeddings \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "titan-embed-2",
+    "input": ["first chunk", "second chunk"]
+  }'
+```
+
+```python Python
+# pip install requests
+import os
+
+import requests
+
+reply = requests.post(
+    "https://api.tristack.tech/v1/manifold/embeddings",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    json={"model": "titan-embed-2", "input": ["first chunk", "second chunk"]},
+    timeout=60,
+)
+reply.raise_for_status()
+for item in reply.json()["embeddings"]:
+    print(item["index"], len(item["vector"]))
+```
+
+</CodeGroup>
+
+## Request fields
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `model` | string | yes | A model alias whose kind is `embedding`. A chat alias is refused with `model_kind_mismatch`. |
+| `input` | string or array | yes | A bare string, an array of strings, or an array of typed blocks. Max 2048 items, 8 MB total. |
+| `input_type` | string | no | `search_document` or `search_query`, for models that distinguish them. Ignored, visibly, by models that do not. |
+| `dimensions` | integer | no | Requested vector length, for models that support more than one. |
+
+An image block:
+
+```json
+{
+  "model": "titan-embed-image",
+  "input": [
+    { "type": "image", "source": { "media_type": "image/png", "data": "<base64>" } }
+  ]
+}
+```
+
+Video and audio are refused here with `unsupported_input_modality`. They go through
+[jobs](#video-and-audio-jobs).
+
+## Response
+
+```json
+{
+  "id": "emb_9f2c...",
+  "model": "titan-embed-2",
+  "embeddings": [
+    { "index": 0, "vector": [0.0121, -0.0034] },
+    { "index": 1, "vector": [0.0455, 0.0091] }
+  ],
+  "input_type": "search_document",
+  "usage": {
+    "input_tokens": 34,
+    "images": 0,
+    "video_seconds": 0,
+    "audio_seconds": 0,
+    "metered": true
+  },
+  "cost": { "paise": 1 }
+}
+```
+
+| Field | Notes |
+|---|---|
+| `embeddings[].index` | The index of the input this vector came from. Order is guaranteed by this field, not by position. |
+| `input_type`, `dimensions` | What the model actually applied. Absent when the model takes neither, so an option that was ignored is visible rather than silent. |
+| `usage.metered` | `true` when the model reported its own token count and you were billed on that exact number. `false` when the count is our own deliberately generous estimate. |
+| `cost.paise` | The settled amount, not the estimate. |
+
+## OpenAI-compatible alias
+
+`POST https://api.tristack.tech/v1/embeddings` takes and returns the OpenAI shape, so an
+existing client works by changing only its base URL:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="tsk_...", base_url="https://api.tristack.tech/v1")
+client.embeddings.create(model="titan-embed-2", input=["first", "second"])
+```
+
+```json The reply
+{
+  "object": "list",
+  "data": [{ "object": "embedding", "index": 0, "embedding": [0.0121, -0.0034] }],
+  "model": "titan-embed-2",
+  "usage": { "prompt_tokens": 34, "total_tokens": 34 },
+  "cost": { "paise": 1 }
+}
+```
+
+It translates to the native route and bills identically, because it calls the same code rather
+than a second copy of it. The extra `cost` field is ignored by OpenAI clients.
+
+## Video and audio jobs
+
+<Info>
+  `POST https://api.tristack.tech/v1/manifold/embeddings/jobs` and
+  `GET https://api.tristack.tech/v1/manifold/embeddings/jobs/{id}` · Scope: `manifold:embed`
+</Info>
+
+```json POST
+{
+  "model": "marengo-3",
+  "media": { "kind": "video", "s3_uri": "s3://your-bucket/clip.mp4", "duration_seconds": 42 },
+  "reference": "your-own-id"
+}
+```
+
+| Field | Notes |
+|---|---|
+| `media.kind` | `video` or `audio`. |
+| `media.s3_uri` | Where the media is. |
+| `media.duration_seconds` | Your declared duration, used for the hold only. |
+| `reference` | Your own identifier, echoed on reads. Max 128 characters. |
+
+The reply carries a job id and a status. Poll the `GET` until the status is terminal; the
+vectors are on the completed response.
+
+A job that has not finished within **90 minutes** is failed with `embedding_job_timeout` and
+its reservation is returned in full, so a job that never completes does not hold your balance
+indefinitely.
+
+**You are billed for the seconds actually processed, not the seconds you declared.** The
+declared duration only sizes the hold, so understating it does not reduce the bill.
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `invalid_input` | `input` is missing, empty, or not a string or array |
+| 400 | `input_too_large` | Beyond 2048 inputs, 8 MB, or the model's own input limit |
+| 400 | `unsupported_input_modality` | Video or audio sent to the synchronous route |
+| 400 | `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages`, or a chat model sent here |
+| 400 | `unknown_model` | No such alias, or one your key cannot call |
+| 402 | `insufficient_balance` | The wallet cannot cover the estimate |
+| 403 | `insufficient_scope` | The key lacks `manifold:embed` |
+| 403 | `model_not_allowed` | The project's allowlist does not carry this alias |
+| 404 | `embedding_job_not_found` | No such job, or it belongs to another project |
+| 502 | `provider_error` | The model failed. See below for what a partial batch costs. |
+
+<Warning>
+
+  **A batch that fails part-way is billed for the part that succeeded.** A large `input` array
+  may be split into several calls under the hood. If one fails, the vectors already produced
+  were real work, so the wallet settles for those and the request still returns
+  `provider_error`. A batch that fails on its very first call is refunded in full.
+
+</Warning>

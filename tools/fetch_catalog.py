@@ -92,10 +92,34 @@ def validate(raw: bytes) -> int:
         if not isinstance(name, str) or not name:
             raise SystemExit(f"{alias}.displayName is missing or empty")
 
+        kind = model.get("kind")
+        if kind not in KINDS:
+            raise SystemExit(
+                f"{alias}.kind is missing or unknown: {kind!r}. "
+                "The pages render embedding rows in their own table, so a row that cannot "
+                "say which it is cannot be published."
+            )
+
         for field in REQUIRED_RATES:
             rate = model.get(field)
             if not isinstance(rate, Decimal) or rate < 0:
                 raise SystemExit(f"{alias}.{field} is missing or not a rate: {rate!r}")
+
+        # An embedding row legitimately carries paisePer1KTokensOut = 0, because an embedding
+        # has no output tokens. That is why the check above is `< 0` rather than `<= 0`.
+        for field in UNIT_RATES:
+            rate = model.get(field)
+            if not isinstance(rate, Decimal) or rate < 0:
+                raise SystemExit(f"{alias}.{field} is missing or not a rate: {rate!r}")
+
+        # A row has to be billable through something. A model published at zero on every
+        # dimension would read to a customer as free, and that has to fail here rather than
+        # appear on the pricing page.
+        if all(
+            model.get(field) == 0
+            for field in ("paisePer1KTokensIn", "paisePer1KTokensOut", *UNIT_RATES)
+        ):
+            raise SystemExit(f"{alias} is priced at zero on every dimension")
 
     return len(models)
 
@@ -103,8 +127,34 @@ def validate(raw: bytes) -> int:
 # The response is captured into a public repository, so only the fields the pages
 # actually publish are kept. Anything the endpoint may grow later stays out by default
 # rather than being reviewed for disclosure after it has already been committed.
-PUBLISHED_FIELDS = ("alias", "displayName", "paisePer1KTokensIn", "paisePer1KTokensOut")
-TEXT_FIELDS = frozenset({"alias", "displayName"})
+PUBLISHED_FIELDS = (
+    "alias",
+    "displayName",
+    "kind",
+    "paisePer1KTokensIn",
+    "paisePer1KTokensOut",
+    # Embedding rows are billed on these, so the pages have to be able to publish them.
+    # Before they were carried across, an embedding model's per-image and per-request
+    # charges were debited from the wallet and appeared in no table anywhere, which is the
+    # same fault as printing the wrong number.
+    "paisePerImage",
+    "paisePerVideoSecond",
+    "paisePerAudioSecond",
+    "paisePerRequest",
+)
+TEXT_FIELDS = frozenset({"alias", "displayName", "kind"})
+
+# Rates that only an embedding row uses. Zero on a text row, and zero on an embedding row
+# that does not price that dimension, so they are validated as rates but never required to
+# be positive.
+UNIT_RATES = (
+    "paisePerImage",
+    "paisePerVideoSecond",
+    "paisePerAudioSecond",
+    "paisePerRequest",
+)
+
+KINDS = frozenset({"text", "embedding"})
 
 
 def publishable(raw: bytes) -> bytes:

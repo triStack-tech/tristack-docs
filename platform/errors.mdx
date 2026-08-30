@@ -62,7 +62,13 @@ Two fields ride along on specific failures:
 | `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
 | `model_access_denied` | 403 | Manifold | The platform is not entitled to serve this model. The hold is released in full | Use another alias. Nothing was charged |
 | `provider_throttled` | 429 | Manifold | The model provider is throttling. Not a Tristack rate limit | Retry with exponential backoff and jitter |
-| `provider_error` | 502 | Manifold | Any other provider failure. The hold is released | Retry. If it persists, send support the `mfr_…` id |
+| `provider_error` | 502 | Manifold | Any other provider failure. The hold is released, with one exception: a large embeddings batch that failed part-way settles for the vectors it did produce | Retry. If it persists, send support the `mfr_…` or `emb_…` id |
+| `model_kind_mismatch` | 400 | Manifold | The alias is real but belongs to the other surface: an embedding model sent to `/v1/manifold/messages`, or a chat model sent to `/v1/manifold/embeddings` | Send it to the route that serves it. `GET /v1/manifold/models` reports each alias's `kind` |
+| `invalid_input` | 400 | Manifold | `input` on an embeddings request is missing, empty, or neither a string nor an array | Send a non-empty string, or an array of them |
+| `input_too_large` | 400 | Manifold | Beyond 2048 inputs, 8 MB in one request, or the model's own shorter input limit. Refused before the hold | Split the batch. Nothing was charged |
+| `unsupported_input_modality` | 400 | Manifold | Video or audio sent to `/v1/manifold/embeddings`, which is request-and-reply only | Submit it to `POST /v1/manifold/embeddings/jobs` instead |
+| `embedding_job_not_found` | 404 | Manifold | No such embedding job. Another project's job answers identically | Check the id came from this project |
+| `embedding_job_timeout` | n/a | Manifold | Not a response code. A video or audio job that did not finish within 90 minutes is failed with this on the job itself, and the reservation is returned in full | Resubmit, or split a very long file. Nothing was charged |
 | `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
 | `relay_voice_unavailable` | 503 | Relay Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
 | `invalid_phone_number` | 400 | Relay Voice | A number in `to` is not a dialable Indian mobile. `error` names the index and the value you sent | Drop or correct it. Landlines and foreign numbers are refused |

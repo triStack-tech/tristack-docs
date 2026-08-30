@@ -155,6 +155,21 @@ def paise(value: Decimal) -> str:
     return lossless(value, f"{value:.2f}")
 
 
+def unit_paise(value: Decimal) -> str:
+    """
+    A per-unit embedding rate, which is genuinely sub-paise and needs the extra places.
+
+    A chat rate is per 1000 tokens and lands in the tens or hundreds of paise, so two decimals
+    hold it exactly. A per-request or per-image rate is the price of ONE thing: Marengo bills
+    about 0.878 paise for a text request and 0.376 for the image increment. Rendered at two
+    places those become 0.88 and 0.38, which lossless() correctly refuses, because publishing
+    them would overstate the rate by roughly one percent forever. The fix is places, not
+    rounding, so the trailing zeros are trimmed to keep whole-paise figures readable.
+    """
+    rendered = f"{value:.4f}".rstrip("0").rstrip(".")
+    return lossless(value, rendered or "0")
+
+
 def servable(models: list[dict]) -> list[dict]:
     return [model for model in models if model["alias"] not in PENDING_ALIASES]
 
@@ -325,18 +340,85 @@ def write_budget(target, models: list[dict], count: int = 10) -> None:
     (target.directory / f"model-budget{target.suffix}").write_text("\n".join(lines))
 
 
+# The billable dimensions of an embedding model, as (column heading, catalog field). Rendered
+# only when some row actually prices that dimension, so a text-only lineup does not publish
+# four empty columns and a reader is never shown a 0.00 that means "not applicable".
+EMBEDDING_DIMENSIONS = (
+    ("Paise / 1K tokens", "paisePer1KTokensIn"),
+    ("Paise / image", "paisePerImage"),
+    ("Paise / video sec", "paisePerVideoSecond"),
+    ("Paise / audio sec", "paisePerAudioSecond"),
+    ("Paise / request", "paisePerRequest"),
+)
+
+
+def write_embeddings(target, models: list[dict]) -> None:
+    """The embeddings table, which cannot share the chat one.
+
+    A chat row is priced in and out per 1K tokens. An embedding row has no output tokens and
+    may be priced per image, per second of media, or per request instead, so the two need
+    different columns rather than one table with blanks in it.
+    """
+    if not models:
+        (target.directory / f"embedding-catalog{target.suffix}").write_text(
+            "\n".join([target.banner, "", "No embedding models are servable today.", ""])
+        )
+        return
+
+    used = [
+        (heading, field)
+        for heading, field in EMBEDDING_DIMENSIONS
+        if any(model[field] != 0 for model in models)
+    ]
+
+    lines = [
+        target.banner,
+        "",
+        "| Alias | Model | " + " | ".join(h for h, _ in used) + " |",
+        "|---|---|" + "|".join("---:" for _ in used) + "|",
+    ]
+    lines += [
+        "| `{alias}` | {name} | {cells} |".format(
+            alias=model["alias"],
+            name=model["displayName"],
+            # A zero here means the model is not priced on that dimension at all, not that
+            # it is free. "0.00" in a price column reads as free, so it is never printed:
+            # a model that does not bill per image has no per-image price, which is a
+            # different statement from one that bills nothing for it.
+            cells=" | ".join(
+                unit_paise(model[field]) if model[field] != 0 else "n/a"
+                for _, field in used
+            ),
+        )
+        for model in models
+    ]
+    lines.append("")
+    (target.directory / f"embedding-catalog{target.suffix}").write_text("\n".join(lines))
+
+
 def main() -> None:
     models = load()
     mdx_safe(models)
-    families = group(models)
+
+    # SPLIT BY KIND FIRST. Everything below this line that talks about "models" means chat
+    # models: the family map, the vision column, the budget ranking and the per-1K-token
+    # columns are all shaped for a surface that has an output price, and an embedding has no
+    # output tokens at all. Ranking the two together sorted embeddings by a number that does
+    # not exist for them, and the catalog table published a 0.00 output price beside a real
+    # input one, which reads as free rather than as inapplicable.
+    chat = [m for m in models if m.get("kind") != "embedding"]
+    embeddings = [m for m in models if m.get("kind") == "embedding"]
+
+    families = group(chat)
     for target in targets():
         target.directory.mkdir(exist_ok=True)
         write_catalog(target, families)
-        write_summary(target, models, families)
-        write_vision(target, models)
-        write_budget(target, models)
+        write_summary(target, chat, families)
+        write_vision(target, chat)
+        write_budget(target, chat)
+        write_embeddings(target, embeddings)
         print(f"wrote {target.directory.relative_to(ROOT)}/*{target.suffix}")
-    print(f"{len(models)} models, {len(families)} families")
+    print(f"{len(chat)} chat models, {len(families)} families, {len(embeddings)} embedding models")
     for family, entries in families.items():
         print(f"  {family}: {len(entries)}")
 
