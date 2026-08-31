@@ -49,7 +49,9 @@ Once per **account**, not per project. A person reviews it, normally over a few 
 values the regulator wants typed in beside it, and the set differs per document, per country and
 over time. `options` non-empty means a closed set, so render a dropdown; `format` is a regex the
 value must match. A client that hardcodes these submits the wrong thing and hears about it from
-a person, days later.
+a person, days later. Every `required` one is checked on submission and answers
+`400 missing_data_field` naming the document and the field, so a mistake costs a response rather
+than a week.
 
 `businessOnly` is always `true` for India and is stated here rather than discovered at
 submission: an individual or an unregistered sole trader cannot rent an Indian number at all,
@@ -241,6 +243,7 @@ number, the date, the rental and the current balance.
 | 409 | `compliance_pending` | A submission is already under review |
 | 409 | `compliance_exists` | Already verified; there is nothing to submit |
 | 400 | `billing_profile_incomplete` | No registered address on the account to tell the regulator |
+| 400 | `missing_data_field` | A `required` field from `fields` was left out. `documentType` and `field` name it |
 | 400 | `document_too_large` | A document is over 5 MB |
 | 400 | `unsupported_document_type` | Not a PDF, JPEG or PNG |
 | 402 | `insufficient_balance` | The wallet cannot cover the first month. `requiredPaise` says how much was needed |
