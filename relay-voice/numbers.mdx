@@ -43,8 +43,19 @@ curl https://api.tristack.tech/v1/relay/voice/compliance/requirements \
 Then submit the business name and the documents together. The name must match the registration
 certificate **exactly**, or the application is refused.
 
+Each document also asks for whatever the regulator wants typed in beside it: the GSTIN with the
+GST certificate, the CIN with the incorporation certificate. The dashboard renders those from
+what the provider declares rather than from a fixed list, so they follow the regulator rather
+than a release of ours. Your **registered address** is sent too, taken from the billing identity
+on your profile, because the regulator is told who the number is for.
+
 Verification is reviewed by a person and normally takes a few days. `GET /v1/relay/voice/compliance`
 reports `submitted`, `accepted` or `rejected`, and a rejection carries the reason.
+
+Nothing arrives on its own while you wait. The dashboard's **Check status** button, and
+`POST /v1/relay/voice/compliance/refresh` behind it, ask the provider at the moment you want to
+know. There is no timer to wait for and nothing to poll: review takes days, so asking on a loop
+would only repeat the same answer.
 
 Your documents are passed straight to the number provider and are never stored by Tristack.
 

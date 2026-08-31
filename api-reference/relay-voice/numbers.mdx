@@ -30,12 +30,26 @@ Once per **account**, not per project. A person reviews it, normally over a few 
   "businessOnly": true,
   "available": true,
   "documents": [
-    { "type": "business_registration", "name": "Certificate of Incorporation",
-      "description": "Udyam Registration is accepted for MSMEs." },
-    { "type": "gst_certificate", "name": "GST certificate", "description": null }
+    {
+      "type": "business_registration",
+      "name": "Certificate of Incorporation",
+      "description": "Udyam Registration is accepted for MSMEs.",
+      "fields": [
+        { "name": "cin", "label": "CIN", "help": "As printed on the certificate.",
+          "type": "text", "required": true, "format": null, "options": [],
+          "minLength": 21, "maxLength": 21 }
+      ]
+    },
+    { "type": "gst_certificate", "name": "GST certificate", "description": null, "fields": [] }
   ]
 }
 ```
+
+**Build your form from `fields`, never from a list of your own.** Each document declares the
+values the regulator wants typed in beside it, and the set differs per document, per country and
+over time. `options` non-empty means a closed set, so render a dropdown; `format` is a regex the
+value must match. A client that hardcodes these submits the wrong thing and hears about it from
+a person, days later.
 
 `businessOnly` is always `true` for India and is stated here rather than discovered at
 submission: an individual or an unregistered sole trader cannot rent an Indian number at all,
@@ -63,6 +77,23 @@ curl -X POST https://api.tristack.tech/v1/relay/voice/compliance \
 `files`: the *n*th type describes the *n*th file. Send them in the same order and send exactly
 as many types as files, or the answer is `400 invalid_request` rather than a guess at which
 certificate is which.
+
+`dataFields` is a JSON object of document type to that document's values, keyed by the `name`
+from `fields`. A field name means something only against the document that asked for it, which
+is why it is nested rather than flat:
+
+```json dataFields
+{
+  "business_registration": { "cin": "U72200KA2020PTC123456" },
+  "gst_certificate": { "gstin": "29AAAAA0000A1Z5" }
+}
+```
+
+<Note>
+  The regulator is told **who the number is for**, and that comes from the billing identity on
+  your account rather than from this request: registered address, city, state, postal code and
+  country. Fill it in before submitting, or the answer is `400 billing_profile_incomplete`.
+</Note>
 
 <Warning>
   `businessName` must match the registration certificate **exactly**. A mismatch is refused by
@@ -92,6 +123,20 @@ a rejected upload never left the building.
 | `submitted` | With the regulator. Nothing more is needed from you |
 | `accepted` | You may rent numbers |
 | `rejected` | `rejectionReason` carries the regulator's own words. Fix and submit again |
+
+<ParamField path="POST /v1/relay/voice/compliance/refresh" type="endpoint">
+  Ask the provider where a submitted verification has got to, now. Returns the same body as
+  `GET /compliance`.
+</ParamField>
+
+Review is human and takes days, so there is nothing to poll: **call this when someone asks**,
+not on a timer. Anything other than `submitted` is returned unchanged, since `accepted` is
+terminal and a rejection only moves when a new submission replaces it. Repeat calls inside
+30 seconds are answered from the last result rather than passed to the provider, so a leaned-on
+button costs nothing.
+
+Needs **`relay-voice:numbers`**, not `relay-voice:read`: it reaches the provider, where a read
+of your own stored status does not.
 
 ## Numbers
 
@@ -195,6 +240,7 @@ number, the date, the rental and the current balance.
 | 403 | `compliance_required` | The account is not verified. Searching and renting both need it |
 | 409 | `compliance_pending` | A submission is already under review |
 | 409 | `compliance_exists` | Already verified; there is nothing to submit |
+| 400 | `billing_profile_incomplete` | No registered address on the account to tell the regulator |
 | 400 | `document_too_large` | A document is over 5 MB |
 | 400 | `unsupported_document_type` | Not a PDF, JPEG or PNG |
 | 402 | `insufficient_balance` | The wallet cannot cover the first month. `requiredPaise` says how much was needed |
