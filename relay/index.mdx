@@ -12,7 +12,8 @@ its own endpoint, its own request shape and its own price.
 <CardGroup cols={2}>
   <Card title="Relay Voice" icon="phone" href="/relay-voice/index">
     **Available.** Turns a line of text into a phone call and dials a list of Indian mobile
-    numbers. Billed per answered call, so a phone that rings out costs nothing.
+    numbers. Billed for the speech rather than the calls, so a phone that rings out, or a
+    thousand that answer, cost the same.
   </Card>
   <Card title="Relay Email" icon="envelope" href="/relay-email/index">
     **Available.** Transactional email from a domain you verify. Billed per recipient.
@@ -44,7 +45,7 @@ that channel's own `..._disabled` code.
 Relay Email will not send a transcript of a call. Text produced by one product is just text to
 another, and passing it across is something your code does deliberately.
 
-**Prices are per channel and not comparable.** A voice call is priced per answered call, an
+**Prices are per channel and not comparable.** A voice call is priced by the characters it speaks, an
 email per recipient, a WhatsApp code per code sent. There is no shared unit, and a rupee buys a
 different amount of each.
 

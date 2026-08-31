@@ -28,7 +28,7 @@ HTTP client should hold a socket open for that:
   "voice": "bella",
   "language": "en-IN",
   "recipients": 3,
-  "estimatedCostPaise": 315,
+  "estimatedCostPaise": 195,
   "costPaise": 0,
   "reference": null,
   "error": null,
@@ -122,14 +122,12 @@ response, and send it to Relay Voice as `text`.
     [`callbackUrl`](/relay-voice/callbacks) and be told when the job is done.
   </Step>
 
-  <Step title="The bill settles against who answered">
-    When every call has reached a terminal state, the answered ones are debited at 40 paise
-    each, the recording charge is added if this request was the one that made the recording,
-    and the rest of the hold goes back. A phone that rang out, was engaged, or was refused by
-    the network costs nothing.
+  <Step title="The bill was settled before the dialing started">
+    The recording is the only charge, and its size was known when the request was accepted,
+    so the held and settled figures are the same however the calls turn out. A request that
+    replayed an existing recording never touched the wallet at all.
 
-    Because the hold was the worst case, the settled amount is always at or below it. The
-    job's `costPaise` is the final number, and it already includes the recording charge.
+    The job's `costPaise` is the final number, and it does not move as the calls report in.
   </Step>
 </Steps>
 
@@ -144,16 +142,18 @@ Two statuses matter and they answer different questions.
 | `Completed` | Every call reached a terminal state. **Not** that anyone answered. |
 | `Failed` | The job itself could not run. The reason is in the job's `error` field. |
 
-| Call status | Means | Billed |
+| Call status | Means | Terminal |
 |---|---|---|
 | `Queued` | Not dialed yet. | No |
 | `Dialing` | Ringing. | No |
-| `InProgress` | Answered, message playing. | Not yet |
-| `Completed` | Answered, and the call ended. | **Yes, 40 paise** |
-| `Busy` | Engaged. | No |
-| `NoAnswer` | Rang out. | No |
-| `Failed` | The network or the provider refused it. | No |
-| `Cancelled` | Never placed, for example the service restarted mid-job. | No |
+| `InProgress` | Answered, message playing. | No |
+| `Completed` | Answered, and the call ended. | Yes |
+| `Busy` | Engaged. | Yes |
+| `NoAnswer` | Rang out. | Yes |
+| `Failed` | The network or the provider refused it. | Yes |
+| `Cancelled` | Never placed, for example the service restarted mid-job. | Yes |
+
+No outcome here is a charge. Read these to know who you reached, not what you owe.
 
 <Warning>
   `Completed` on a job means the dialing finished, not that the message was heard. Count the
@@ -163,10 +163,12 @@ Two statuses matter and they answer different questions.
 
 ## What it costs, in one line
 
-40 paise per answered call, 3 paise per character of newly synthesized speech charged once
-per recording, and a one-time Rs 200 the first time you switch Relay Voice on for a project.
+3 paise per character of newly synthesized speech, charged once per recording, and a
+one-time Rs 200 the first time you switch Relay Voice on for a project. The calls are free.
+
 The 65-character message at the top of this page costs 195 paise to record, once, and then
-40 paise per person who picks up. Full arithmetic on the [pricing page](/relay-voice/pricing).
+nothing to send, to those three phones or to five hundred. Full arithmetic on the
+[pricing page](/relay-voice/pricing).
 
 ## When to use it
 

@@ -210,11 +210,14 @@ The wallet is held before anything is dialed and settled when the job finishes:
 
 | | Held up front | Settled at the end |
 |---|---|---|
-| Calls | 40 paise for every recipient | 40 paise for every **answered** call |
+| Calls | Nothing | Nothing |
 | Recording | 3 paise per character, only when this request is the one preparing a new recording | The same amount, once |
 
-A phone that rang out, was engaged or was refused costs nothing, so the debit is always at or
-below the estimate and the difference goes back to the wallet.
+Only the recording is metered, and its size is known before anything is dialed, so the held
+and settled figures are the same. How many people answered does not change either.
+
+A request that prepares no recording therefore costs nothing at all, and the wallet is not
+touched: no hold, no debit, no ledger row. Such a send works on an empty balance.
 
 <Note>
   Preparing a recording is free whenever the recording already exists. That covers a replay by
@@ -301,13 +304,15 @@ below the estimate and the difference goes back to the wallet.
 </ResponseField>
 
 <ResponseField name="estimatedCostPaise" type="integer">
-  The amount held on the wallet: every recipient at 40 paise, plus 3 paise per character if
-  this request prepared a new recording. It is a ceiling, not a bill.
+  The amount held on the wallet: 3 paise per character if this request prepared a new
+  recording, and `0` if it replayed one. Because calls are free, this is the final bill rather
+  than a ceiling.
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
-  What has actually been charged. `0` until the job finishes, then the answered calls plus the
-  recording charge. This field already includes the recording charge, so never add it on top.
+  What has actually been charged. `0` until the job finishes, then the recording charge, if
+  this request is the one that prepared the recording. It ends equal to `estimatedCostPaise`,
+  since nothing about the calls can move it.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -359,8 +364,8 @@ below the estimate and the difference goes back to the wallet.
     </ResponseField>
 
     <ResponseField name="costPaise" type="integer">
-      What this one call cost: 40 paise once it is answered, `0` otherwise. It excludes the
-      recording charge, which belongs to the job.
+      What this one call cost: `0`. Calls are not metered, in any outcome. The recording
+      charge belongs to the job rather than to any one call.
     </ResponseField>
   </Expandable>
 </ResponseField>

@@ -10,7 +10,7 @@ description: "GET /v1/relay/voice/voices: the voice aliases this key can send, t
 
 Returns the voices you may pass as `voice` on
 [`POST /v1/relay/voice`](/api-reference/relay-voice/send), which one is used when you pass
-none, and what an answered call costs.
+none, and what a call costs.
 
 ```bash Fetch the voices
 curl https://api.tristack.tech/v1/relay/voice/voices \
@@ -20,7 +20,7 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 ```json 200 OK (abridged: the live catalog carries 16 voices)
 {
   "defaultVoice": "bella",
-  "pricePerCallPaise": 40,
+  "pricePerCallPaise": 0,
   "voices": [
     { "voice": "adam", "name": "Adam (male)", "language": "en" },
     { "voice": "alice", "name": "Alice (female)", "language": "en" },
@@ -37,12 +37,16 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 </ResponseField>
 
 <ResponseField name="pricePerCallPaise" type="integer">
-  What one **answered** call costs, in paise. A phone that rang out, was engaged or was
-  refused costs nothing.
+What one call costs, in paise. **`0`, and not a placeholder:** calls are not metered,
+  answered or otherwise.
 
-  This is the per-call price and nothing else. It does not include the 3 paise per character
-  charged once when a new recording is prepared, or the one-time activation fee per project.
-  See [Relay Voice pricing](/relay-voice/pricing).
+  It is on the response because it is an operator's rate rather than a constant of the API.
+  Read it rather than hardcoding the zero, and a client will show the right figure on the day
+  it changes.
+
+  It has never included the 3 paise per character charged once when a new recording is
+  prepared, which is now the only per-use charge, nor the one-time activation fee per
+  project. See [Relay Voice pricing](/relay-voice/pricing).
 </ResponseField>
 
 <ResponseField name="voices" type="object[]">

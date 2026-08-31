@@ -45,15 +45,15 @@ it, so you can point the same parser at both.
   "voice": "bella",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 275,
-  "costPaise": 235,
+  "estimatedCostPaise": 195,
+  "costPaise": 195,
   "reference": "diwali-notice-2026",
   "error": null,
   "createdAt": "2026-08-21T18:30:00Z",
   "completedAt": "2026-08-21T18:31:47Z",
   "calls": [
     { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-      "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+      "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
     { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
       "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 }
   ]
@@ -71,13 +71,14 @@ it, so you can point the same parser at both.
 
 <ResponseField name="error" type="string | null">
   Set only when `status` is `Failed`: `audio_unavailable`, `interrupted` (the service
-  restarted mid-job; nothing is redialed and the undelivered calls are refunded), or
+  restarted mid-job; nothing is redialed, and since the calls were free there is nothing to refund), or
   `internal_error`.
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
-  What you were actually charged, in paise. Answered calls plus the recording charge if this
-  job made the recording. Never add the recording cost on top: it is already in here.
+  What you were actually charged, in paise: the recording charge, if this job made the
+  recording, and `0` if it replayed one. The calls are not metered, so this always equals
+  `estimatedCostPaise`.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -97,7 +98,7 @@ it, so you can point the same parser at both.
     <ResponseField name="attempts" type="integer">Dial attempts made.</ResponseField>
     <ResponseField name="durationSeconds" type="integer | null">Length of the answered call.</ResponseField>
     <ResponseField name="error" type="string | null">A sentence about why this call did not connect.</ResponseField>
-    <ResponseField name="costPaise" type="integer">40 for an answered call, 0 for everything else.</ResponseField>
+    <ResponseField name="costPaise" type="integer">`0`. Calls are not metered, in any outcome.</ResponseField>
   </Expandable>
 </ResponseField>
 

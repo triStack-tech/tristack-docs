@@ -58,15 +58,15 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     ```
 
     **The first time this project goes from off to on, it costs Rs 200 (20000 paise), once.**
-    That fee rents this project its own caller-id number: the number your recipients see, and
-    the number the carrier associates with your traffic. It is not a subscription and it is
-    not per call.
+    That fee buys the project its place on the outbound line and its registration with the
+    carriers. It is not a subscription, it is not per call, and it is **not a phone number**:
+    a number of your own is [rented separately](/relay-voice/numbers) and monthly, and is
+    optional. Without one you call from a shared Tristack number.
 
-    - Switching the project off and back on again later is **free**. The number stays rented
-      and the fee is never charged twice for the same project.
-    - A **second project** is a second number, so it pays its own Rs 200. Projects get
-      separate numbers so one project's reputation with the carriers is not another's
-      problem.
+    - Switching the project off and back on again later is **free**. The fee is never charged
+      twice for the same project.
+    - A **second project** pays its own Rs 200, because it is registered on its own, so one
+      project's reputation with the carriers is not another's problem.
     - `relayActivationPaid` tells you which side of that line a project is on, so you can
       warn before a click spends money rather than after.
 
@@ -86,9 +86,9 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     dashboard through the checkout flow. The minimum top-up is 10000 paise (Rs 100), and
     your email has to be verified before you can add money.
 
-    Budget for both charges you are about to incur: Rs 200 for activation, plus the calls
-    themselves at 40 paise each answered, plus 3 paise per character the first time each
-    message is recorded. Rs 500 is a comfortable start for testing.
+    Budget for the two charges you are about to incur: Rs 200 for activation, plus 3 paise
+    per character the first time each message is recorded. The calls themselves are free.
+    Rs 300 is a comfortable start for testing.
 
     ```bash Check the balance
     curl https://api.tristack.tech/api/v1/wallet \
@@ -198,7 +198,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "bella",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 315,
+      "estimatedCostPaise": 195,
       "costPaise": 0,
       "reference": "diwali-notice-2026",
       "error": null,
@@ -221,7 +221,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     |---|---|
     | `jobId` | The handle for every later read, and the reference in your wallet ledger. |
     | `audioId` | Send this instead of `text` next time and the recording costs nothing to prepare. See [reusing a recording](/relay-voice/reusing-audio). |
-    | `estimatedCostPaise` | What is held right now: 3 recipients at 40 paise, plus 65 characters at 3 paise, so 315. The final bill settles at or below it. |
+    | `estimatedCostPaise` | What is held right now: 65 characters at 3 paise, so 195. The calls add nothing, so this is also the final bill. |
 
     No `voice` was sent, so the account default was used and reported back. To choose one,
     see [voices](/relay-voice/voices).
@@ -247,7 +247,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "bella",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 315,
+      "estimatedCostPaise": 195,
       "costPaise": 0,
       "reference": "diwali-notice-2026",
       "error": null,
@@ -255,7 +255,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "completedAt": null,
       "calls": [
         { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
         { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "Dialing",
           "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
         { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Queued",
@@ -274,26 +274,26 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "bella",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 315,
-      "costPaise": 275,
+      "estimatedCostPaise": 195,
+      "costPaise": 195,
       "reference": "diwali-notice-2026",
       "error": null,
       "createdAt": "2026-08-21T18:30:00Z",
       "completedAt": "2026-08-21T18:31:47Z",
       "calls": [
         { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
         { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
           "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
         { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Completed",
-          "attempts": 1, "durationSeconds": 12, "error": null, "costPaise": 40 }
+          "attempts": 1, "durationSeconds": 12, "error": null, "costPaise": 0 }
       ]
     }
     ```
 
-    Two people picked up, one did not. The bill is 80 paise of calls plus 195 paise for the
-    recording, so `costPaise` is 275 and the remaining 40 paise of the hold went back to the
-    wallet. The phone that rang out cost nothing.
+    Two people picked up, one did not, and it makes no difference to the bill: 195 paise for
+    the recording and nothing for the calls. `costPaise` equals what was held, because the
+    only charge was known before the first phone rang.
 
     <Warning>
       `"status": "Completed"` on the **job** means every call reached a terminal state. It

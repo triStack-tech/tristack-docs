@@ -67,6 +67,7 @@
                   "relay-voice/index",
                   "relay-voice/voices",
                   "relay-voice/tempo",
+                  "relay-voice/numbers",
                   "relay-voice/reusing-audio",
                   "relay-voice/callbacks",
                   "relay-voice/pricing"
@@ -131,7 +132,8 @@
                 "pages": [
                   "api-reference/relay-voice/send",
                   "api-reference/relay-voice/job",
-                  "api-reference/relay-voice/voices"
+                  "api-reference/relay-voice/voices",
+                  "api-reference/relay-voice/numbers"
                 ]
               },
               {

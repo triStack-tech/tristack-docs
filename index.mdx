@@ -30,7 +30,7 @@ share a key, a wallet and a project, and nothing else.
 
 | Channel | Status | Endpoint | Billed |
 | --- | --- | --- | --- |
-| [Relay Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per answered call |
+| [Relay Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per character of speech |
 | [Relay Email](/relay-email/quickstart) | Available | `POST /v1/relay/email` | Per recipient |
 | [Relay WhatsApp](/relay-whatsapp/index) | Available | `POST /v1/relay/whatsapp/otp` | Per code sent |
 | Relay SMS | Not available yet | | |
@@ -79,8 +79,9 @@ connected than they are.
 
   <Accordion title="I want to telephone people and play them a message" icon="phone">
     That is **Relay Voice**. You send a list of Indian mobile numbers and the words to say.
-    It synthesizes the speech once and calls everyone. Billing is per answered call, plus a
-    one-off charge for preparing each new recording.
+    It synthesizes the speech once and calls everyone. You are billed for preparing the
+    recording and not for the calls, so reaching five hundred people costs what reaching one
+    does.
 
     [Relay Voice quickstart →](/relay-voice/quickstart)
   </Accordion>

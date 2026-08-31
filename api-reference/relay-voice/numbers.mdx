@@ -1,0 +1,189 @@
+---
+title: "Phone numbers"
+description: "Verify the business once, then search, rent and stop renewing the numbers your calls go out from."
+---
+
+Seven endpoints under `/v1/relay/voice`, split in two: the account-level verification that
+India requires before anyone may rent, and the numbers themselves.
+
+Reads need `relay-voice:read`. Anything that verifies, rents or changes a renewal needs
+**`relay-voice:numbers`**, which is deliberately separate from `relay-voice:send`: a key that
+places calls should not also be able to commit you to a monthly bill.
+
+<Warning>
+  Renting is the one thing on this API that charges again next month, and giving a number up
+  is permanent. Read [phone numbers](/relay-voice/numbers) before wiring this into anything
+  automatic.
+</Warning>
+
+## Verification
+
+Once per **account**, not per project. A person reviews it, normally over a few days.
+
+<ParamField path="GET /v1/relay/voice/compliance/requirements" type="endpoint">
+  What the regulator wants, before anyone uploads anything.
+</ParamField>
+
+```json 200 OK
+{
+  "country": "IN",
+  "businessOnly": true,
+  "documents": [
+    { "type": "business_registration", "name": "Certificate of Incorporation",
+      "description": "Udyam Registration is accepted for MSMEs." },
+    { "type": "gst_certificate", "name": "GST certificate", "description": null }
+  ]
+}
+```
+
+`businessOnly` is always `true` for India and is stated here rather than discovered at
+submission: an individual or an unregistered sole trader cannot rent an Indian number at all,
+and that is worth knowing before a form is filled in.
+
+<ParamField path="POST /v1/relay/voice/compliance" type="endpoint">
+  Submit the business name and every document, as `multipart/form-data`.
+</ParamField>
+
+```bash Submit for verification
+curl -X POST https://api.tristack.tech/v1/relay/voice/compliance \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -F "businessName=Example Technologies Private Limited" \
+  -F "documentTypes=business_registration,gst_certificate" \
+  -F "files=@incorporation.pdf" \
+  -F "files=@gst.pdf"
+```
+
+`documentTypes` is **one comma-separated field**, not a repeated one, and it is parallel to
+`files`: the *n*th type describes the *n*th file. Send them in the same order and send exactly
+as many types as files, or the answer is `400 invalid_request` rather than a guess at which
+certificate is which.
+
+<Warning>
+  `businessName` must match the registration certificate **exactly**. A mismatch is refused by
+  the regulator days later, not by this endpoint now.
+</Warning>
+
+Documents are forwarded to the number provider and are **never stored by Tristack**. Each must
+be a PDF, JPEG or PNG of no more than 5 MB; both are checked before anything is forwarded, so
+a rejected upload never left the building.
+
+<ParamField path="GET /v1/relay/voice/compliance" type="endpoint">
+  Where the verification stands.
+</ParamField>
+
+```json 200 OK
+{
+  "status": "submitted",
+  "businessName": "Example Technologies Private Limited",
+  "submittedAt": "2026-08-31T09:14:00Z",
+  "rejectionReason": null
+}
+```
+
+| `status` | Meaning |
+|---|---|
+| `none` | Nothing submitted. The whole object is just `{ "status": "none" }` |
+| `submitted` | With the regulator. Nothing more is needed from you |
+| `accepted` | You may rent numbers |
+| `rejected` | `rejectionReason` carries the regulator's own words. Fix and submit again |
+
+## Numbers
+
+<ParamField path="GET /v1/relay/voice/numbers/available" type="endpoint">
+  What is for sale, optionally narrowed by `?prefix=11`.
+</ParamField>
+
+```json 200 OK
+{
+  "numbers": [
+    { "phoneNumber": "+911145XXXXXX", "region": "Delhi", "monthlyRentalPaise": 23600 }
+  ]
+}
+```
+
+A number in this list is not held for you. Between your search and your purchase somebody else
+can take it, which answers `409 number_unavailable`.
+
+<ParamField path="POST /v1/relay/voice/numbers" type="endpoint">
+  Rent one. Charges the first month immediately.
+</ParamField>
+
+```bash Rent a number
+curl -X POST https://api.tristack.tech/v1/relay/voice/numbers \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "phoneNumber": "+911145XXXXXX" }'
+```
+
+```json 200 OK
+{
+  "id": "6f1c4a90-3e77-4c02-9d81-4b2a9c7e5f13",
+  "phoneNumber": "+911145XXXXXX",
+  "status": "active",
+  "autoRenew": true,
+  "currentPeriodEnd": "2026-09-30T09:20:00Z",
+  "basePaise": 20000,
+  "taxPaise": 3600,
+  "totalPaise": 23600,
+  "releasedAt": null,
+  "releaseReason": null
+}
+```
+
+The base and the tax are published separately rather than as one total, which is the point of
+a pass-through: you can see the GST you are paying. `totalPaise` is what leaves the wallet.
+
+<ParamField path="GET /v1/relay/voice/numbers" type="endpoint">
+  Every number on the account, including ones already released.
+</ParamField>
+
+<ParamField path="PATCH /v1/relay/voice/numbers/{id}" type="endpoint">
+  Turn auto-renew on or off. `{ "autoRenew": false }`.
+</ParamField>
+
+<ParamField path="DELETE /v1/relay/voice/numbers/{id}" type="endpoint">
+  The same thing as `autoRenew: false`, spelled as a delete.
+</ParamField>
+
+**Nothing is released today and nothing is refunded**: the current month is already bought, so
+the number is surrendered when the period ends. Both routes return the number in its new state
+rather than `204`, so `currentPeriodEnd` tells you the day it will actually go.
+
+<Warning>
+  Auto-renew off is a scheduled, permanent surrender. A released Indian number returns to the
+  carrier pool and cannot be reclaimed, by you or by us. `PATCH` it back to `true` any time
+  before `currentPeriodEnd` to keep it.
+</Warning>
+
+## What happens at renewal
+
+The decision is made the **day before** the period ends, never on the day and never after.
+
+| Condition, one day out | What happens |
+|---|---|
+| Auto-renew on, wallet covers `totalPaise` | Charged, and `currentPeriodEnd` moves out a month |
+| Auto-renew off | Released, `releaseReason: "auto_renew_off"` |
+| Wallet short | Released, `releaseReason: "insufficient_balance"` |
+
+**There is no grace period and no partial state.** You are warned by email seven, three and
+two days out; the last lands the day before the decision, which is the last moment a top-up
+can still change it. Those three warnings are the whole of your notice.
+
+The warning goes to the **account owner's** address, not to a per-project one, and it names the
+number, the date, the rental and the current balance.
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 403 | `compliance_required` | The account is not verified |
+| 409 | `compliance_pending` | A submission is already under review |
+| 409 | `compliance_exists` | Already verified; there is nothing to submit |
+| 400 | `document_too_large` | A document is over 5 MB |
+| 400 | `unsupported_document_type` | Not a PDF, JPEG or PNG |
+| 402 | `insufficient_balance` | The wallet cannot cover the first month. `requiredPaise` says how much was needed |
+| 409 | `number_unavailable` | Taken between your search and your purchase. The hold is released, so nothing was charged |
+| 502 | `provider_error` | The provider could not be reached. Nothing was submitted or charged |
+| 404 | | Not yours, or already released. Another account's number answers identically |
+
+Plus the codes every endpoint shares: see [platform errors](/platform/errors).

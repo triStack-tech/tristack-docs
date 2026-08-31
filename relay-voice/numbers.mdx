@@ -1,0 +1,112 @@
+---
+title: "Phone numbers"
+description: "Rent your own number to call from: what India requires, how to search and buy, what it costs each month, and how to give one back."
+sidebarTitle: "Phone numbers"
+icon: "phone"
+---
+
+By default your calls go out from a shared Tristack number. Rent your own and every call from
+the project shows your number instead.
+
+<Warning>
+
+  **Indian numbers can only be rented by a registered business.** The regulator requires a
+  Certificate of Incorporation (Udyam Registration is accepted for MSMEs) and a GST
+  certificate. There is no path for an individual or an unregistered sole trader.
+
+</Warning>
+
+## What it costs
+
+**Rs 236 per number per month**, taken from your wallet: Rs 200 plus Rs 36 GST, shown split on
+your ledger rather than as one figure.
+
+This is the only recurring charge on the platform. Everything else is pay per use, so a wallet
+that runs empty simply refuses the next call. A number is different: it costs money every month
+whether you use it or not.
+
+## Getting verified
+
+Once per account, not per project.
+
+```bash
+curl https://api.tristack.tech/v1/relay/voice/compliance/requirements \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+Then submit the business name and the documents together. The name must match the registration
+certificate **exactly**, or the application is refused.
+
+Verification is reviewed by a person and normally takes a few days. `GET /v1/relay/voice/compliance`
+reports `submitted`, `accepted` or `rejected`, and a rejection carries the reason.
+
+Your documents are passed straight to the number provider and are never stored by Tristack.
+
+## Renting one
+
+```bash
+# Search, optionally by prefix
+curl "https://api.tristack.tech/v1/relay/voice/numbers/available?prefix=11" \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+
+# Rent it
+curl -X POST https://api.tristack.tech/v1/relay/voice/numbers \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "phoneNumber": "+911145XXXXXX" }'
+```
+
+The first month is charged immediately. A key needs the `relay-voice:numbers` scope, which is
+deliberately separate from `relay-voice:send`: a key that places calls should not also be able
+to commit you to a monthly bill.
+
+## Renewal, and giving a number back
+
+Auto-renew is on when you rent. Each month the rental is taken and the number continues.
+
+**Switch auto-renew off and the number is released at the end of the period you have already
+paid for.** Nothing is refunded, because that month is bought. You can switch it back on at any
+time before the period ends and keep the number.
+
+```bash
+curl -X PATCH https://api.tristack.tech/v1/relay/voice/numbers/$ID \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "autoRenew": false }'
+```
+
+<Warning>
+
+  **Releasing is permanent.** A released Indian number goes back to the carrier pool and cannot
+  be reclaimed, by you or by us. Anyone who saved it as your number will be calling a stranger.
+
+</Warning>
+
+## If your wallet is short
+
+**There is no grace period.** The renewal is decided the day before it falls due, and if the
+wallet cannot cover it the number is released rather than carried.
+
+You are warned by email **seven days, three days and two days** before the period ends. The
+last one lands the day before the decision is taken, which makes it the last moment a top-up
+can still save the number. Those three warnings are the whole of your notice, so keep enough
+balance to cover every number you hold.
+
+## Assigning a number to a project
+
+A number belongs to your account. Point it at a project and calls from that project use it as
+their caller id; leave it unassigned and it costs the same but nothing calls from it.
+
+## Errors
+
+| Code | Meaning |
+|---|---|
+| `compliance_required` | The account is not verified yet |
+| `compliance_pending` | Already submitted and under review |
+| `compliance_exists` | Already verified, so there is nothing to submit |
+| `insufficient_balance` | The wallet cannot cover the first month. Nothing is charged |
+| `number_unavailable` | Taken between your search and your purchase |
+| `document_too_large` | A document is over 5 MB |
+| `unsupported_document_type` | Documents must be PDF, JPEG or PNG |
+
+See [platform errors](/platform/errors) for the codes every product shares.

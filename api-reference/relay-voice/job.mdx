@@ -26,8 +26,8 @@ curl https://api.tristack.tech/v1/relay/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
   "voice": "bella",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 212,
-  "costPaise": 172,
+  "estimatedCostPaise": 132,
+  "costPaise": 132,
   "reference": "order-4417",
   "error": null,
   "createdAt": "2026-08-20T18:30:00Z",
@@ -40,7 +40,7 @@ curl https://api.tristack.tech/v1/relay/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
       "attempts": 1,
       "durationSeconds": 9,
       "error": null,
-      "costPaise": 40
+      "costPaise": 0
     },
     {
       "callId": "rvc_2b8104ef3f2a17c9d0be45a7",
@@ -55,9 +55,9 @@ curl https://api.tristack.tech/v1/relay/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
 }
 ```
 
-That job held 212 paise and was charged 172: one answered call at 40 paise, plus 132 paise for
-preparing the 44-character recording. The phone that rang out cost nothing, and the 40 paise
-held for it went back to the wallet.
+That job held 132 paise and was charged 132, all of it for preparing the 44-character
+recording. Both calls cost nothing, which is why the held and charged figures match: the
+recording was the whole bill, and it was known before a phone rang.
 
 ## Response
 
@@ -93,10 +93,10 @@ held for it went back to the wallet.
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
-  What has actually been charged: `0` until the job finishes, then the answered calls at 40
-  paise each **plus** the one-off recording charge. The recording charge is already in this
-  number, so never add it on top, and this is why `costPaise` can be non-zero on a job where
-  nobody answered.
+  What has actually been charged: `0` until the job finishes, then the one-off recording
+  charge, if this job is the one that prepared the recording. Calls are not metered, so this
+  is the whole bill and it does not move with how many people answered. A job that replayed
+  an existing recording finishes at `0`.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -155,8 +155,9 @@ held for it went back to the wallet.
     </ResponseField>
 
     <ResponseField name="costPaise" type="integer">
-      40 paise once this call is answered, `0` in every other state. Summing this column gives
-      you the call half of `costPaise`; the difference is the recording charge.
+      `0`, in every state. Calls are not metered, so this column sums to nothing and the
+      whole of `costPaise` is the recording charge. It is still reported per call because the
+      rate is an operator's setting rather than a constant of the API.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -168,7 +169,7 @@ held for it went back to the wallet.
 | `Queued` | Accepted and paid for up front. Nothing has been dialed yet. | No |
 | `Running` | The dialer owns the job and is working through the recipients, three at a time across the whole service. | No |
 | `Completed` | Every call reached a terminal state. The wallet has been settled and `completedAt` is set. | Yes |
-| `Failed` | The job could not be run to the end: see [When a whole job fails](#when-a-whole-job-fails). Whatever was never delivered is refunded. | Yes |
+| `Failed` | The job could not be run to the end: see [When a whole job fails](#when-a-whole-job-fails). | Yes |
 
 <Warning>
   **`Completed` does not mean anyone answered.** It means nothing is still ringing.
@@ -186,7 +187,8 @@ held for it went back to the wallet.
   ```
 
   `call.status === "Completed"` is the one status that means a person picked up and the
-  message played, and it is the only one you are billed for.
+  message played. It costs no more than the others, so this is a question about reach rather
+  than about your bill.
 </Warning>
 
 ## Call status
@@ -194,16 +196,19 @@ held for it went back to the wallet.
 The first three are transient. The rest are terminal, and a job finishes only once every call
 sits in one of them.
 
-| `status` | Meaning | Billed |
+| `status` | Meaning | Terminal |
 |---|---|---|
 | `Queued` | Accepted, waiting its turn in the dialing queue. | No |
 | `Dialing` | Handed to the provider. The phone has not rung through yet. | No |
-| `InProgress` | Answered, and the recording is playing. | Not yet |
-| `Completed` | Answered and the message played. **The only billed outcome**, at 40 paise. | Yes |
-| `Busy` | The line was engaged. | No |
-| `NoAnswer` | It rang and nobody picked up. | No |
-| `Failed` | The provider refused the call, it dropped before it was answered, or the provider never reported its outcome. `error` says which. Silence from the provider is recorded as failed rather than billed on an outcome nobody confirmed. | No |
-| `Cancelled` | Never dialed at all, because the service was shutting down before its turn came. | No |
+| `InProgress` | Answered, and the recording is playing. | No |
+| `Completed` | Answered and the message played. | Yes |
+| `Busy` | The line was engaged. | Yes |
+| `NoAnswer` | It rang and nobody picked up. | Yes |
+| `Failed` | The provider refused the call, it dropped before it was answered, or the provider never reported its outcome. `error` says which. Silence from the provider is recorded as failed rather than as an outcome nobody confirmed. | Yes |
+| `Cancelled` | Never dialed at all, because the service was shutting down before its turn came. | Yes |
+
+None of them is a charge. The column that used to say which outcome you paid for is gone,
+because the answer is now none of them.
 
 <Note>
   Nothing here is a delivery receipt for a human being. `Completed` means the call was
@@ -219,8 +224,8 @@ already had your `202`:
 | `error` | What happened | What it costs |
 |---|---|---|
 | `audio_unavailable` | The recording vanished between being prepared and being dialed. Nobody is called rather than being called and played silence. | Nothing is charged for the calls. Send the `text` again to make a new recording. |
-| `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | The undelivered calls are refunded. Calls that had already been answered stand. |
-| `internal_error` | Something on our side failed while the job was running. | Whatever was not delivered is refunded. |
+| `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | Nothing to refund: the calls were free. If this job made the recording, that charge stands, since the recording was made. |
+| `internal_error` | Something on our side failed while the job was running. | Nothing to refund unless the recording was never made, in which case the hold is released in full. |
 
 Calls left unfinished by an interruption are closed out as `Cancelled` if they were never
 dialed, or `Failed` if they had been, each with an `error` sentence saying so.

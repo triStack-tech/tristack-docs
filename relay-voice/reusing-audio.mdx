@@ -1,14 +1,14 @@
 ---
 title: "Reusing a recording"
-description: "audioId is the handle on a recording you have already paid for. Sending it instead of text skips synthesis and its charge entirely."
+description: "audioId is the handle on a recording you have already paid for. Since speech is the only thing Relay Voice meters, sending it instead of text makes the whole send free."
 ---
 
-Calls are cheap and predictable: 40 paise when somebody picks up. Recording speech is the
-charge that scales with how you write your code, at 3 paise per character, and it is the one
-that decides whether a campaign costs Rs 200 or Rs 1265.
+Calls cost nothing. Recording speech, at 3 paise per character, is the only charge Relay
+Voice has, which makes it the whole bill and makes how you write your code the only thing
+that decides whether a campaign costs Rs 1.95 or Rs 1,065.
 
 `audioId` is the lever. It is the handle on a recording you have already paid for. Send it in
-place of `text` and there is no synthesis and no per-character charge at all.
+place of `text` and there is no synthesis, no charge, and no wallet movement whatsoever.
 
 ## Where the id comes from
 
@@ -52,7 +52,7 @@ curl https://api.tristack.tech/v1/relay/voice \
   "voice": "bella",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 80,
+  "estimatedCostPaise": 0,
   "costPaise": 0,
   "reference": "diwali-notice-2026-wave-2",
   "error": null,
@@ -67,8 +67,9 @@ curl https://api.tristack.tech/v1/relay/voice \
 }
 ```
 
-`estimatedCostPaise` is 80: two recipients at 40 paise, and nothing for the audio. The
-recording was paid for once, by the job that made it.
+`estimatedCostPaise` is 0, and so is the final `costPaise`. The recording was paid for once,
+by the job that made it, and the calls are not metered. This send took no hold and left no
+ledger row: it would have worked on an empty wallet.
 
 Three rules go with it:
 
@@ -195,8 +196,8 @@ def send(to, audio_id, text, voice):
 
 ## What this is worth: 500 people, two ways
 
-One list of 500 mobile numbers, one thing to tell them. Calls are 40 paise each answered,
-speech is 3 paise per character, and both scenarios place exactly the same 500 calls.
+One list of 500 mobile numbers, one thing to tell them. Speech is 3 paise per character, the
+calls are free, and both scenarios place exactly the same 500 calls.
 
 <Tabs>
   <Tab title="One broadcast">
@@ -207,12 +208,12 @@ speech is 3 paise per character, and both scenarios place exactly the same 500 c
     | Line | Working | Paise |
     |---|---|---:|
     | Speech, once | 65 chars x 3 paise | 195 |
-    | Calls, if all 500 answer | 500 x 40 paise | 20,000 |
-    | **Total** | | **20,195** |
+    | 500 calls | 500 x 0 | 0 |
+    | **Total** | | **195** |
 
-    **Rs 201.95**, of which Rs 1.95 is the recording. Send the same message again next
-    month, by `audioId` or by sending the identical text, and it is **Rs 200.00 flat**: the
-    recording is already yours.
+    **Rs 1.95** to reach five hundred people. Send the same message again next month, by
+    `audioId` or by sending the identical text, and it is **free**: the recording is already
+    yours and there is nothing else to charge.
   </Tab>
 
   <Tab title="500 personalized sends">
@@ -223,27 +224,28 @@ speech is 3 paise per character, and both scenarios place exactly the same 500 c
     | Line | Working | Paise |
     |---|---|---:|
     | Speech, 500 distinct recordings | 500 x 71 chars x 3 paise | 106,500 |
-    | Calls, if all 500 answer | 500 x 40 paise | 20,000 |
-    | **Total** | | **126,500** |
+    | 500 calls | 500 x 0 | 0 |
+    | **Total** | | **106,500** |
 
-    **Rs 1,265.00**, of which Rs 1,065.00 is speech. The calls cost the same as the
+    **Rs 1,065.00**, all of it speech. The calls are free here exactly as they are in the
     broadcast. Every rupee of the difference bought 500 recordings of nearly the same
     sentence.
   </Tab>
 </Tabs>
 
-The broadcast is **Rs 1,063.05 cheaper for the same 500 calls**, and the gap gets wider, not
-narrower, when fewer people answer:
+The broadcast is **Rs 1,063.05 cheaper for the same 500 calls**, or 546 times cheaper, and
+how many people answer changes neither figure by a paisa:
 
-| Answered | One broadcast | 500 personalized | Personalized costs |
-|---|---:|---:|---:|
-| 500 of 500 | Rs 201.95 | Rs 1,265.00 | 6.3x more |
-| 340 of 500 | Rs 137.95 | Rs 1,201.00 | 8.7x more |
+| Answered | One broadcast | 500 personalized |
+|---|---:|---:|
+| 500 of 500 | Rs 1.95 | Rs 1,065.00 |
+| 340 of 500 | Rs 1.95 | Rs 1,065.00 |
+| 0 of 500 | Rs 1.95 | Rs 1,065.00 |
 
-That is the part worth internalizing: **an unanswered call is free, but the recording behind
-it is not.** Speech is paid for when it is prepared, whether or not a single phone gets
-picked up. Personalizing 500 messages commits you to Rs 1,065 of speech before you know
-whether anybody will answer.
+That is the part worth internalizing: **you are billed for what you said, not for who heard
+it.** Speech is paid for when it is prepared, whether or not a single phone gets picked up.
+Personalizing 500 messages commits you to Rs 1,065 before you know whether anybody will
+answer, and reaching nobody costs exactly the same as reaching everybody.
 
 ## Personalize the parts that need it
 

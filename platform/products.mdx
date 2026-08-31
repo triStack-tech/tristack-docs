@@ -17,9 +17,9 @@ product with several modes, so this page draws the line precisely.
 | **You get** | Generated text, in the response or as SSE | `202` with a `jobId`, then per-call status | `202` with an `id`, the provider `messageId`, and what it cost | An `otp_…` id and `expiresAt`. **Never the code** |
 | **Timing** | Synchronous. The answer is the response | Asynchronous. Calls are dialed in the background, 3 at a time process-wide | Synchronous. The provider has accepted it by the time you get the id | Synchronous. Meta has accepted it by the time you get the id |
 | **JSON casing** | `snake_case` on the wire (`max_tokens`, `stop_sequences`) | `camelCase` on the wire (`audioId`, `callbackUrl`) | `camelCase` on the wire (`fromName`, `replyTo`) | `camelCase` on the wire (`to`, `id`, `code`) |
-| **Charged for** | Every token in and out, at the model's rate | Every **answered** call (40 paise), plus 3 paise per character of newly synthesized speech | Every **recipient** (1.5 paise, rounded up), counting `to`, `cc` and `bcc` | Every code **sent** (20 paise). Verifying is free. Meta bills you separately |
-| **Charged nothing for** | A request refused before the provider is called | A phone that rings out, is engaged, or is refused | A message the provider refuses, and anything rejected before sending. A **bounce is not a refund**: the send happened | A resend inside the window, a send WhatsApp refuses, and every verification |
-| **One-time charge** | None | Rs 200 (20000 paise) the first time Relay Voice is switched on for a project | None. Enabling it and verifying domains are both free | None from us. Meta charges you per conversation |
+| **Charged for** | Every token in and out, at the model's rate | 3 paise per character of newly synthesized speech, charged once. The calls themselves are not metered | Every **recipient** (1.5 paise, rounded up), counting `to`, `cc` and `bcc` | Every code **sent** (20 paise). Verifying is free. Meta bills you separately |
+| **Charged nothing for** | A request refused before the provider is called | Every call, in every outcome, and any send that replays a recording you already have | A message the provider refuses, and anything rejected before sending. A **bounce is not a refund**: the send happened | A resend inside the window, a send WhatsApp refuses, and every verification |
+| **One-time charge** | None | Rs 200 (20000 paise) the first time Relay Voice is switched on for a project. A number of your own is separate and monthly: Rs 200 + Rs 36 GST | None. Enabling it and verifying domains are both free | None from us. Meta charges you per conversation |
 | **Project switch** | Manifold | Relay Voice | Relay Email | Relay WhatsApp |
 | **Refused with, when off** | `403 manifold_disabled` | `403 relay_voice_disabled` | `403 relay_email_disabled` | `403 relay_whatsapp_disabled` |
 | **Identifiers** | `mfr_…` request id | `rvj_…` job id, `rvc_…` call id, `aud_…` recording id | `rle_…` send id | `otp_…` code id |
@@ -114,7 +114,7 @@ Relay Voice will refuse text longer than that rather than truncate it.
 - **Catalogs.** Manifold's `GET /models` answers per key: it lists only models this project
   may call, narrowed by its allowlist, so two keys can see two different lists. Relay Voice's
   `GET /voices` is the same list for everyone on the deployment.
-- **Units.** Tokens and answered calls have no exchange rate between them. A model alias
+- **Units.** Tokens and spoken characters have no exchange rate between them. A model alias
   cannot be sent to Relay Voice, and a voice alias means nothing to Manifold.
 - **Failure shape.** A Manifold failure is the status code of your request. A Relay Voice
   request can succeed with `202` and then have individual calls fail hours later, which you

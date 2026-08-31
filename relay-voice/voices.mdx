@@ -14,7 +14,7 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 ```json 200 OK
 {
   "defaultVoice": "bella",
-  "pricePerCallPaise": 40,
+  "pricePerCallPaise": 0,
   "voices": [
     { "voice": "lily", "name": "Asha (Hindi, female)", "language": "hi-IN" },
     { "voice": "bella", "name": "Ravi (Indian English, male)", "language": "en-IN" }
@@ -28,7 +28,7 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 | `name` | A human label for a picker. Do not parse it. |
 | `language` | What the voice was chosen for. A label, not a switch: see below. |
 | `defaultVoice` | What you get when you send no `voice` at all. |
-| `pricePerCallPaise` | 40 paise per answered call, the same for every voice. Voice choice never changes what a call costs. |
+| `pricePerCallPaise` | `0`. Calls are not metered. Kept on the response because it is the operator's rate rather than a constant, and a client that reads it will see the day it changes. |
 
 <Note>
   This endpoint runs the same product gate a send does, so a key whose project has Relay
@@ -116,10 +116,9 @@ The dashboard has two ways to audition a voice, and they answer different questi
     through a mobile network's codec is not the voice through laptop speakers, and the phone
     is where the judgement matters.
 
-    What it costs: **40 paise**, the normal price of one answered call. There is no synthesis
-    charge, because the sample is our wording rather than yours and you are not being billed
-    to prepare something you neither wrote nor keep. A real number rings and a real call is
-    placed, so the call itself is charged like any other.
+    What it costs: **nothing**. The calls are not metered, and there is no synthesis charge
+    either, because the sample is our wording rather than yours and it was recorded once for
+    everybody. A real number rings and a real call is placed, and it is still free.
 
     It needs Relay Voice already switched on for the project you pick, since that is the
     project whose wallet pays and whose usage records it. The call shows up in your job

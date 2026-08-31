@@ -71,6 +71,12 @@ Two fields ride along on specific failures:
 | `embedding_job_timeout` | n/a | Manifold | Not a response code. A video or audio job that did not finish within 90 minutes is failed with this on the job itself, and the reservation is returned in full | Resubmit, or split a very long file. Nothing was charged |
 | `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
 | `relay_voice_unavailable` | 503 | Relay Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
+| `compliance_required` | 403 | Relay Voice | The account has no accepted business verification, so it cannot rent a number | Submit your incorporation and GST certificates. Once per account, not per project |
+| `compliance_pending` | 409 | Relay Voice | A verification is already under review | Wait for the outcome. A person reviews it, normally within a few days |
+| `compliance_exists` | 409 | Relay Voice | The account is already verified | Nothing to do. Go straight to searching for a number |
+| `document_too_large` | 400 | Relay Voice | A verification document is over 5 MB | Send a smaller scan. This is refused before anything is forwarded, so nothing was uploaded |
+| `unsupported_document_type` | 400 | Relay Voice | A verification document is not a PDF, JPEG or PNG | Convert it and submit again |
+| `number_unavailable` | 409 | Relay Voice | The number was taken between your search and your purchase | Search again and pick another. The wallet hold is released, so nothing was charged |
 | `invalid_phone_number` | 400 | Relay Voice | A number in `to` is not a dialable Indian mobile. `error` names the index and the value you sent | Drop or correct it. Landlines and foreign numbers are refused |
 | `unknown_voice` | 400 | Relay Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
 | `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |

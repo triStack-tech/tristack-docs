@@ -12,6 +12,51 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-08-31" description="Relay Voice calls are free, and you can rent your own number">
+
+  **Calls are no longer metered.** `pricePerCallPaise` is `0`. Every call, in every outcome,
+  now costs nothing, and speech is the only per-use charge Relay Voice has: 3 paise per
+  character, once, when a recording is prepared.
+
+  What this changes for you:
+
+  - A send that replays an existing recording is **completely free**. It takes no hold, makes
+    no debit and leaves no row in the ledger, so such a send works on an empty wallet. If you
+    reconcile Relay Voice jobs against wallet transactions, expect jobs with no matching rows.
+  - `estimatedCostPaise` now equals the final `costPaise` rather than being a ceiling, because
+    the only charge is known before the first phone rings. Nothing comes back at settlement.
+  - `costPaise` on an individual call is `0` in every state, including `Completed`. Summing
+    that column no longer tells you anything about your bill; count statuses to measure reach.
+  - Broadcasting got dramatically cheaper and personalizing did not. One 65-character message
+    to 500 people is Rs 1.95, where it was Rs 201.95. Five hundred personalized messages are
+    unchanged at Rs 1,065. See [reusing a recording](/relay-voice/reusing-audio).
+  - The one-time Rs 200 activation per project is unchanged, but it never was a phone number
+    and the docs no longer say it was.
+
+  `pricePerCallPaise` stays on `GET /v1/relay/voice/voices` and on usage rows. Read it rather
+  than hardcoding the zero.
+
+  **Rent your own number**
+
+  - `GET /v1/relay/voice/numbers/available`, `POST /v1/relay/voice/numbers` and
+    `PATCH /v1/relay/voice/numbers/{id}` search for, rent and stop renewing an Indian number,
+    so calls go out from your number instead of a shared one. Keys need the new
+    `relay-voice:numbers` scope.
+  - **Rs 236 per number per month**, as Rs 200 plus Rs 36 GST, shown split on the ledger. This
+    is the only recurring charge on the platform.
+  - Indian numbers are sold only to registered businesses. Verify once per account through
+    `POST /v1/relay/voice/compliance` with an incorporation and a GST certificate; a person
+    reviews it over a few days.
+  - **There is no grace period.** The renewal is decided the day before it falls due, and a
+    wallet that cannot cover it, or auto-renew left off, releases the number permanently. The
+    account owner is warned by email seven, three and two days before, the last landing a day
+    ahead of the decision.
+  - New error codes: `compliance_required`, `compliance_pending`, `compliance_exists`,
+    `number_unavailable`, `document_too_large`, `unsupported_document_type`. See
+    [phone numbers](/relay-voice/numbers).
+
+</Update>
+
 <Update label="2026-08-22" description="Embedded top-up window and automatic top-ups">
 
   Two new ways to put money in the wallet. Both credit the same account balance every

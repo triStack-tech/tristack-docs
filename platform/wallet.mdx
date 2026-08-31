@@ -119,8 +119,9 @@ estimate = (input_tokens  x paisePer1KTokensIn  / 1000)
 ```
 
 ```text Relay Voice
-estimate = recipients x 40 paise
-         + characters of NEWLY synthesized speech x 3 paise
+estimate = characters of NEWLY synthesized speech x 3 paise
+           (the calls are not metered, so recipients do not appear)
+           a replay synthesizes nothing, costs nothing, and takes no hold at all
 ```
 </CodeGroup>
 
@@ -222,14 +223,16 @@ balance is 3 paise, and all three rows share one `reference`.
 | `mfr_…` | A Manifold request. The same id is on the response as `id` |
 | `rvj_…` | A Relay Voice job. The same id is the `jobId` from the `202` |
 | `relay-activation-…` | The one-time Relay Voice activation fee for the project in `projectId` |
+| `relay-number-…` | A month's rental of a Relay Voice phone number, base and GST as separate lines |
 | `pay_…` | A wallet top-up |
 
-A Relay Voice job produces its rows when the job finishes, not when it is accepted, because
-that is when the answered calls are known. A job still dialing shows only its `Hold`.
+A Relay Voice job produces its rows when the job finishes, not when it is accepted. A job
+still dialing shows only its `Hold`. A job that replayed an existing recording cost nothing
+and so produces no rows at all: it never touched the wallet.
 
 `description` is usually null. On a `HoldRelease` it carries the reason the hold came back,
-which is either an error code such as `provider_error`, `no_calls_answered` when a Relay
-Voice job ended with nothing billable, or `Released by the stale-hold sweep`.
+which is either an error code such as `provider_error`, `nothing_billable` when a job ended
+owing nothing, or `Released by the stale-hold sweep`.
 
 <Accordion title="What happens to a hold if the service restarts mid-request" icon="rotate">
   Nothing is stranded. A background sweep runs hourly and releases any hold still active
