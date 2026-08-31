@@ -66,6 +66,7 @@
                   "relay-voice/quickstart",
                   "relay-voice/index",
                   "relay-voice/voices",
+                  "relay-voice/tempo",
                   "relay-voice/reusing-audio",
                   "relay-voice/callbacks",
                   "relay-voice/pricing"

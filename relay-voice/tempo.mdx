@@ -1,0 +1,81 @@
+---
+title: "Speaking tempo"
+description: "Set how fast the voice reads your text: a default per project, an override per call, and a way to hear the difference before you commit."
+sidebarTitle: "Tempo"
+icon: "gauge"
+---
+
+Tempo is how fast the voice reads. It runs from **0.7** to **1.2**, where **1.0** is the
+voice's own natural pace.
+
+Slower carries better on a poor line, which is most of what these calls run over. Faster
+shortens the call. Both ends degrade the speech if you push them, which is why the range stops
+where it does rather than letting you pick anything.
+
+## Hear it before you set it
+
+Open a project, go to the **Relay Voice** tab, and the tempo slider sits directly above the
+voice list. Move it, press play on a voice, and you hear that voice at that tempo. Auditioning
+costs nothing and is not billed.
+
+That is the only reliable way to choose. A number on its own tells you very little, and 0.9
+against 1.0 is a real difference you can hear and cannot predict.
+
+## Three places it can come from
+
+The first one that is set wins.
+
+| Where | Applies to | How |
+|---|---|---|
+| The request | One call | `speed` on [`POST /v1/relay/voice`](/api-reference/relay-voice/send) |
+| The project | Every call from that project | The Relay Voice tab, or `relayVoiceSpeed` on the project |
+| The platform | Everything else | `1.0`, the voice's natural pace |
+
+A project that has never chosen a tempo says so on screen, and follows the platform default.
+That is not the same as pinning it to `1.00`: a project following the default moves if the
+default ever moves, and a pinned one does not.
+
+## For one call
+
+```json
+{
+  "to": ["XXXXXXXXXX"],
+  "text": "Aapka order nikal chuka hai. Your order has shipped.",
+  "speed": 0.9
+}
+```
+
+Out of range is refused with `400 invalid_speed` rather than quietly clamped, so asking for
+`2.0` tells you the ceiling instead of sounding identical to `1.2`.
+
+## For every call from a project
+
+Set it on the Relay Voice tab, or through the dashboard API:
+
+```bash
+curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "relayVoiceSpeed": 0.9 }'
+```
+
+Send `0` to clear it and go back to following the platform default. Zero is the clear signal
+because it sits outside the accepted range, so it can never be mistaken for a tempo you meant.
+Omitting the field entirely leaves the setting untouched.
+
+## What it costs
+
+Nothing extra. You are billed per character synthesised and per answered call, and neither of
+those moves with tempo.
+
+One indirect effect worth knowing: **changing the tempo makes a new recording.** Audio is
+cached by its content, and the same words at 0.9 are a different recording from the same words
+at 1.0. Sending a message you have sent before at a new tempo synthesises it once more and is
+charged for that synthesis, exactly as new wording would be. The old recording is untouched and
+its `audioId` keeps playing at the tempo it was made with.
+
+## Not every model supports it
+
+Tempo is applied by the speech provider, and support depends on the model behind the voice.
+Every voice in the catalog today accepts it. Nothing about your request changes if a future
+voice does not: the call is placed and read at the voice's natural pace.

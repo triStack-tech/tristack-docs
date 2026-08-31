@@ -177,6 +177,23 @@ console.log(job.jobId, job.audioId, job.estimatedCostPaise, "paise held");
   [Callbacks](/relay-voice/callbacks).
 </ParamField>
 
+<ParamField body="speed" type="number">
+  How fast the voice reads the text, from **0.7** to **1.2**. Omit it and the call uses the
+  project's tempo, set on the Relay Voice tab of the dashboard; omit that too and it uses the
+  platform default of `1.0`, which is the voice's own natural pace.
+
+  Below `1.0` is slower, which carries better on a poor line. Above is faster, which shortens
+  the call. Extreme values are accepted but the speech quality falls off at both ends.
+
+  A value outside the range is refused with `400 invalid_speed` rather than being quietly
+  pulled back inside it, so a request that asks for `2.0` tells you the ceiling instead of
+  sounding identical to `1.2`.
+
+  Tempo does not change the price. You are billed per character synthesised and per answered
+  call, and neither moves with speed, though a faster call does spend fewer seconds on the
+  line.
+</ParamField>
+
 <ParamField body="reference" type="string">
   Your own id for this send, up to 128 characters. Stored, echoed back on every read of the
   job, and included in the callback body. Tristack never interprets it, so an order number, a
@@ -371,6 +388,7 @@ below the estimate and the difference goes back to the wallet.
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. Half configured is refused rather than half served. | Nothing you can fix in the request. Retry later or [contact support](mailto:support@tristack.tech). |
 | 400 | `invalid_request` | `to` empty or over 500, both or neither of `text` and `audioId`, `text` over 1500 characters, `voice` sent with `audioId`, or `reference` over 128 characters. `error` names which. | Fix the field named in `error`. |
 | 400 | `invalid_phone_number` | A number in `to` is not a dialable Indian mobile. `error` gives the index and the exact string you sent. | Fix that row. Landlines and foreign numbers cannot be dialed by this product. |
+| 400 | `invalid_speed` | `speed` is outside 0.7 to 1.2, the range the speech provider accepts. Refused rather than clamped, so a request asking for 2.0 learns the ceiling instead of sounding like 1.2. | Send a value in range, or omit it to use the project's tempo. |
 | 400 | `unknown_voice` | `voice` is not a selectable alias. A voice the operator has switched off answers identically. | Pick one from [`GET /v1/relay/voice/voices`](/api-reference/relay-voice/voices), or omit `voice` for the default. |
 | 400 | `invalid_audio_id` | `audioId` is not shaped like one: `aud_` plus 24 lowercase hex characters. Checked before any lookup. | Copy the `audioId` from an earlier response rather than constructing one. |
 | 400 | `invalid_callback_url` | `callbackUrl` is not an absolute https URL, or is over 2048 characters. | Use an absolute `https://` URL. |
