@@ -133,6 +133,12 @@ curl -X POST https://api.tristack.tech/v1/relay/voice/numbers \
 The base and the tax are published separately rather than as one total, which is the point of
 a pass-through: you can see the GST you are paying. `totalPaise` is what leaves the wallet.
 
+**The rental is billed to the key's own project**, and every renewal after it lands there too,
+so a number shows up on one project's spend rather than floating on the account. Nothing in
+the body changes that: a key names its project already, and honouring a body field would let a
+key issued for one project put a monthly charge on another. Rent from the key belonging to the
+project that should carry the cost.
+
 <ParamField path="GET /v1/relay/voice/numbers" type="endpoint">
   Every number on the account, including ones already released.
 </ParamField>
