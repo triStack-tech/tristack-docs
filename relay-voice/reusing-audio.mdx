@@ -31,6 +31,40 @@ lost recording:
 An id is `aud_` followed by 24 lowercase hex characters. Store it next to whatever your side
 calls this message: a campaign row, a template record, a config entry.
 
+## Or upload a recording you already have
+
+Not every message is best read by a machine. A notice recorded by the person who signs it, a
+jingle, a voice no catalog has: upload the MP3 in the dashboard, under **Relay Voice ->
+Recordings**, and you get an `audioId` back for it.
+
+It is the same handle in every respect. Send it as `audioId` exactly as above, replay it as
+often as you like, and it costs nothing: uploading is free, and nothing is synthesized when
+it plays, so there is no per-character charge to avoid in the first place.
+
+| | |
+|---|---|
+| Format | MP3 |
+| Longest | 120 seconds |
+| Largest | 5 MB |
+| Recordings per account | 200 |
+
+The length is measured from the file itself, not guessed from its size, so a file is accepted
+or refused on how long it actually plays.
+
+Two behaviours worth knowing:
+
+- **Uploading the same file twice gives you the same id.** The recording is identified by its
+  contents, so a retried upload after a dropped connection adds nothing and changes nothing.
+- **The job's `voice` reads `upload`.** An uploaded recording was not spoken by a catalog
+  voice, and the field says so rather than naming one you did not choose. As with any
+  `audioId`, do not send `voice` alongside it.
+
+<Note>
+  A file that is not really an MP3 is refused at upload rather than at dial time. That matters
+  more than it sounds: the alternative is discovering it when five hundred phones ring and
+  play silence.
+</Note>
+
 ## Sending it instead of text
 
 ```bash Replay a recording

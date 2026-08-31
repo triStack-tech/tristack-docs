@@ -291,11 +291,18 @@ touched: no hold, no debit, no ledger row. Such a send works on an empty balance
 <ResponseField name="voice" type="string">
   The voice alias the recording was spoken in. On a replay it comes from the recording, not
   from the request, which is why `voice` cannot be sent with `audioId`.
+
+  Reads `upload` when the recording was
+  [uploaded rather than synthesized](/relay-voice/reusing-audio). No catalog voice spoke it,
+  so no catalog alias would be a truthful answer.
 </ResponseField>
 
 <ResponseField name="language" type="string">
   The BCP-47 tag the voice is labelled with, for example `en-IN`. Informational: the voice
   itself decides how the words come out.
+
+  Empty string for an uploaded recording, which has no voice to be labelled. Treat this field
+  as optional rather than assuming a well-formed tag.
 </ResponseField>
 
 <ResponseField name="recipients" type="integer">
