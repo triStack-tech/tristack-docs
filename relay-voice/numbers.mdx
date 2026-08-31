@@ -27,7 +27,13 @@ whether you use it or not.
 
 ## Getting verified
 
-Once per account, not per project.
+Once per account, not per project. In the dashboard it is on your
+[profile](https://api.tristack.tech/profile), under **Business verification**, beside the
+billing identity it evidences: it is a fact about the account rather than about any one
+project, and the status there reads *Not verified*, *Under review*, *Verified* or *Rejected*.
+Renting stays on a project's Relay Voice tab, because the rental is billed to a project.
+
+Over the API:
 
 ```bash
 curl https://api.tristack.tech/v1/relay/voice/compliance/requirements \
@@ -43,6 +49,8 @@ reports `submitted`, `accepted` or `rejected`, and a rejection carries the reaso
 Your documents are passed straight to the number provider and are never stored by Tristack.
 
 ## Renting one
+
+Searching is behind the same verification as renting, so get verified first.
 
 ```bash
 # Search, optionally by prefix
@@ -106,7 +114,7 @@ whoever took it on.
 
 | Code | Meaning |
 |---|---|
-| `compliance_required` | The account is not verified yet |
+| `compliance_required` | The account is not verified yet. Both searching and renting need it |
 | `compliance_pending` | Already submitted and under review |
 | `compliance_exists` | Already verified, so there is nothing to submit |
 | `insufficient_balance` | The wallet cannot cover the first month. Nothing is charged |

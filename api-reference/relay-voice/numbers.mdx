@@ -28,6 +28,7 @@ Once per **account**, not per project. A person reviews it, normally over a few 
 {
   "country": "IN",
   "businessOnly": true,
+  "available": true,
   "documents": [
     { "type": "business_registration", "name": "Certificate of Incorporation",
       "description": "Udyam Registration is accepted for MSMEs." },
@@ -39,6 +40,11 @@ Once per **account**, not per project. A person reviews it, normally over a few 
 `businessOnly` is always `true` for India and is stated here rather than discovered at
 submission: an individual or an unregistered sole trader cannot rent an Indian number at all,
 and that is worth knowing before a form is filled in.
+
+`available` is `false` when the regulator's requirements could not be fetched. It is reported
+separately from `documents` being empty on purpose: an empty list alone reads as "this country
+asks for nothing", and building a form from it produces one that cannot be submitted. When it
+is `false`, do not collect documents, and try again later.
 
 <ParamField path="POST /v1/relay/voice/compliance" type="endpoint">
   Submit the business name and every document, as `multipart/form-data`.
@@ -90,8 +96,12 @@ a rejected upload never left the building.
 ## Numbers
 
 <ParamField path="GET /v1/relay/voice/numbers/available" type="endpoint">
-  What is for sale, optionally narrowed by `?prefix=11`.
+  What is for sale, optionally narrowed by `?prefix=11`. **Verified accounts only.**
 </ParamField>
+
+Searching needs the same `accepted` verification that renting does, and answers
+`403 compliance_required` without it. A catalog of numbers the account cannot rent would be a
+shop that refuses at the till.
 
 ```json 200 OK
 {
@@ -182,7 +192,7 @@ number, the date, the rental and the current balance.
 
 | Status | Code | Meaning |
 |---|---|---|
-| 403 | `compliance_required` | The account is not verified |
+| 403 | `compliance_required` | The account is not verified. Searching and renting both need it |
 | 409 | `compliance_pending` | A submission is already under review |
 | 409 | `compliance_exists` | Already verified; there is nothing to submit |
 | 400 | `document_too_large` | A document is over 5 MB |
