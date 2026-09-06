@@ -203,8 +203,13 @@ before the model runs. Nothing about the money path changes.
 
 ## Which models
 
-Every text model in the catalog accepts `tools` and `response_format`. Smaller and cheaper
-models are noticeably worse at choosing well between many tools, so if a model keeps picking
-the wrong one, try fewer tools with sharper descriptions before trying a bigger model.
+`tools` and `response_format` are accepted on every text alias, but whether a given model can
+actually use them is the model's own capability, not ours. A model that does not support tools
+answers `400 provider_rejected`, and the `error` sentence carries the provider's reason. Try a
+call with one small tool before building on it.
+
+Model quality matters more here than anywhere else on this endpoint: smaller and cheaper models
+are noticeably worse at choosing between several tools. If a model keeps picking the wrong one,
+try fewer tools with sharper descriptions before reaching for a bigger model.
 
 `GET /v1/manifold/models` lists what your key can call.
