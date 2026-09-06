@@ -50,6 +50,7 @@
               "manifold/index",
               "manifold/models",
               "manifold/streaming",
+              "manifold/tools",
               "manifold/embeddings",
               "manifold/pricing"
             ]

@@ -37,6 +37,8 @@ Two fields ride along on specific failures:
 | `403` | The credential is fine, but this is not permitted: a product switch, an allowlist, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
 | `410` | It existed and is gone: a Relay Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
+| `409` | An `Idempotency-Key` conflict: an earlier request with the same key is still running |
+| `422` | An `Idempotency-Key` was reused for a different request body |
 | `429` | Throttled. From the model provider, or from the rate limiter on the dashboard API |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
 | `503` | A product or a payment feature is switched off or half-configured on the deployment. Not your request |
@@ -57,6 +59,7 @@ Two fields ride along on specific failures:
 | `invalid_request` | 400 | Both | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Relay Voice is `camelCase` |
 | `insufficient_balance` | 402 | Both | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
 | `manifold_disabled` | 403 | Manifold | Manifold is not switched on for this project | Turn the switch on. It applies to the next request, with no new key |
+| `unsupported_field` | 400 | Manifold | The body carried a top-level field this endpoint does not accept. It is refused rather than ignored, so nothing is billed for an answer to a request that was not the one you sent. `error` names the field and suggests a near match | Remove the field, or fix the spelling |
 | `unknown_model` | 400 | Manifold | `model` is neither a known alias nor a catalog model id, or it is one the platform cannot serve. Both answer identically | Copy an alias from `GET /v1/manifold/models`, which lists exactly what this key can call |
 | `model_not_allowed` | 403 | Manifold | The model is real and servable, but this project's allowlist does not carry it. Refused before the hold | Add the alias under the project's model settings, or call one that is on the list |
 | `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
@@ -69,6 +72,10 @@ Two fields ride along on specific failures:
 | `unsupported_input_modality` | 400 | Manifold | Video or audio sent to `/v1/manifold/embeddings`, which is request-and-reply only | Submit it to `POST /v1/manifold/embeddings/jobs` instead |
 | `embedding_job_not_found` | 404 | Manifold | No such embedding job. Another project's job answers identically | Check the id came from this project |
 | `embedding_job_timeout` | n/a | Manifold | Not a response code. A video or audio job that did not finish within 90 minutes is failed with this on the job itself, and the reservation is returned in full | Resubmit, or split a very long file. Nothing was charged |
+| `invalid_idempotency_key` | 400 | Manifold | The `Idempotency-Key` header was empty or longer than 255 characters. Refused before anything runs | Send a key of 1 to 255 characters |
+| `idempotency_in_progress` | 409 | Manifold | An earlier request with this key is still running. Its `requestId` is included | Wait for it to finish, then retry with the same key to receive its result. Do not send a new key: that buys a second answer |
+| `idempotency_key_reused` | 422 | Manifold | This key was already used for a request with a different body. Replaying the stored answer would answer a question you did not ask, so it is refused | Use a new key. One key means one request |
+| `idempotency_replay_failed` | 409 | Manifold | The first request's result could not be replayed | Send support the `mfr_…` id from the response |
 | `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
 | `relay_voice_unavailable` | 503 | Relay Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
 | `compliance_required` | 403 | Relay Voice | The account has no accepted business verification, so it cannot rent a number | Submit your incorporation and GST certificates. Once per account, not per project |

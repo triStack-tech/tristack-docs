@@ -159,13 +159,79 @@ console.log(body.usage, "cost:", body.cost.paise, "paise");
   [Streaming](#streaming) below.
 </ParamField>
 
+<ParamField body="tools" type="object[]">
+  Tools the model may call. Each carries a `name`, a `description` telling the model when the
+  tool is useful, and an `input_schema` that is a JSON Schema object for the arguments.
+
+  A request may declare up to 128 tools, totalling at most 512 KB across every name,
+  description and schema.
+
+  **Tool definitions are input tokens, and they are sent on every turn.** A tool loop pays for
+  them each time round, so keep descriptions tight.
+
+  <Expandable title="fields">
+    <ParamField body="name" type="string" required>
+      Up to 64 characters of letters, digits, underscores or hyphens. Names must be unique
+      within a request.
+    </ParamField>
+
+    <ParamField body="description" type="string">
+      What the tool does and when to reach for it. This is the only thing the model has to go
+      on when deciding whether to call it.
+    </ParamField>
+
+    <ParamField body="input_schema" type="object" required>
+      A JSON Schema object describing the arguments. Passed to the model unchanged, so any
+      keyword the model understands is available to you.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="tool_choice" type="object">
+  Whether the model may pick. Omit it and the model decides.
+
+  | `type` | Meaning |
+  |---|---|
+  | `auto` | The model answers or calls a tool, as it judges best |
+  | `any` | The model must call one of the tools, but picks which |
+  | `tool` | The model must call the tool named in `name` |
+
+  Sending `tool_choice` without `tools` is `400 invalid_request`, as is naming a tool that is
+  not in the list.
+</ParamField>
+
+<ParamField body="response_format" type="object">
+  Ask for JSON instead of prose.
+
+  | `type` | Meaning |
+  |---|---|
+  | `json_object` | Any valid JSON object |
+  | `json_schema` | An object matching the JSON Schema in `json_schema` |
+
+  The answer arrives as an ordinary `text` block whose contents are the JSON, so nothing about
+  parsing the response changes.
+
+  **The schema is sent to the model and counts toward input tokens**, exactly as a tool
+  definition does.
+
+  `response_format` cannot be combined with `tools`: both constrain the same thing, and
+  honouring both would mean silently choosing between them. Sending both is
+  `400 invalid_request`. If you need a schema alongside real tools, declare it as a tool and
+  point `tool_choice` at it.
+</ParamField>
+
 ### Content blocks
 
-A block is either text or an image. `{ "role": "user", "content": "hello" }` and
-`{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }` are the same request.
+A block is text, an image, or one of the two tool blocks. `{ "role": "user", "content": "hello" }`
+and `{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }` are the same request.
 
 <ParamField body="type" type="string" required>
-  `text` or `image`. Anything else is `400 invalid_request`.
+  `text`, `image`, `tool_use` or `tool_result`. Anything else is `400 invalid_request`.
+
+  The two tool blocks exist so a conversation can continue after a tool call: you send back
+  the assistant turn containing the model's `tool_use`, then a user turn containing your
+  `tool_result`. A `tool_use` block only belongs in an assistant message and a `tool_result`
+  block only in a user message; the other way round is `400 invalid_request`.
 </ParamField>
 
 <ParamField body="text" type="string">
@@ -191,6 +257,37 @@ A block is either text or an image. `{ "role": "user", "content": "hello" }` and
       base64 is the only encoding this endpoint reads.
     </ParamField>
   </Expandable>
+</ParamField>
+
+<ParamField body="id" type="string">
+  Required on a `tool_use` block: the id the model gave the call when it made it. Send it back
+  unchanged.
+</ParamField>
+
+<ParamField body="name" type="string">
+  Required on a `tool_use` block: which tool the model called.
+</ParamField>
+
+<ParamField body="input" type="object">
+  Required on a `tool_use` block: the arguments the model chose, as an object.
+</ParamField>
+
+<ParamField body="tool_use_id" type="string">
+  Required on a `tool_result` block: the `id` from the `tool_use` block this answers.
+</ParamField>
+
+<ParamField body="content" type="string | object[]">
+  What your tool returned, on a `tool_result` block. A bare string, or an array of `text` and
+  `image` blocks. Tool blocks do not nest.
+
+  An empty or absent body is read as "the tool returned nothing", which is a normal thing to
+  report.
+</ParamField>
+
+<ParamField body="is_error" type="boolean" default="false">
+  Send `true` on a `tool_result` when your tool failed. The model is told the call errored
+  rather than being handed your error text as though it were the answer, so it can retry or
+  explain instead of building on a failure.
 </ParamField>
 
 ```json An image and a question
@@ -246,8 +343,15 @@ A block is either text or an image. `{ "role": "user", "content": "hello" }` and
 </ResponseField>
 
 <ResponseField name="content" type="object[]">
-  The generated output. Today this is always a single text block; read it as an array so a
-  later block type does not break your client.
+  The generated output. A request without `tools` always answers with exactly one `text`
+  block, including when the text is empty, so nothing about parsing a plain completion has
+  changed.
+
+  With `tools`, the array may carry a `text` block, one or more `tool_use` blocks, or both.
+  Models routinely narrate before calling ("Let me look that up"), and when they do the text
+  comes first, in the order the model produced it. A `tool_use` block carries `id`, `name` and
+  the `input` object the model chose; send the `id` back as `tool_use_id` on your
+  `tool_result`.
 
   <Expandable title="block">
     <ResponseField name="type" type="string">
@@ -263,7 +367,11 @@ A block is either text or an image. `{ "role": "user", "content": "hello" }` and
 <ResponseField name="stop_reason" type="string">
   Why generation ended, passed through from the model: `end_turn` when it finished on its
   own, `max_tokens` when it hit your ceiling, `stop_sequence` when one of your
-  `stop_sequences` matched. A model that reports nothing is reported as `end_turn`.
+  `stop_sequences` matched, and `tool_use` when it stopped to call one of your `tools`. A
+  model that reports nothing is reported as `end_turn`.
+
+  A `response_format` request never reports `tool_use`: you asked for JSON, not for a tool, so
+  it finishes as `end_turn`.
 </ResponseField>
 
 <ResponseField name="usage" type="object">
@@ -329,10 +437,33 @@ event: message_stop
 data: {}
 ```
 
+A tool call streams three extra events inside that same envelope. The arguments arrive as
+fragments that are **not** valid JSON on their own: concatenate every `partial_json` for one
+`index` and parse once, when `content_block_stop` for that index arrives.
+
+```text A streamed tool call
+event: content_block_start
+data: {"index":0,"content_block":{"id":"tu_01","name":"get_weather","type":"tool_use"}}
+
+event: content_block_delta
+data: {"index":0,"delta":{"partial_json":"{\"city\"","type":"input_json_delta"}}
+
+event: content_block_delta
+data: {"index":0,"delta":{"partial_json":":\"Pune\"}","type":"input_json_delta"}}
+
+event: content_block_stop
+data: {"index":0}
+
+event: message_stop
+data: {}
+```
+
 | Event | When | Payload |
 |---|---|---|
 | `message_start` | Once, first. | `id`, `model`, `role`. |
-| `content_block_delta` | Repeated, one per chunk of text. | `index` (always `0` today) and `delta` with `type: "text_delta"` and `text`. |
+| `content_block_start` | Once per tool call, before its arguments. Text blocks get no start event. | `index` and `content_block` with `type: "tool_use"`, `id` and `name`. |
+| `content_block_delta` | Repeated, one per chunk. | `index`, and `delta` carrying either `type: "text_delta"` with `text`, or `type: "input_json_delta"` with `partial_json`. |
+| `content_block_stop` | Once per tool call, after its last fragment. | `index` |
 | `message_delta` | Once, after the last delta. | `stop_reason`, `usage` and `cost`, the same fields the non-streamed response carries. |
 | `message_stop` | Once, last. | `{}` |
 | `error` | Replaces `message_delta` and `message_stop` when the model fails part way through. | `error` and `code`, the same envelope as a failed HTTP response. |
@@ -403,6 +534,54 @@ with requests.post(
     carry a real cost.
   </Accordion>
 </AccordionGroup>
+
+## Retrying safely
+
+A request that times out leaves you not knowing whether it landed. Send an `Idempotency-Key`
+header and the retry returns the first answer instead of buying a second one.
+
+```bash Retry without paying twice
+curl https://api.tristack.tech/v1/manifold/messages \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: invoice-summary-4417" \
+  -d '{
+    "model": "nova-micro",
+    "max_tokens": 256,
+    "messages": [{ "role": "user", "content": "Summarise invoice 4417." }]
+  }'
+```
+
+The key is yours to choose: 1 to 255 characters, unique per request, scoped to your project.
+A UUID per logical operation is the usual thing.
+
+| What happened | What a repeat with the same key does |
+|---|---|
+| The first request succeeded | Replays the stored answer, with the same `id`, `usage` and `cost`. The model is not called again and nothing is charged |
+| The first request is still running | `409 idempotency_in_progress`. Wait and retry; do not switch keys |
+| The first request failed and charged nothing | Runs normally. A key is only spent once something happened |
+| The body differs from the first request | `422 idempotency_key_reused` |
+
+A replayed response carries `Idempotent-Replay: true`, so you can tell one from a fresh answer
+without comparing ids.
+
+<Note>
+  Keys are honoured for **24 hours**, then released. After that the same key is an ordinary
+  new request.
+</Note>
+
+<Warning>
+  A streamed call replays as a stream, but not with the original's chunk boundaries: the text
+  arrives in whatever pieces the replay sends. The `id`, the content, the `usage` and the
+  `cost` are the first attempt's. If you reassemble the stream before using it, which almost
+  every client does, you will not notice the difference.
+</Warning>
+
+<Note>
+  A request refused before it ran, such as `400 invalid_request` or `402
+  insufficient_balance`, does **not** consume the key. Fix the problem and retry with the same
+  one.
+</Note>
 
 ## Errors
 

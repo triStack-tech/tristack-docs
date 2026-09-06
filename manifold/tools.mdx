@@ -1,0 +1,210 @@
+---
+title: "Tools and JSON mode"
+description: "Let a model call your functions, and get structured JSON back: the tool loop turn by turn, tool_choice, response_format, and what a tool conversation costs."
+sidebarTitle: "Tools and JSON mode"
+icon: "wrench"
+---
+
+A model on its own can only write text back to you. Tools let it ask you to run something and
+use the answer, and JSON mode lets you get a parseable object instead of prose.
+
+Both are on `POST /v1/manifold/messages`. Neither changes how you authenticate, how you are
+billed, or how the response is shaped.
+
+## Tool use, turn by turn
+
+You describe your functions, the model decides when to call one, you run it, and you send the
+result back. The model does not run anything: **you** do, in your own code, and the loop is
+yours to drive.
+
+### Turn one: offer the tools
+
+```json
+{
+  "model": "sonnet-5",
+  "max_tokens": 1024,
+  "messages": [{ "role": "user", "content": "What is the weather in Pune?" }],
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Current weather for a city. Use it whenever the user asks about weather.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "city": { "type": "string", "description": "City name" } },
+        "required": ["city"]
+      }
+    }
+  ]
+}
+```
+
+The model answers with a `tool_use` block and `stop_reason: "tool_use"`:
+
+```json
+{
+  "id": "mfr_9f7922159e6dab6a72166e1f",
+  "model": "sonnet-5",
+  "role": "assistant",
+  "content": [
+    { "type": "tool_use", "id": "tu_01", "name": "get_weather", "input": { "city": "Pune" } }
+  ],
+  "stop_reason": "tool_use",
+  "usage": { "input_tokens": 62, "output_tokens": 31 },
+  "cost": { "paise": 2 }
+}
+```
+
+<Note>
+  A model often narrates before it calls: `content` may hold a `text` block **and** a
+  `tool_use` block. Iterate the array rather than reading `content[0]`, and expect more than
+  one `tool_use` in a single answer.
+</Note>
+
+### Turn two: run it and send the result back
+
+Replay the whole conversation, including the assistant turn you just received, and add a
+`tool_result` carrying the `id` from the call.
+
+```json
+{
+  "model": "sonnet-5",
+  "max_tokens": 1024,
+  "tools": [{ "name": "get_weather", "description": "...", "input_schema": { "type": "object" } }],
+  "messages": [
+    { "role": "user", "content": "What is the weather in Pune?" },
+    {
+      "role": "assistant",
+      "content": [
+        { "type": "tool_use", "id": "tu_01", "name": "get_weather", "input": { "city": "Pune" } }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        { "type": "tool_result", "tool_use_id": "tu_01", "content": "31C, clear" }
+      ]
+    }
+  ]
+}
+```
+
+Now the model answers in prose, with `stop_reason: "end_turn"`. If it wants another tool, it
+returns another `tool_use` and you go round again.
+
+<Warning>
+  **Keep sending `tools` on every turn.** They are part of the request, not a session: a
+  follow-up that omits them is a conversation in which the tools no longer exist, and the
+  model cannot call them again.
+</Warning>
+
+### When your tool fails
+
+Say so, rather than passing the error text off as an answer:
+
+```json
+{ "type": "tool_result", "tool_use_id": "tu_01", "content": "Upstream timed out", "is_error": true }
+```
+
+The model is told the call errored, so it can retry, ask you something else, or explain the
+problem instead of building on a failure.
+
+## Steering the choice
+
+`tool_choice` decides who picks.
+
+| Value | Behaviour |
+|---|---|
+| omitted | The model decides whether to answer or call something |
+| `{"type": "auto"}` | The same, stated explicitly |
+| `{"type": "any"}` | It must call one of the tools, but chooses which |
+| `{"type": "tool", "name": "get_weather"}` | It must call that one |
+
+Forcing a call is how you make a model classify or extract rather than chat: give it one tool
+whose schema is the shape you want and point `tool_choice` at it.
+
+## JSON mode
+
+When all you want is structured output, `response_format` does that without you writing a
+tool at all.
+
+```json Any JSON object
+{
+  "model": "nova-lite",
+  "max_tokens": 512,
+  "messages": [{ "role": "user", "content": "Summarise this review as JSON: 'Fast but pricey.'" }],
+  "response_format": { "type": "json_object" }
+}
+```
+
+```json A specific shape
+{
+  "model": "nova-lite",
+  "max_tokens": 512,
+  "messages": [{ "role": "user", "content": "Classify: 'Fast but pricey.'" }],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "sentiment": { "type": "string", "enum": ["positive", "negative", "mixed"] },
+        "themes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["sentiment"]
+    }
+  }
+}
+```
+
+The answer comes back as an ordinary text block whose contents are the JSON, so nothing about
+reading the response changes:
+
+```json
+{
+  "content": [{ "type": "text", "text": "{\"sentiment\":\"mixed\",\"themes\":[\"speed\",\"price\"]}" }],
+  "stop_reason": "end_turn"
+}
+```
+
+<Note>
+  `response_format` and `tools` cannot be combined: both constrain the same thing, and
+  honouring both would mean silently choosing between them. If you need a schema alongside
+  real tools, declare the schema as one more tool and point `tool_choice` at it. That is
+  exactly what JSON mode does for you.
+</Note>
+
+<Warning>
+  A model can still fall short: it may refuse, or run out of `max_tokens` part way through the
+  object. Parse defensively and give JSON-mode requests a generous `max_tokens`, because a
+  truncated object is not valid JSON.
+</Warning>
+
+## Streaming a tool call
+
+With `"stream": true`, a tool call arrives as `content_block_start`, then `input_json_delta`
+fragments, then `content_block_stop`. The fragments are **not** valid JSON on their own:
+concatenate every `partial_json` for one `index` and parse once at `content_block_stop`. See
+[Streaming](/manifold/streaming) for the full event list.
+
+A JSON-mode answer streams as plain `text_delta` events, exactly like prose.
+
+## What it costs
+
+Tools are billed as ordinary input tokens. Two things follow, and both surprise people:
+
+- **Definitions are sent on every turn.** A four-turn loop pays for your `tools` array four
+  times. Trim descriptions and schemas you are not using.
+- **The conversation grows.** Each turn replays the whole history, including previous
+  `tool_use` and `tool_result` blocks, so later turns cost more than earlier ones.
+
+A JSON-mode schema is charged the same way, as input tokens on the request that carries it.
+
+Every call still reports its own `usage` and `cost`, and the wallet still holds an estimate
+before the model runs. Nothing about the money path changes.
+
+## Which models
+
+Every text model in the catalog accepts `tools` and `response_format`. Smaller and cheaper
+models are noticeably worse at choosing well between many tools, so if a model keeps picking
+the wrong one, try fewer tools with sharper descriptions before trying a bigger model.
+
+`GET /v1/manifold/models` lists what your key can call.
