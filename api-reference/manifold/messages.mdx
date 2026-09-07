@@ -248,6 +248,12 @@ console.log(body.usage, "cost:", body.cost.paise, "paise");
 
   Setting it explicitly wins in both directions.
 
+  <Note>
+    Unknown keys inside `tools`, `tool_choice` and `response_format` are refused with
+    `400 unsupported_field` naming the key, rather than ignored. If you are porting from
+    another API, note this endpoint reads `json_schema`, not `schema`.
+  </Note>
+
   The `422` carries the partial `content`, the `usage` and the `cost`, because those tokens
   were really spent. See [`output_truncated`](/platform/errors).
 </ParamField>
@@ -404,6 +410,24 @@ and `{ "role": "user", "content": [{ "type": "text", "text": "hello" }] }` are t
 
   A `response_format` request never reports `tool_use`: you asked for JSON, not for a tool, so
   it finishes as `end_turn`.
+</ResponseField>
+
+<ResponseField name="response_format" type="object">
+  Echoed only when you asked for a format. Carries the `type` you sent and an `enforcement`
+  saying how it was actually achieved:
+
+  | `enforcement` | Meaning |
+  |---|---|
+  | `constrained` | The model was held to the shape and produced it. Parse with confidence |
+  | `best_effort` | It answered in prose instead. **Your parse will probably fail**, and the text is whatever it said |
+
+  A model can decline, so check this before parsing rather than discovering it in a `try`.
+</ResponseField>
+
+<ResponseField name="idempotent_replay" type="boolean">
+  `true` when this answer is a replay of an earlier request carrying the same
+  `Idempotency-Key`, and omitted otherwise. The same signal as the `Idempotent-Replay` header,
+  repeated in the body for clients that never see response headers.
 </ResponseField>
 
 <ResponseField name="usage" type="object">
@@ -594,8 +618,9 @@ A UUID per logical operation is the usual thing.
 | The first request failed and charged nothing | Runs normally. A key is only spent once something happened |
 | The body differs from the first request | `422 idempotency_key_reused` |
 
-A replayed response carries `Idempotent-Replay: true`, so you can tell one from a fresh answer
-without comparing ids.
+A replayed response carries `Idempotent-Replay: true` as a header **and**
+`"idempotent_replay": true` in the body, so you can tell one from a fresh answer without
+comparing ids, whether or not your client surfaces headers.
 
 <Note>
   Keys are honoured for **24 hours**, then released. After that the same key is an ordinary

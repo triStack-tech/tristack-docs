@@ -29,6 +29,7 @@ curl https://api.tristack.tech/v1/manifold/models \
       "paisePerImage": 0, "paisePerVideoSecond": 0,
       "paisePerAudioSecond": 0, "paisePerRequest": 0,
       "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "dimensions": 0,
       "residency": "varies"
     },
     {
@@ -40,6 +41,7 @@ curl https://api.tristack.tech/v1/manifold/models \
       "paisePerImage": 0, "paisePerVideoSecond": 0,
       "paisePerAudioSecond": 0, "paisePerRequest": 0,
       "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "dimensions": 0,
       "residency": "india"
     },
     {
@@ -51,6 +53,7 @@ curl https://api.tristack.tech/v1/manifold/models \
       "paisePerImage": 0, "paisePerVideoSecond": 0,
       "paisePerAudioSecond": 0, "paisePerRequest": 0,
       "modalities": { "input": ["text"], "output": ["vector"] },
+      "dimensions": 1024,
       "residency": "india"
     }
   ]
@@ -106,6 +109,15 @@ The real response lists every model the key may call, which is dozens of rows.
       thing clients most often copy into their own code, and that copy is wrong the first
       time the catalog changes. Sending an image to a model whose `input` lacks `image` is a
       `400 provider_rejected` in front of your user.
+    </ResponseField>
+
+    <ResponseField name="dimensions" type="number">
+      How many numbers an embedding vector carries, so you can size a fixed-width column
+      without a throwaway call.
+
+      `0` on a text model, and `0` on an embedding model whose width we have not observed.
+      **Read `0` as "not published", never as a width.** Two embedding aliases are `0` today;
+      ask support rather than assuming.
     </ResponseField>
 
     <ResponseField name="residency" type="string">
