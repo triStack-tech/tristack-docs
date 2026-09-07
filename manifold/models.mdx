@@ -11,13 +11,63 @@ import CatalogSummary from '/snippets/catalog-summary.mdx';
 import ModelVision from '/snippets/model-vision.mdx';
 
 You name a model by **alias**: a short, stable string like `nova-micro` or `mistral-large-3`.
-An alias is Tristack's name for a model, not the provider's. Which engine serves it, and in
-which region, is routing that stays inside Manifold, so a model can be moved or re-hosted
-without your code changing.
+An alias is Tristack's name for a model, not the provider's. Which engine serves it is routing
+that stays inside Manifold, so a model can be moved or re-hosted without your code changing.
+
+Where it is served is a different question, and one you may have to answer to somebody else.
+See [Where your input is processed](#where-your-input-is-processed).
 
 Aliases are the names to use, and the only ones the dashboard allowlist accepts and stores.
 The messages API will also resolve a provider model id the catalog happens to carry, but a
 provider id is the thing an alias exists to insulate you from, so name the alias.
+
+## Where your input is processed
+
+Most aliases are served from within India. Some are not, and a request to one of those is
+processed outside the country. This is a procurement question for a lot of Indian buyers, so it
+is stated per alias rather than left to be asked.
+
+**Served from outside India.** Everything sent to these leaves the country:
+
+| Alias | Where |
+|---|---|
+| `deepseek-r1` | United States |
+| `llama-3-1-8b` | United States |
+| `llama-3-1-70b` | United States |
+| `llama-3-3-70b` | United States |
+| `mistral-small` | United States |
+| `pixtral-large` | United States |
+| `nemotron-super-120b` | United States |
+| `qwen3-coder-next` | United States |
+| `palmyra-vision-7b` | United States |
+
+**Served by a worldwide or regional route.** These are reached through a route that can be
+answered from more than one region, so a request may be processed outside India and we cannot
+tell you in advance which region served it:
+
+| Alias | Route |
+|---|---|
+| `opus-4-6` | Worldwide |
+| `sonnet-4-6` | Worldwide |
+| `haiku-4-5` | Worldwide |
+| `nova-2-lite` | Worldwide |
+| `nova-micro` | Asia-Pacific |
+| `nova-lite` | Asia-Pacific |
+| `nova-pro` | Asia-Pacific |
+
+**Every other alias in the catalog is served from within India.**
+
+<Warning>
+  If you have a DPDP, BFSI or contractual residency obligation, treat the two tables above as
+  the exclusion list and use an alias that is not on them. In particular, **no Claude alias is
+  India-resident**: they are all reached through a worldwide route.
+</Warning>
+
+<Note>
+  We cannot show you which region answered a particular past request. Nothing in the response
+  or the usage log records it. If a security review needs an assurance stronger than the tables
+  above, write to support before you build on it rather than after.
+</Note>
 
 ## The catalog is an endpoint, not a table
 

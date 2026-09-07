@@ -133,10 +133,19 @@ which OpenAI clients ignore.
 
 ## Where your input is processed
 
-Most models in the catalog are served from within India. A few are served from outside it,
-because they are offered nowhere closer, so input sent to those leaves the country. If that
-matters for your data, use `titan-embed-2`, `titan-embed-image`, `embed-english-3`,
-`embed-multilingual-3` or `embed-4`, all of which are served from India.
+Most models in the catalog are served from within India. Some are served from outside it, and
+input sent to those leaves the country.
+
+If that matters for your data, these four are served from India: `titan-embed-2`,
+`titan-embed-image`, `embed-english-3` and `embed-multilingual-3`.
+
+<Warning>
+  **`embed-4` is not one of them.** This page previously listed it as India-served; that was
+  wrong. It is served by a worldwide route, so a request to it may be processed in any region.
+  If you chose `embed-4` on the strength of the earlier wording and residency matters to you,
+  move to one of the four above, and write to support if you need to know what was already
+  sent.
+</Warning>
 
 ## Keys and scopes
 

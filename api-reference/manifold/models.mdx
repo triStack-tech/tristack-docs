@@ -20,14 +20,39 @@ curl https://api.tristack.tech/v1/manifold/models \
 ```json 200 OK, trimmed to four rows
 {
   "models": [
-    { "alias": "nova-micro", "displayName": "Nova Micro",
-      "paisePer1KTokensIn": 0.37, "paisePer1KTokensOut": 1.47 },
-    { "alias": "nova-lite", "displayName": "Nova Lite",
-      "paisePer1KTokensIn": 0.63, "paisePer1KTokensOut": 2.52 },
-    { "alias": "nova-pro", "displayName": "Nova Pro",
-      "paisePer1KTokensIn": 8.4, "paisePer1KTokensOut": 33.59 },
-    { "alias": "mistral-large-3", "displayName": "Mistral Large 3 675B",
-      "paisePer1KTokensIn": 5.25, "paisePer1KTokensOut": 15.74 }
+    {
+      "alias": "nova-lite",
+      "displayName": "Nova Lite",
+      "kind": "text",
+      "paisePer1KTokensIn": 0.63,
+      "paisePer1KTokensOut": 2.52,
+      "paisePerImage": 0, "paisePerVideoSecond": 0,
+      "paisePerAudioSecond": 0, "paisePerRequest": 0,
+      "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "residency": "varies"
+    },
+    {
+      "alias": "mistral-large-3",
+      "displayName": "Mistral Large 3 675B",
+      "kind": "text",
+      "paisePer1KTokensIn": 5.25,
+      "paisePer1KTokensOut": 15.74,
+      "paisePerImage": 0, "paisePerVideoSecond": 0,
+      "paisePerAudioSecond": 0, "paisePerRequest": 0,
+      "modalities": { "input": ["text", "image"], "output": ["text"] },
+      "residency": "india"
+    },
+    {
+      "alias": "titan-embed-2",
+      "displayName": "Titan Embed 2",
+      "kind": "embedding",
+      "paisePer1KTokensIn": 0.25,
+      "paisePer1KTokensOut": 0,
+      "paisePerImage": 0, "paisePerVideoSecond": 0,
+      "paisePerAudioSecond": 0, "paisePerRequest": 0,
+      "modalities": { "input": ["text"], "output": ["vector"] },
+      "residency": "india"
+    }
   ]
 }
 ```
@@ -60,6 +85,39 @@ The real response lists every model the key may call, which is dozens of rows.
       The same for 1000 generated output tokens. Output is dearer than input on almost every
       model, often by four or five times, which is why `max_tokens` moves a bill more than a
       long prompt does.
+    </ResponseField>
+
+    <ResponseField name="kind" type="string">
+      `text` or `embedding`: which route serves this alias. Sending one to the other's
+      endpoint is `400 model_kind_mismatch`, so branch on this rather than on the name.
+    </ResponseField>
+
+    <ResponseField name="paisePerImage" type="number">
+      What you pay per image, for a model billed that way. Always present, `0` on a model
+      that has no such charge, so a client never has to special-case a missing field. The
+      same holds for `paisePerVideoSecond`, `paisePerAudioSecond` and `paisePerRequest`.
+    </ResponseField>
+
+    <ResponseField name="modalities" type="object">
+      What the model accepts and returns: `input` and `output`, each an array of `text`,
+      `image`, `video`, `audio` or `vector`.
+
+      **Read this instead of hard-coding a list.** Whether a model accepts images is the
+      thing clients most often copy into their own code, and that copy is wrong the first
+      time the catalog changes. Sending an image to a model whose `input` lacks `image` is a
+      `400 provider_rejected` in front of your user.
+    </ResponseField>
+
+    <ResponseField name="residency" type="string">
+      Where inference is processed: `india`, `outside_india`, or `varies`.
+
+      `varies` means the alias is reached through a route that can be answered from more than
+      one region, so a request may be processed outside India and we cannot say in advance
+      which region served it. Treat `varies` as "not India-resident" for any obligation you
+      have to meet. Every Claude alias is `varies`.
+
+      See [Where your input is processed](/manifold/models#where-your-input-is-processed) for
+      the per-alias tables and what we can and cannot evidence.
     </ResponseField>
   </Expandable>
 </ResponseField>

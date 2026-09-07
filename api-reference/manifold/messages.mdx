@@ -9,6 +9,22 @@ description: "POST /v1/manifold/messages: every request field, the response, the
   (`max_tokens`, `stop_sequences`, `stop_reason`).
 </Info>
 
+<Warning>
+  **This endpoint is the only snake_case surface on the API, and its error bodies are not.**
+  Worth an explicit heads-up because it costs every strongly-typed client an hour.
+
+  | Where | Casing | Examples |
+  |---|---|---|
+  | This endpoint's request and response | `snake_case` | `max_tokens`, `stop_reason`, `input_tokens` |
+  | `GET /v1/manifold/models`, the wallet, all of Relay | `camelCase` | `displayName`, `paisePer1KTokensIn` |
+  | Error bodies, including this endpoint's | `camelCase` | `requiredPaise`, `requiredScope`, `heldPaise` |
+
+  So a client for this endpoint needs one serializer for the messages shape and another for
+  everything else, error bodies included. The split is historical: the messages endpoint was
+  built to a shape callers already had clients for. It is not being changed, because renaming
+  fields would break every integration written so far for a cosmetic gain.
+</Warning>
+
 Sends a conversation to one model and returns what the model generated. One request, one
 answer, billed to the wallet in paise at the model's own rate.
 
@@ -218,6 +234,22 @@ console.log(body.usage, "cost:", body.cost.paise, "paise");
   honouring both would mean silently choosing between them. Sending both is
   `400 invalid_request`. If you need a schema alongside real tools, declare it as a tool and
   point `tool_choice` at it.
+</ParamField>
+
+<ParamField body="on_truncation" type="string">
+  What to do when generation stops at `max_tokens`: `return` the partial answer as a `200`, or
+  `error` with `422 output_truncated`.
+
+  **The default depends on whether you asked for a format.** A truncated prose answer is a
+  legitimate result, so a plain request defaults to `return` and nothing about it has changed.
+  A request carrying `response_format`, or a `tool_choice` pinned to one tool, defaults to
+  `error`: an object cut off mid-string is not a partial answer, it is an unparseable one, and
+  handing it back as a `200` gives you a value whose only use is to throw.
+
+  Setting it explicitly wins in both directions.
+
+  The `422` carries the partial `content`, the `usage` and the `cost`, because those tokens
+  were really spent. See [`output_truncated`](/platform/errors).
 </ParamField>
 
 ### Content blocks

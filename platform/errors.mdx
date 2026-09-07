@@ -23,6 +23,8 @@ Two fields ride along on specific failures:
 | Extra field | Appears on |
 |---|---|
 | `requiredPaise` | `402 insufficient_balance`, holding what this request needed reserved |
+| `availablePaise`, `heldPaise` | `402 insufficient_balance`. `heldPaise` is what other in-flight requests have reserved, so you can tell an empty wallet from a fully reserved one |
+| `partial_output` fields | `422 output_truncated` carries `content`, `usage` and `cost` alongside the error |
 | `fields` | Validation failures, as an object keyed by field name with a sentence each |
 
 ## What each status means here
@@ -38,7 +40,7 @@ Two fields ride along on specific failures:
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
 | `410` | It existed and is gone: a Relay Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `409` | An `Idempotency-Key` conflict: an earlier request with the same key is still running |
-| `422` | An `Idempotency-Key` was reused for a different request body |
+| `422` | The request was understood but could not be completed as asked: an `Idempotency-Key` reused for a different body, or output truncated before it satisfied a format contract |
 | `429` | Throttled. From the model provider, or from the rate limiter on the dashboard API |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
 | `503` | A product or a payment feature is switched off or half-configured on the deployment. Not your request |
@@ -72,6 +74,7 @@ Two fields ride along on specific failures:
 | `unsupported_input_modality` | 400 | Manifold | Video or audio sent to `/v1/manifold/embeddings`, which is request-and-reply only | Submit it to `POST /v1/manifold/embeddings/jobs` instead |
 | `embedding_job_not_found` | 404 | Manifold | No such embedding job. Another project's job answers identically | Check the id came from this project |
 | `embedding_job_timeout` | n/a | Manifold | Not a response code. A video or audio job that did not finish within 90 minutes is failed with this on the job itself, and the reservation is returned in full | Resubmit, or split a very long file. Nothing was charged |
+| `output_truncated` | 422 | Manifold | Generation hit `max_tokens` before the answer satisfied the format you asked for. Default when `response_format` or a forced `tool_choice` was sent; a truncated prose answer is still a `200`. The body carries the partial `content`, `usage` and `cost`, because the tokens were spent | Raise `max_tokens`, or send `on_truncation: "return"` to receive the partial output as a `200` |
 | `invalid_idempotency_key` | 400 | Manifold | The `Idempotency-Key` header was empty or longer than 255 characters. Refused before anything runs | Send a key of 1 to 255 characters |
 | `idempotency_in_progress` | 409 | Manifold | An earlier request with this key is still running. Its `requestId` is included | Wait for it to finish, then retry with the same key to receive its result. Do not send a new key: that buys a second answer |
 | `idempotency_key_reused` | 422 | Manifold | This key was already used for a request with a different body. Replaying the stored answer would answer a question you did not ask, so it is refused | Use a new key. One key means one request |

@@ -214,8 +214,13 @@ the rest in a terminal. Each step names the error you get if you skip it.
 <ResponseField name="stop_reason" type="string">
   Why generation stopped. `end_turn` means the model finished on its own. Anything else
   means it was cut short, most often because it hit your `max_tokens` or a string from
-  `stop_sequences`. Check this before you treat a reply as complete: a truncated answer is a
-  `200`, not an error.
+  `stop_sequences`. Check this before you treat a reply as complete: a truncated prose answer
+  is a `200`, not an error.
+
+  A request that asked for a **format** is the exception. If you sent `response_format`, or
+  pinned `tool_choice` to one tool, a truncated answer comes back as `422 output_truncated`
+  instead, because an object cut off mid-string cannot satisfy the contract you stated.
+  `on_truncation` overrides that either way.
 </ResponseField>
 
 <ResponseField name="usage" type="object">
