@@ -1,0 +1,98 @@
+---
+title: "Send an OTP"
+api: "POST https://api.tristack.tech/v1/relay/sms/otp"
+description: "Generates a one-time code, sends it by SMS to an Indian mobile, and returns the id you verify against."
+---
+
+Generates the code, fills it into a DLT-approved template, sends it, and stores it hashed. The
+code is **never returned**: the `id` is your only handle on it.
+
+Requires the `relay-sms:send` scope.
+
+## Request
+
+<ParamField body="to" type="string" required>
+  The recipient, an Indian mobile number. `+91 98765 43210`, `91-9876543210`, `09876543210`
+  and `9876543210` are all read as the same number.
+
+  Landlines and numbers outside India are refused: this sends through an Indian operator under
+  an Indian DLT registration.
+</ParamField>
+
+Any other field is **refused**, by name, rather than ignored. A misspelled field that bound
+silently would mean being charged for a message different from the one you asked for.
+
+## Response
+
+<ResponseField name="id" type="string">
+  `sms_` plus 24 hex characters. Pass it to
+  [`/otp/verify`](/api-reference/relay-sms/verify) and to
+  [`/otp/{id}`](/api-reference/relay-sms/status). It is also the reference the wallet ledger
+  records the charge against.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  When the code stops being valid, in UTC. Exact: verification after it answers `expired`.
+</ResponseField>
+
+<ResponseField name="costPaise" type="number">
+  What this call cost. **Zero** when `reused` is true.
+</ResponseField>
+
+<ResponseField name="header" type="string">
+  The sender the recipient saw. Your own registered header if the project has one, otherwise
+  Tristack's. Worth reading: on Tristack's header the message names Tristack rather than your
+  company.
+</ResponseField>
+
+<ResponseField name="reused" type="boolean">
+  True when a code was already live for this number and the request fell inside the resend
+  window, so the existing code's id is returned and **nothing was sent**. False when a new
+  code went out.
+
+  Worth reading rather than ignoring: it is the difference between a charge and no charge.
+</ResponseField>
+
+```json 200 OK
+{
+  "id": "sms_9f3c21a0b5e74d82c1a7f0de",
+  "expiresAt": "2026-09-21T09:10:18Z",
+  "costPaise": 40,
+  "header": "TRISTK",
+  "reused": false
+}
+```
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 400 | `invalid_phone_number` | `to` is not an Indian mobile number | Fix the number |
+| 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
+| 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the Relay SMS tab, or contact support |
+| 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the Relay SMS tab |
+| 400 | `template_variable_too_long` | A value exceeds DLT's 30-character ceiling | Shorten it |
+| 400 | `template_variable_empty` | A placeholder has no value | Fill it on the Relay SMS tab |
+| 400 | `template_variable_invalid` | A value carries a `|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
+| 400 | `template_missing` | No approved template text is configured for this send | Paste it on the Relay SMS tab |
+| 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
+| 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on. No new key needed |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
+| 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
+| 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or offer another route |
+| 429 | `project_volume_capped` | The project is over its hourly or daily message ceiling | Ask for it to be raised |
+| 502 | `dlt_sender_not_approved` | The sender header was refused | Check spelling, letter case and the telemarketer binding. [Guide](/relay-sms/dlt-setup) |
+| 502 | `dlt_template_not_approved` | The content template was refused | The text must match your registration exactly |
+| 502 | `dlt_blacklisted` | The header or template is blacklisted on DLT | Settle it with your operator |
+| 502 | `dlt_content_rejected` | The operator refused the content | Usually a link or an unexpected character |
+| 502 | `provider_rate_limited` | Refused as a repeat to the same number too quickly | Back off |
+| 502 | `provider_error` | Not accepted, for a reason not in this table | Retry, then contact support |
+| 503 | `relay_sms_unavailable` | Off, or unable to send, on this deployment | Contact support. Nothing was charged |
+
+<Note>
+  **Every `502` and `503` is free.** A message that was not accepted for delivery is nobody's
+  to pay for, so the hold is released whole and the balance is untouched.
+
+  In particular, `relay_sms_unavailable` never means your wallet. If your balance were the
+  problem you would get a `402` saying so.
+</Note>

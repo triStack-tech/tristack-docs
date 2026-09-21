@@ -1,0 +1,67 @@
+---
+title: "Check a message"
+api: "GET https://api.tristack.tech/v1/relay/sms/otp/{id}"
+description: "What became of one message: the code's own status, and what the operator did with the SMS."
+---
+
+Free. Requires the `relay-sms:read` scope.
+
+Delivery is reported separately from the code's status because they answer different
+questions. A code can be `verified` while delivery still reads `pending`: people type a code
+in faster than operators report on it.
+
+## Response
+
+<ResponseField name="status" type="string">
+  The code: `pending`, `verified`, `expired`, `exhausted` or `superseded`.
+</ResponseField>
+
+<ResponseField name="header" type="string">
+  The sender the recipient saw, as it was at the time of sending. It does not change if you
+  later edit or remove your registration.
+</ResponseField>
+
+<ResponseField name="delivery" type="object">
+  `status` is one of:
+
+  - `pending` — accepted, no report yet.
+  - `delivered` — it reached the handset.
+  - `failed` — the operator could not deliver it.
+  - `blocked` — the operator refused it outright, most often DLT scrubbing against the content
+    template.
+  - `unknown` — the report was no longer available by the time we asked. A gap in what we can
+    tell you, not a lost message.
+
+  `checkedAt` is when the report was last read, and `detail` carries the operator's own words
+  on a failure, which is the only actionable part of one.
+</ResponseField>
+
+```json 200 OK
+{
+  "id": "sms_9f3c21a0b5e74d82c1a7f0de",
+  "status": "verified",
+  "header": "TRISTK",
+  "createdAt": "2026-09-21T09:00:18Z",
+  "expiresAt": "2026-09-21T09:10:18Z",
+  "costPaise": 40,
+  "delivery": {
+    "status": "delivered",
+    "checkedAt": "2026-09-21T09:02:20Z",
+    "detail": "Delivered successfully"
+  }
+}
+```
+
+<Note>
+  Reports are available for about a week. After that a message that was never resolved settles
+  at `unknown` and stays there.
+</Note>
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with `relay-sms:read` |
+| 404 | `otp_not_found` | No such id for this project | Check the id |
+| 503 | `relay_sms_unavailable` | Off on this deployment | Contact support |

@@ -1,0 +1,47 @@
+---
+title: "Relay SMS pricing"
+description: "What a one-time code by SMS costs, what is free, and what is never charged twice."
+icon: "indian-rupee-sign"
+---
+
+**40 paise per message sent.** One flat rate, whether the message goes out under your own
+header or under Tristack's.
+
+Charged from the same wallet as every other product, with no subscription, no minimum and no
+per-project fee.
+
+## What is not charged
+
+- **Verifying.** Unlimited within the attempt cap, and free.
+- **A resend inside the window.** Asking again for the same number within a minute returns the
+  existing code and sends nothing, so nothing is charged. The response says `"reused": true`.
+- **A refused send.** If the message is not accepted for delivery, the hold is released whole
+  and you are not charged. `costPaise` in the response is what you actually paid.
+- **A refusal before sending.** An invalid number, a rate limit, or a template that cannot be
+  filled all cost nothing, because nothing was sent.
+
+## What is charged even when it does not arrive
+
+A message that is accepted and then dropped by the operator **is** charged. Delivery is
+reported honestly rather than quietly refunded: `GET /v1/relay/sms/otp/{id}` shows
+`delivery.status` as `failed` or `blocked`, and the usage view reports the cost of those
+messages separately so it is visible rather than buried.
+
+The commonest cause on your own header is a template mismatch, which is why Tristack checks the
+rendered message against your registered text before spending anything. See
+[Using your own header](/relay-sms/dlt-setup).
+
+## Unlike Relay WhatsApp, there is no second bill
+
+Relay WhatsApp charges 20 paise and Meta bills you separately for every conversation. Relay
+SMS does not work that way: 40 paise is the whole cost of the message, and no operator or
+aggregator will invoice you for anything.
+
+If you bring your own DLT registration, your operator may charge you for the registration
+itself. That is between you and them and does not reach your Tristack wallet.
+
+## Seeing what you spent
+
+Per-message lines appear in **Usage**, with the sender header as the item, so traffic on your
+own header and traffic on Tristack's are told apart. The rate is also published at
+`GET /api/v1/usage/rates`, so nothing has to hardcode it.

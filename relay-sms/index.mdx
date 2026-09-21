@@ -1,0 +1,138 @@
+---
+title: "Relay SMS"
+description: "One-time codes by SMS to Indian numbers. No DLT registration of your own required: Tristack sends under its own registered header unless you bring yours."
+icon: "message-sms"
+---
+
+Two calls. `POST /v1/relay/sms/otp` sends a code to an Indian mobile, and
+`POST /v1/relay/sms/otp/verify` checks what the person typed. You write no expiry, no attempt
+cap, no resend throttle and no storage.
+
+## You do not need a DLT registration
+
+This is the part that is different from Relay WhatsApp, and it is the reason most people use
+this product.
+
+Sending commercial SMS in India normally means registering as a Principal Entity on an
+operator's DLT portal, getting a sender header approved, registering the exact text of every
+message as a content template, and binding a telemarketer to your entity. It takes weeks and
+costs money before you have sent anything.
+
+With nothing configured, your codes go out under **Tristack's own registered header and
+content template**. There is nothing to set up, and nothing to wait for.
+
+<Warning>
+  The message your recipient reads is Tristack's registered text, and it names **Tristack**,
+  not your company. That is not a limitation we chose: under India's DLT rules a sender header
+  belongs to the entity whose brand it carries, and the brand in a content template has to be
+  the entity that registered it. Nobody can lawfully put your brand on someone else's header.
+
+  If your recipients need to see **your** name, you need your own registration. See
+  [Using your own header](/relay-sms/dlt-setup).
+</Warning>
+
+## Sending a code
+
+```bash
+curl https://api.tristack.tech/v1/relay/sms/otp \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "to": "+919876543210" }'
+```
+
+```json 200 OK
+{
+  "id": "sms_9f3c21a0b5e74d82c1a7f0de",
+  "expiresAt": "2026-09-21T09:10:18Z",
+  "costPaise": 40,
+  "header": "TRISTK",
+  "reused": false
+}
+```
+
+The code is **never returned**. The `id` is your only handle on it, and `header` tells you
+which sender the recipient saw.
+
+## Verifying it
+
+```bash
+curl https://api.tristack.tech/v1/relay/sms/otp/verify \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": "sms_9f3c21a0b5e74d82c1a7f0de", "code": "483920" }'
+```
+
+```json 200 OK
+{ "verified": true }
+```
+
+A failure says which of four things went wrong, because they need four different things said
+to the person waiting:
+
+| `reason` | Means |
+| --- | --- |
+| `incorrect` | Wrong digits. `attemptsRemaining` says how many guesses are left. |
+| `expired` | Past `expiresAt`. Send a new one. |
+| `exhausted` | The attempt cap was reached and the code is dead, even for the right digits. |
+| `superseded` | A newer code was issued for this number, so this one stopped being valid. |
+| `already_verified` | It was used. A code verifies exactly once. |
+
+## Indian mobiles only
+
+`to` must be an Indian mobile number. `+91 98765 43210`, `91-9876543210`, `09876543210` and
+`9876543210` are all read as the same number.
+
+Landlines and numbers outside India are refused with `invalid_phone_number` rather than
+attempted, because this product sends through an Indian operator under an Indian DLT
+registration and has nowhere else to send.
+
+## What protects the code
+
+Not the fact that it is stored hashed, and it is worth being plain about that. Six digits is a
+million possibilities; a hash buys very little against anyone who has the table. What actually
+protects a code is:
+
+- **Five wrong guesses consume it.** Not "the attempt fails": the code dies, so an attacker
+  gets five tries at a million rather than unlimited.
+- **One live code per number.** Asking for a new one invalidates the previous, so nobody can
+  accumulate a pool of valid codes to guess against.
+- **Ten minutes**, exactly, matching what the message itself promises the recipient.
+- **A verified code is consumed immediately** and cannot be presented twice.
+
+## Asking again quickly does not send twice
+
+A second request for the same number inside a minute returns the **existing** code's id,
+sends nothing, and charges nothing. `reused` is `true`.
+
+This is deliberate rather than a refusal: refusing would teach every integration to build a
+retry loop, and the person is waiting for the code they already received. Because nothing is
+sent, it also does not consume any of the limits below.
+
+## Limits
+
+Per recipient, three codes an hour and ten a day. Per project, a burst limiter plus an hourly
+and a daily ceiling on total messages.
+
+The per-project ceilings exist because a flood of codes is not only a cost. Under DLT rules,
+messages sent abusively under a header are the registered entity's problem to answer for, and
+that is worth stopping early rather than explaining afterwards. A refusal answers `429` with
+`rate_limited`, `recipient_rate_limited` or `project_volume_capped`, and the first carries a
+`Retry-After`.
+
+If a ceiling is wrong for your traffic, ask and it will be raised. It is not a pricing tier.
+
+## Did it arrive?
+
+`GET /v1/relay/sms/otp/{id}` reports delivery separately from the code's own status, because
+they answer different questions. A code can be `verified` while delivery still reads `pending`:
+people type a code in faster than operators report on it.
+
+`delivery.status` is one of `pending`, `delivered`, `failed`, `blocked` or `unknown`.
+`blocked` means an operator refused it outright, most often DLT scrubbing against the content
+template. `unknown` means the report was no longer available by the time we asked, which is a
+gap in what we can tell you rather than a lost message.
+
+## What is not in this yet
+
+Bulk and transactional SMS, your own message text per request, more than one template per
+project, scheduled sends, delivery webhooks, and regional-language templates.

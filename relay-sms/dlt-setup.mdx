@@ -1,0 +1,123 @@
+---
+title: "Using your own header"
+description: "How to send one-time codes under your own brand: the DLT registration you need, the telemarketer to bind, and what to paste into Tristack."
+icon: "id-badge"
+---
+
+You only need this page if your recipients must see **your** company name in the sender field.
+With nothing set up, Relay SMS works immediately under Tristack's own registered header. See
+[Relay SMS](/relay-sms/index).
+
+<Note>
+  Everything here happens on your operator's DLT portal, using your own login. Tristack cannot
+  do it for you, and neither can anyone else: a DLT registration is issued to a legal entity
+  after that entity is verified, and the portal has no API and no delegated access.
+</Note>
+
+## The four things you register
+
+On any one operator's DLT portal (Jio, Airtel, Vi, BSNL or Tata):
+
+1. **Your entity.** You are verified as a Principal Entity and given an entity ID.
+2. **Your header.** Six alphabetic characters, related to your own name, brand or line of
+   business. This is what the recipient sees.
+3. **Your content template.** The exact text of the message, with `{#var#}` where the code
+   goes. Operators match every message against this character for character.
+4. **The telemarketer**, below. Without this last step your header is registered and your
+   messages still will not deliver.
+
+Registering an entity, a header and a template propagates to the other operators. **The
+telemarketer binding does not.**
+
+## Binding the telemarketer
+
+Tristack's messages are delivered through a registered telemarketer, and your entity has to
+authorise it before anything sent under your header will go out.
+
+| | |
+| --- | --- |
+| Telemarketer ID | `1702178720558766591` |
+| Registered name | SID GROUPS PRIVATE LIMITED |
+
+On Jio TrueConnect the path is **My Telemarketer → My SMS Telemarketer → New Chain**: search
+for the ID, select it, and create the chain. It will sit at *pending* until it is approved
+from the telemarketer's side, after which you return to **Pending Requests → Action → Approve**
+to finish it. The other portals use different words for the same three steps.
+
+<Warning>
+  **Do this on every operator's portal whose subscribers you need to reach.** Entity, header
+  and template registration propagates between operators; this binding does not.
+
+  A customer who binds only Jio sees messages to Jio numbers arrive and messages to Airtel
+  numbers fail, with no error on our side and nothing in the delivery report to explain it. It
+  looks exactly like a fault at Tristack, and it is the single most common reason a
+  bring-your-own-header setup half works.
+</Warning>
+
+## Writing the template
+
+A few rules that are not obvious and that cause most rejections:
+
+- The placeholder is written `{#var#}`, lower case. Some portals show it as `{#number#}`.
+  Either is fine; what matters is that you paste the text **exactly as your portal shows it**.
+- Your brand name must appear in the fixed text. It cannot be a variable.
+- A variable cannot exceed 30 characters, and most of the message has to be fixed text.
+- No double spaces, no curly quotation marks, and no link unless you have whitelisted it.
+- Register it as **Service Implicit**. That is the category one-time codes belong in for a
+  non-bank sender, and it reaches numbers registered on Do Not Disturb. A template registered
+  as promotional will have most of its messages filtered.
+
+A workable shape:
+
+```text
+{#var#} is your verification code for Acme. It is valid for 10 minutes. Do not share it with anyone. - Acme Fintech
+```
+
+<Note>
+  If your template promises a validity, it has to be **ten minutes**, because that is how long
+  a Relay SMS code lives. The text cannot be changed later without re-registering the template,
+  so it is worth getting right the first time.
+</Note>
+
+## Putting it into Tristack
+
+Open the project's **Relay SMS** tab and paste in four values: the entity ID, the registered
+entity name, the header, the content template ID, and the approved text.
+
+Paste the text rather than typing it. Every message is rendered from it and checked before
+anything is charged, because an operator drops a message whose text does not match the
+registration and that message is still billed. The screen shows you the finished sentence a
+recipient will read, which is the quickest way to notice a wrong placeholder.
+
+Then press **Start using my header**. Your messages switch to your own header on the next
+send. There is no waiting period.
+
+## What the statuses mean
+
+| Status | What it means |
+| --- | --- |
+| `draft` | Saved but not in use. Messages still go out under Tristack's header. |
+| `ready` | In use. Your header is on every message from this project. |
+| `verified` | Your template is now validated before each send, so a mismatch is refused rather than charged for. |
+| `rejected` | Not accepted. Messages have fallen back to Tristack's header, so nothing has stopped working. The reason is shown on the tab. |
+| `suspended` | Stopped. Messages have fallen back to Tristack's header. |
+
+The fallback is deliberate. A problem with your registration should cost you your branding for
+a while, not your ability to sign people in.
+
+## When something does not deliver
+
+| `code` | Means | What to do |
+| --- | --- | --- |
+| `dlt_sender_not_approved` | The header was refused. | Check spelling and letter case against your portal, and that the telemarketer binding is approved rather than pending. |
+| `dlt_template_not_approved` | The template was refused. | The text in Tristack must match your registered template exactly. Re-copy it. |
+| `dlt_blacklisted` | The header or template is blacklisted on DLT. | This is settled with your operator. Messages will keep failing until it is. |
+| `dlt_content_rejected` | The operator refused the content. | Usually a link, an unexpected character, or a word on a blocked list. |
+
+Editing and saving the registration again returns it to `draft`, because a changed header or
+template is a different registration and the previous approval cannot carry across.
+
+## Changing your mind
+
+Remove the registration and messages go back to Tristack's header on the next send. Nothing
+else changes: the same endpoints, the same keys, the same prices.

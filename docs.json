@@ -95,6 +95,15 @@
                   "relay-whatsapp/meta-setup",
                   "relay-whatsapp/pricing"
                 ]
+              },
+              {
+                "group": "Relay SMS",
+                "icon": "message-sms",
+                "pages": [
+                  "relay-sms/index",
+                  "relay-sms/dlt-setup",
+                  "relay-sms/pricing"
+                ]
               }
             ]
           },
@@ -152,6 +161,14 @@
                 "pages": [
                   "api-reference/relay-whatsapp/otp",
                   "api-reference/relay-whatsapp/verify"
+                ]
+              },
+              {
+                "group": "Relay SMS",
+                "pages": [
+                  "api-reference/relay-sms/otp",
+                  "api-reference/relay-sms/verify",
+                  "api-reference/relay-sms/status"
                 ]
               }
             ]

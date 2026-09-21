@@ -1,0 +1,63 @@
+---
+title: "Verify an OTP"
+api: "POST https://api.tristack.tech/v1/relay/sms/otp/verify"
+description: "Checks the code the person typed against the id the send returned. Free, and unlimited within the attempt cap."
+---
+
+Free. Charged nothing, however many times it is called, until the attempt cap consumes the
+code.
+
+Requires the `relay-sms:verify` scope, which is separate from `relay-sms:send` on purpose: a
+front end that checks codes needs this one and not the one that spends money.
+
+## Request
+
+<ParamField body="id" type="string" required>
+  The `id` the send returned.
+</ParamField>
+
+<ParamField body="code" type="string" required>
+  What the person typed.
+</ParamField>
+
+## Response
+
+<ResponseField name="verified" type="boolean">
+  True exactly once per code. A verified code is consumed immediately and cannot be presented
+  again.
+</ResponseField>
+
+<ResponseField name="reason" type="string">
+  Absent when `verified` is true. Otherwise one of `incorrect`, `expired`, `exhausted`,
+  `superseded` or `already_verified`.
+</ResponseField>
+
+<ResponseField name="attemptsRemaining" type="number">
+  Present on `incorrect`. Guesses left before the code is consumed. It reaches `0` with
+  `exhausted`, at which point even the right digits will not verify.
+</ResponseField>
+
+```json 200 OK
+{ "verified": true }
+```
+
+```json 200 OK
+{ "verified": false, "reason": "incorrect", "attemptsRemaining": 3 }
+```
+
+## A wrong code is a 200, not an error
+
+A wrong guess is an ordinary outcome of a working system, not a failure of the request, so it
+answers `200` with `verified: false`. The status codes below are reserved for requests that
+could not be processed at all.
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 400 | `invalid_request` | `id` or `code` is missing | Send both |
+| 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it |
+| 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with `relay-sms:verify` |
+| 404 | `otp_not_found` | No such id **for this project** | Check the id. Another project's id reads the same as one that never existed |
+| 503 | `relay_sms_unavailable` | Off on this deployment | Contact support |
