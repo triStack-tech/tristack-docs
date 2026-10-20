@@ -199,6 +199,7 @@ window opens.
 |---|---|---|---|
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key. Every key it owns is refused. | Write to hello@tristack.tech. |
 | 403 | `wallet_topup_disabled` | The project's keys are not allowed to open the top-up window. It is off on every new project. | Switch on "Allow this project's keys to open the top-up window" in the dashboard, under that project's settings. |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 403 | `origin_not_allowed` | `origin` is not on the project's list, or is not a usable origin at all: it carries a path, a query, a fragment or credentials, or it is plain `http` on something that is not localhost. | Add the exact origin in the dashboard, under the project's settings, and send scheme and host with no path. The `error` sentence quotes back what you sent. |

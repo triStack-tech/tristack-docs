@@ -1,17 +1,17 @@
 ---
-title: "Manifold"
-description: "One HTTP API for language models: send messages, name a model by alias, read generated text back, priced per token in paise."
+title: "Manifold AI"
+description: "Manifold AI is one HTTP API for language models: send messages, name a model by alias, read generated text back, priced per token in paise."
 sidebarTitle: "Overview"
 icon: "brain"
 ---
 
-Manifold is the language-model half of Tristack. You send messages, name a model by alias,
+Manifold AI is Tristack's platform for language models. You send messages, name a model by alias,
 and get generated text back, either as one JSON body or as a stream of deltas. Every
 response carries the tokens it used and what it cost, to the paise.
 
-The other product, [Relay Voice](/relay-voice/index), telephones people. Nothing on this
-page rings a phone, and nothing Manifold returns is spoken aloud unless you send that text
-to Relay Voice yourself.
+Tristack's messaging platform, [Tristack CPaaS](/relay/index), is the one that reaches people,
+for example by telephone. Nothing on this page rings a phone, and nothing Manifold returns is
+spoken aloud unless you send that text to the [Voice channel](/relay-voice/index) yourself.
 
 ## One request, start to finish
 
@@ -84,8 +84,8 @@ It is not the right tool for image generation, audio transcription or fine-tunin
 ## What a call needs
 
 <Steps>
-  <Step title="A project with Manifold switched on">
-    The switch is per project and off until you turn it on. A key on a project without it
+  <Step title="A project with Manifold AI switched on">
+    The **Manifold AI** switch is per project and off until you turn it on. A key on a project without it
     authenticates correctly and still answers `403 manifold_disabled`.
   </Step>
 
@@ -97,7 +97,7 @@ It is not the right tool for image generation, audio transcription or fine-tunin
   </Step>
 
   <Step title="A wallet with enough balance">
-    One prepaid wallet per account, shared with Relay Voice. Too little for the estimated
+    One prepaid wallet per account, shared with Tristack CPaaS. Too little for the estimated
     cost of the call and you get `402 insufficient_balance` before any model runs, which
     costs nothing.
 
@@ -118,6 +118,7 @@ It is not the right tool for image generation, audio transcription or fine-tunin
 |---|---|
 | `POST /v1/manifold/messages` | Sends messages and returns generated text, streamed or whole. |
 | `GET /v1/manifold/models` | Lists the models this key may call, with their per-token prices. |
+| `POST /v1/manifold/embeddings` | Turns text or an image into vectors. Video and audio go through `POST /v1/manifold/embeddings/jobs`. |
 
 Base URL `https://api.tristack.tech`. Every Manifold error is JSON carrying a human
 sentence in `error` and a stable `code` in snake_case to branch on, whatever the status.

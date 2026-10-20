@@ -115,7 +115,7 @@ floor it should be measured against is the minimum top-up again.
   `lowBalance: false` is not a promise that your next request will be admitted, and
   `lowBalance: true` is not a refusal. The wallet holds the **estimate** of a request before
   the work starts, so a balance that comfortably covers your usual call can still answer
-  `402 insufficient_balance` when `max_tokens` is large or a Relay Voice job has many
+  `402 insufficient_balance` when `max_tokens` is large or a Voice job has many
   recipients. Treat this field as the cue to offer a top-up, not as an admission check.
 </Warning>
 
@@ -141,7 +141,7 @@ floor it should be measured against is the minimum top-up again.
 
   <Accordion title="No product gate" icon="toggle-on">
     Any live or test key on an unarchived project can read this, whatever the project's
-    Manifold and Relay Voice switches say. It also does not need the embedded top-up switch
+    Manifold AI and CPaaS switches say. It also does not need the embedded top-up switch
     that [minting a window](/api-reference/wallet/topup-sessions) requires: a balance you
     cannot act on is still a balance worth showing.
   </Accordion>
@@ -173,6 +173,7 @@ floor it should be measured against is the minimum top-up again.
 |---|---|---|---|
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key. Every key it owns is refused. | Write to hello@tristack.tech. |
 
 There is no `503` here. The read touches no payment provider, so it answers the same whether
 or not payments are configured on the deployment. Reading the balance costs nothing and moves

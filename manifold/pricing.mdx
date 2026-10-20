@@ -1,17 +1,17 @@
 ---
-title: "Manifold pricing"
-description: "How a Manifold call is priced end to end: the token estimate, the wallet hold, settlement at real usage, and the release, worked through in paise."
+title: "Manifold AI pricing"
+description: "How a Manifold AI call is priced end to end: the token estimate, the wallet hold, settlement at real usage, and the release, worked through in paise."
 sidebarTitle: "Pricing"
 icon: "wallet"
 ---
 
-Manifold is metered per token against a prepaid wallet. Nothing is invoiced monthly and
+A Manifold AI message is metered per token against a prepaid wallet. Nothing is invoiced monthly and
 nothing is charged by the request: you pay for the tokens a call actually used, at the
 model's own rate, and the response tells you what that came to.
 
 ## The short version
 
-- One **prepaid wallet per account**, shared by every project and by Relay Voice.
+- One **prepaid wallet per account**, shared by every project and by Tristack CPaaS.
 - Everything is an **integer in paise**. Rs 1 is `100`. No rupee floats anywhere.
 - Before a call, an **estimate is held**. After it, the **real usage is settled** and the
   rest of the hold comes back.
@@ -173,7 +173,7 @@ amount actually taken. On a funded wallet the two always agree.
 
 | Outcome | Charge |
 |---|---|
-| Rejected before the hold: `invalid_api_key`, `project_archived`, `manifold_disabled`, `invalid_request`, `unknown_model`, `model_not_allowed` | 0. The wallet is never touched. |
+| Rejected before the hold: `invalid_api_key`, `account_disabled`, `project_archived`, `manifold_disabled`, `invalid_request`, `unknown_model`, `model_not_allowed` | 0. The wallet is never touched. |
 | `insufficient_balance` | 0. The hold could not be placed, so no model ran. |
 | `provider_throttled`, `provider_rejected`, `model_access_denied`, `provider_error` | 0. The hold is released in full. |
 | A stream that fails mid-way with an `error` event | 0. The hold is released in full. |

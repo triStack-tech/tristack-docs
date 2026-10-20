@@ -4,8 +4,8 @@ description: "Why the project is the boundary, how product switches, wallet top-
 ---
 
 An account holds the money. A **project** holds everything else: the API keys, the product
-switches, the model allowlist, the usage figures, the caller-id number Relay Voice dials
-from, and whether its keys may open a top-up window for that money. Every product request
+switches, the model allowlist, the usage figures, the number its Voice calls come from, and
+whether its keys may open a top-up window for that money. Every product request
 resolves to exactly one project, through the key it was authenticated with.
 
 ## What belongs to what
@@ -16,9 +16,10 @@ resolves to exactly one project, through the key it was authenticated with.
 | Email, password, sign-in | Yes | No |
 | Recordings (`aud_…`) reusable across projects | Yes | No |
 | API keys | No | Yes |
-| Manifold and Relay Voice switches | No | Yes |
-| Manifold model allowlist | No | Yes |
-| Relay Voice caller-id number | No | Yes |
+| Manifold AI and CPaaS channel switches | No | Yes |
+| Manifold AI model allowlist | No | Yes |
+| Rented phone numbers | Yes | No |
+| Which number Voice calls come from | No | Yes |
 | Wallet top-up switch and allowed origins | No | Yes |
 | Usage rows and cost attribution | No | Yes |
 
@@ -36,8 +37,8 @@ Splitting work across projects buys you four things that an account alone cannot
   </Accordion>
 
   <Accordion title="Product access you can withhold" icon="toggle-off">
-    A staging project can have Manifold on and Relay Voice off. The key still authenticates
-    against Relay Voice and is then refused with `403 relay_voice_disabled` before anything
+    A staging project can have Manifold AI on and Voice off. The key still authenticates
+    against Voice and is then refused with `403 relay_voice_disabled` before anything
     is dialed, so a misrouted staging job cannot telephone real customers.
   </Accordion>
 
@@ -56,22 +57,26 @@ Splitting work across projects buys you four things that an account alone cannot
 
 ## Product switches
 
-Both products are off when a project is created. Each has its own switch, and they are
-unrelated to each other.
+Manifold AI and every Tristack CPaaS channel are off when a project is created. Each has its
+own switch, and they are unrelated to each other.
 
 | Switch | Gates | Refusal when off |
 |---|---|---|
-| Manifold | `POST /v1/manifold/messages`, `GET /v1/manifold/models` | `403 manifold_disabled` |
-| Relay Voice | `POST /v1/relay/voice` and the other `/v1/relay/voice` routes | `403 relay_voice_disabled` |
+| Manifold AI | `POST /v1/manifold/messages`, `GET /v1/manifold/models`, `/v1/manifold/embeddings` | `403 manifold_disabled` |
+| Voice | `POST /v1/relay/voice` and the other `/v1/relay/voice` routes | `403 relay_voice_disabled` |
+| Email | `/v1/relay/email` and its domain, template and suppression routes | `403 relay_email_disabled` |
+| WhatsApp | `/v1/relay/whatsapp/otp` and `/otp/verify` | `403 relay_whatsapp_disabled` |
+| SMS | `/v1/relay/sms/otp`, `/otp/verify` and `/otp/{id}` | `403 relay_sms_disabled` |
 
 A switch takes effect on the next request. Existing keys keep working, and you never need to
 mint a new one after flipping one.
 
 <Warning>
-  **Switching Relay Voice on for the first time charges the project Rs 200 (20000 paise).**
-  The fee rents that project its own caller-id number, which is why it is per project and not
-  per account: a second project is a second number and a second fee. Switching Relay Voice
-  off and on again in the same project is free, because the number stays rented either way.
+  **Switching Voice on for the first time charges the project Rs 200 (20000 paise).** It is a
+  one-time activation fee, not a phone number: it pays for the project's place on the shared
+  outbound line and its registration with the carriers, which is why it is per project and not
+  per account. A second project pays a second fee. Switching Voice off and on again in the same
+  project is free.
 
   The charge runs **before** the switch is set. A wallet that cannot cover it answers
   `402 insufficient_balance` with `requiredPaise: 20000` and leaves the project untouched, so
@@ -164,7 +169,7 @@ production secrets, because to the API they are identical.
 
 ### Using one
 
-Either header works, on both products. Pick one and keep it:
+Either header works, on Manifold AI and every CPaaS channel. Pick one and keep it:
 
 <CodeGroup>
 ```bash Authorization
@@ -197,7 +202,7 @@ revoked" reply would confirm to whoever holds a leaked token that it was once re
 information worth having only to the person who should not have it.
 
 Revoking a second time answers `404`, as does a key id from another project. In-flight work
-is not cancelled: a Relay Voice job already accepted keeps dialing, because the calls were
+is not cancelled: a Voice job already accepted keeps dialing, because the calls were
 authorized when the job was created.
 
 <Tip>
@@ -212,8 +217,8 @@ A key can be given **scopes**: the specific things it is allowed to do. A key wi
 everything the project has switched on, which is what every key created before scopes existed
 still does.
 
-Scopes only ever take access away. A key scoped `relay-email:send` on a project where Relay
-Email is switched off still gets `relay_email_disabled`: the product switch decides what the
+Scopes only ever take access away. A key scoped `relay-email:send` on a project where Email
+is switched off still gets `relay_email_disabled`: the product switch decides what the
 project can do, and the scope decides which part of that this key may reach.
 
 | Scope | Lets the key |
@@ -289,11 +294,17 @@ Archiving is the off switch for a whole project.
   <Step title="Every key on it stops working, immediately">
     Requests answer `401` `{ "error": "This project is archived.", "code": "project_archived" }`.
     The check runs during authentication, before any product gate, so it is what you see even
-    on a project that had Manifold or Relay Voice switched on.
+    on a project that had Manifold AI or a CPaaS channel switched on.
+  </Step>
+  <Step title="Queued Voice calls stop">
+    A Voice job accepted before the archive checks before every call it places. The calls not
+    yet placed end `Cancelled`, calls already ringing finish, and the job ends `Failed` with
+    `error: "project_archived"`. The speech charge stands, because the recording was made; the
+    calls cost nothing. A `callbackUrl` on the job still receives the final status.
   </Step>
   <Step title="Nothing is deleted">
     The project, its keys, its usage rows and its ledger entries stay exactly as they were.
-    Keys are not revoked, and the Relay Voice activation fee is not charged again.
+    Keys are not revoked, and the Voice activation fee is not charged again.
   </Step>
   <Step title="It is reversible">
     Unarchive the project and the same keys start working again on the next request, with the
@@ -316,6 +327,14 @@ curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
 Reach for archiving when a project is finished or compromised and you want it stopped in one
 move. Reach for revocation when one credential leaked and the project should carry on.
 
+<Note>
+  **When Tristack disables an account.** Every key the account owns is refused with
+  `403 account_disabled`, ahead of the archived check, and signing in to the dashboard is
+  refused too. Voice jobs already queued stop before their next call in the same way as
+  above, ending with `error: "account_disabled"`, and video or audio embedding jobs end
+  `failed` with that code and nothing charged. Write to hello@tristack.tech.
+</Note>
+
 ## The dashboard API, for automation
 
 These routes are what the dashboard itself calls. They use your account session (a JWT), not
@@ -328,14 +347,16 @@ curl -X POST https://api.tristack.tech/api/v1/account/login \
 ```
 
 The `token` in the response is the JWT the calls below expect, and it is valid for 24 hours.
-Everything under `/api/v1/account` is rate limited to 10 requests per minute per caller IP.
+Signing in, registering and the password and verification routes under `/api/v1/account` are
+rate limited to 10 requests per minute per caller IP; the signed-in routes are not.
+[Rate limits →](/platform/errors#rate-limits)
 
 | Route | Method | Does |
 |---|---|---|
 | `/api/v1/projects` | `GET` | List your projects |
 | `/api/v1/projects` | `POST` | Create one: `{ "name": "…" }` |
 | `/api/v1/projects/{id}` | `GET` | Read one |
-| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `walletTopUpEnabled`, `topUpAllowedOrigins`, `archived`. Omitted fields are unchanged, and `topUpAllowedOrigins` replaces the whole list rather than merging |
+| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `relayVoiceSpeed`, `relayEmailEnabled`, `relayWhatsAppEnabled`, `requireScopedKeys`, `walletTopUpEnabled`, `topUpAllowedOrigins`, `archived`. Omitted fields are unchanged, and `topUpAllowedOrigins` replaces the whole list rather than merging |
 | `/api/v1/projects/{id}/keys` | `POST` | Create a key: `{ "name": "…", "mode": "live" }` |
 | `/api/v1/projects/{id}/keys` | `GET` | List keys, without tokens |
 | `/api/v1/projects/{id}/keys/{keyId}` | `DELETE` | Revoke a key |
