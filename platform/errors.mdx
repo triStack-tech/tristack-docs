@@ -1,10 +1,10 @@
 ---
 title: "Errors"
-description: "The error envelope, what each HTTP status means on this API, and every documented code across Manifold, Relay Voice and the wallet with what to do about it."
+description: "The error envelope, what each HTTP status means on this API, and every documented code across Manifold AI, Tristack CPaaS and the wallet with what to do about it."
 ---
 
-Every failure from either product answers with the same JSON envelope, so one handler covers
-the whole API.
+Every failure from Manifold AI and from every Tristack CPaaS channel answers with the same
+JSON envelope, so one handler covers the whole API.
 
 ```json
 {
@@ -32,18 +32,18 @@ Two fields ride along on specific failures:
 | Status | Meaning on this API |
 |---|---|
 | `200` | Done. Manifold returns the completion; the dashboard API returns the resource |
-| `202` | Accepted, not finished. Only Relay Voice sends this: the calls have not been dialed yet |
+| `202` | Accepted, not finished: a Voice job whose calls have not been dialed yet, an Email send or batch the provider has accepted, or a Manifold embedding job still running |
 | `400` | The request is wrong. Nothing was charged. Retrying it unchanged fails the same way |
-| `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, or a top-up session permit that is none of ours |
+| `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, a dashboard session that has expired or whose account has been disabled, or a top-up session permit that is none of ours |
 | `402` | The wallet cannot cover the estimate. Checked before any provider is called |
-| `403` | The credential is fine, but this is not permitted: a product switch, an allowlist, or a gate a payment has to clear first |
+| `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
-| `410` | It existed and is gone: a Relay Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
+| `410` | It existed and is gone: a Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `409` | An `Idempotency-Key` conflict: an earlier request with the same key is still running |
 | `422` | The request was understood but could not be completed as asked: an `Idempotency-Key` reused for a different body, or output truncated before it satisfied a format contract |
-| `429` | Throttled. From the model provider, or from the rate limiter on the dashboard API |
+| `429` | Throttled. From the model provider, from a CPaaS channel's own send limits, or from the rate limiter on the dashboard API's sign-in routes |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
-| `503` | A product or a payment feature is switched off or half-configured on the deployment. Not your request |
+| `503` | A product, a channel or a payment feature is switched off or half-configured on the deployment. Not your request |
 
 <Note>
   A `404` for a resource that belongs to another account is deliberate and not a bug. Telling
@@ -55,19 +55,20 @@ Two fields ride along on specific failures:
 
 | `code` | Status | Product | What happened | What to do |
 |---|:---:|---|---|---|
-| `invalid_api_key` | 401 | Both | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
-| `insufficient_scope` | 403 | Both | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
-| `project_archived` | 401 | Both | The key's project is archived. Checked before any product gate | Unarchive the project, or use a key from an active one |
-| `invalid_request` | 400 | Both | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Relay Voice is `camelCase` |
-| `insufficient_balance` | 402 | Both | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
+| `invalid_api_key` | 401 | All | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
+| `account_disabled` | 403 | All | Tristack has disabled the account that owns the key. Every key the account owns is refused, before the project and product checks, so this is the answer even on an archived project. The dashboard refuses the account's sign-in the same way | Write to hello@tristack.tech. A new key will not help: it belongs to the same account |
+| `insufficient_scope` | 403 | All | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
+| `project_archived` | 401 | All | The key's project is archived. Checked before any product gate. Voice jobs already queued on the project stop before their next call: see [failures that are not status codes](#failures-that-are-not-status-codes) | Unarchive the project, or use a key from an active one |
+| `invalid_request` | 400 | All | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Tristack CPaaS is `camelCase` |
+| `insufficient_balance` | 402 | All | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
 | `manifold_disabled` | 403 | Manifold | Manifold is not switched on for this project | Turn the switch on. It applies to the next request, with no new key |
-| `unsupported_field` | 400 | Manifold | The body carried a top-level field this endpoint does not accept. It is refused rather than ignored, so nothing is billed for an answer to a request that was not the one you sent. `error` names the field and suggests a near match | Remove the field, or fix the spelling |
+| `unsupported_field` | 400 | Manifold, SMS | The body carried a top-level field this endpoint does not accept. It is refused rather than ignored, so nothing is billed for an answer to a request that was not the one you sent. `error` names the field and suggests a near match | Remove the field, or fix the spelling |
 | `unknown_model` | 400 | Manifold | `model` is neither a known alias nor a catalog model id, or it is one the platform cannot serve. Both answer identically | Copy an alias from `GET /v1/manifold/models`, which lists exactly what this key can call |
 | `model_not_allowed` | 403 | Manifold | The model is real and servable, but this project's allowlist does not carry it. Refused before the hold | Add the alias under the project's model settings, or call one that is on the list |
 | `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
 | `model_access_denied` | 403 | Manifold | The platform is not entitled to serve this model. The hold is released in full | Use another alias. Nothing was charged |
 | `provider_throttled` | 429 | Manifold | The model provider is throttling. Not a Tristack rate limit | Retry with exponential backoff and jitter |
-| `provider_error` | 502 | Manifold | Any other provider failure. The hold is released, with one exception: a large embeddings batch that failed part-way settles for the vectors it did produce | Retry. If it persists, send support the `mfr_…` or `emb_…` id |
+| `provider_error` | 502 | All | Any other provider failure: the model provider, the mail provider, the SMS operator or the number provider. The hold is released, with one exception: a large embeddings batch that failed part-way settles for the vectors it did produce | Retry. If it persists, send support the id from the response (`mfr_…`, `emb_…`, `rle_…` or `sms_…`) |
 | `model_kind_mismatch` | 400 | Manifold | The alias is real but belongs to the other surface: an embedding model sent to `/v1/manifold/messages`, or a chat model sent to `/v1/manifold/embeddings` | Send it to the route that serves it. `GET /v1/manifold/models` reports each alias's `kind` |
 | `invalid_input` | 400 | Manifold | `input` on an embeddings request is missing, empty, or neither a string nor an array | Send a non-empty string, or an array of them |
 | `input_too_large` | 400 | Manifold | Beyond 2048 inputs, 8 MB in one request, or the model's own shorter input limit. Refused before the hold | Split the batch. Nothing was charged |
@@ -79,47 +80,86 @@ Two fields ride along on specific failures:
 | `idempotency_in_progress` | 409 | Manifold | An earlier request with this key is still running. Its `requestId` is included | Wait for it to finish, then retry with the same key to receive its result. Do not send a new key: that buys a second answer |
 | `idempotency_key_reused` | 422 | Manifold | This key was already used for a request with a different body. Replaying the stored answer would answer a question you did not ask, so it is refused | Use a new key. One key means one request |
 | `idempotency_replay_failed` | 409 | Manifold | The first request's result could not be replayed | Send support the `mfr_…` id from the response |
-| `relay_voice_disabled` | 403 | Relay Voice | Relay Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
-| `relay_voice_unavailable` | 503 | Relay Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
-| `compliance_required` | 403 | Relay Voice | The account has no accepted business verification, so it cannot rent a number | Submit your incorporation and GST certificates. Once per account, not per project |
-| `compliance_pending` | 409 | Relay Voice | A verification is already under review | Wait for the outcome. A person reviews it, normally within a few days |
-| `compliance_exists` | 409 | Relay Voice | The account is already verified | Nothing to do. Go straight to searching for a number |
-| `document_too_large` | 400 | Relay Voice | A verification document is over 5 MB | Send a smaller scan. This is refused before anything is forwarded, so nothing was uploaded |
-| `unsupported_document_type` | 400 | Relay Voice | A verification document is not a PDF, JPEG or PNG | Convert it and submit again |
-| `number_unavailable` | 409 | Relay Voice | The number was taken between your search and your purchase | Search again and pick another. The wallet hold is released, so nothing was charged |
-| `invalid_phone_number` | 400 | Relay Voice | A number in `to` is not a dialable Indian mobile. `error` names the index and the value you sent | Drop or correct it. Landlines and foreign numbers are refused |
-| `unknown_voice` | 400 | Relay Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
-| `invalid_audio_id` | 400 | Relay Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
-| `audio_not_found` | 404 | Relay Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
-| `relay_email_disabled` | 403 | Relay Email | Relay Email is not switched on for this project | Turn the switch on in the project's Relay Email tab. Enabling costs nothing |
-| `recipient_domain_undeliverable` | 400 | Relay Email | A recipient domain publishes no mail exchanger and no address record, or is reserved for documentation (`example.com`, anything ending `.test` or `.invalid`). Refused before anything is charged, because it would certainly bounce | Use a real address. To test, send to a [simulator address](/relay-email/testing) |
-| `simulator_recipient_mixed` | 400 | Relay Email | One message addressed to both a simulator address and a real one. Nothing is sent for a simulator address, so the message would be half sent and half invented | Send them as two requests |
-| `unknown_simulator_address` | 400 | Relay Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/relay-email/testing) |
-| `relay_email_unavailable` | 503 | Relay Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
-| `from_domain_not_verified` | 400 | Relay Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the Relay Email tab, and check the whole domain rather than the address |
-| `invalid_domain` | 400 | Relay Email | Not a domain anyone can send from. Email addresses, bare TLDs, public suffixes and IP addresses are refused | Send `yourdomain.com` or a subdomain such as `mail.yourdomain.com` |
-| `domain_taken` | 409 | Relay Email | Another project already holds this domain. Which one is deliberately not disclosed | Remove it from your other project, or contact support if you believe it is yours |
-| `domain_limit_reached` | 409 | Relay Email | This project already holds 25 domains, counting unverified ones | Remove one you are not using. Unverified claims expire after seven days |
-| `domain_not_found` | 404 | Relay Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/relay/email/domains` |
-| `invalid_address` | 400 | Relay Email | An address in `from`, `to`, `cc`, `bcc` or `replyTo` did not parse | Correct it. `error` names what failed |
-| `no_recipients` | 400 | Relay Email | `to`, `cc` and `bcc` were all empty | Supply at least one recipient |
-| `empty_body` | 400 | Relay Email | Neither `text` nor `html` was supplied | Send at least one of them |
-| `header_injection` | 400 | Relay Email | A carriage return or line feed appeared in `from`, `fromName`, `replyTo` or `subject`. Refused outright, never stripped, because stripping it silently would let a crafted value forge headers | Strip newlines from user input before putting it in a header |
-| `subject_too_long` | 400 | Relay Email | `subject` is over 998 characters, the limit the mail standard sets for a header line | Shorten it |
-| `message_too_large` | 400 | Relay Email | Over 10 MB **once encoded**. Base64 adds about a third to every attachment, so a 9 MB file is roughly 12 MB on the wire | Send a smaller file. `error` states the encoded size, which is the figure the limit is about |
-| `too_many_attachments` | 400 | Relay Email | More than 10 files on one message | Send fewer, or split the message |
-| `invalid_attachment` | 400 | Relay Email | An attachment is missing a filename or its content, declares something that is not a `type/subtype` media type, has a `contentId` that cannot go in a header, or its `content` is not valid base64 | `error` names the index and what is wrong. A `data:` prefix left on the base64 is the usual cause |
-| `attachment_type_not_allowed` | 400 | Relay Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar` | Host the file and send a link. Most mail providers reject executable attachments anyway |
-| `invalid_header` | 400 | Relay Email | A `headers` key is not `X-` prefixed, or a name or value carried a line break. Anything else would let a caller forge `From`, `Received`, `Return-Path` or `DKIM-Signature` on a domain we sign | Prefix your own headers with `X-` |
-| `invalid_tag` | 400 | Relay Email | A `tags` key or value used something outside letters, digits, underscores and dashes, or was empty. Refused rather than dropped, because the provider rejects the whole send over one bad tag | Use `campaign` / `receipts_2026-08` style tokens |
-| `audio_unavailable` | 410 | Relay Voice | The recording is known but its stored file is gone | Send the text again. You get the **same** `audioId` back, so nothing in your database needs updating. The per-character synthesis charge does apply again, because the file had to be re-made |
-| `invalid_callback_url` | 400 | Relay Voice | `callbackUrl` is not an absolute https URL | Use https. Plain http is refused because the body lists who was called |
-| `text_rejected` | 502 | Relay Voice | The speech provider would not synthesize this text, on length or content. The hold is released | Shorten or reword it. Nothing was charged |
-| `voice_unavailable` | 502 | Relay Voice | The voice or synthesis model no longer exists at the speech provider. The hold is released | Pick another voice and tell support. This is an operator problem |
-| `speech_provider_unauthorized` | 502 | Relay Voice | The speech provider rejected our credentials. The hold is released | Nothing you can fix. Contact support |
-| `speech_quota_exhausted` | 502 | Relay Voice | The speech provider's quota is spent. The hold is released | Retry later, and tell support |
-| `speech_provider_throttled` | 502 | Relay Voice | The speech provider is rate limiting. The hold is released | Retry shortly with backoff |
-| `speech_provider_error` | 502 | Relay Voice | Any other synthesis failure, including an unreachable provider. The hold is released | Retry. If it persists, contact support |
+| `relay_voice_disabled` | 403 | Voice | Voice is not switched on for this project | Turn the switch on. The first time on a project costs Rs 200 |
+| `relay_voice_unavailable` | 503 | Voice | The operator switched the product off, or the deployment is missing a public base URL, call credentials, speech credentials or any usable voice. Half-configured is refused rather than half-served | Nothing you can fix in the request. Contact support |
+| `compliance_required` | 403 | Voice | The account has no accepted business verification, so it cannot rent a number | Submit your incorporation and GST certificates. Once per account, not per project |
+| `compliance_pending` | 409 | Voice | A verification is already under review | Wait for the outcome. A person reviews it, normally within a few days |
+| `compliance_exists` | 409 | Voice | The account is already verified | Nothing to do. Go straight to searching for a number |
+| `document_too_large` | 400 | Voice | A verification document is over 5 MB | Send a smaller scan. This is refused before anything is forwarded, so nothing was uploaded |
+| `unsupported_document_type` | 400 | Voice | A verification document is not a PDF, JPEG or PNG | Convert it and submit again |
+| `number_unavailable` | 409 | Voice | The number was taken between your search and your purchase | Search again and pick another. The wallet hold is released, so nothing was charged |
+| `invalid_phone_number` | 400 | Voice, SMS, WhatsApp | A number in `to` is not one the channel can reach: a dialable Indian mobile for Voice and SMS, an international number for WhatsApp. On Voice, `error` names the index and the value you sent | Drop or correct it. Voice and SMS refuse landlines and foreign numbers |
+| `unknown_voice` | 400 | Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
+| `invalid_audio_id` | 400 | Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
+| `audio_not_found` | 404 | Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
+| `invalid_speed` | 400 | Voice | `speed` is outside 0.7 to 1.2. Refused rather than clamped | Send a value in range, or omit it to use the project's tempo |
+| `job_not_found` | 404 | Voice | No job with that id on this account. Another account's job answers identically | Check the `jobId` came from one of your own sends |
+| `missing_data_field` | 400 | Voice | A business verification left out a `required` field. `documentType` and `field` name it | Add the field and submit again |
+| `relay_email_disabled` | 403 | Email | Email is not switched on for this project | Turn the switch on in the project's Email tab, under CPaaS. Enabling costs nothing |
+| `recipient_domain_undeliverable` | 400 | Email | A recipient domain publishes no mail exchanger and no address record, or is reserved for documentation (`example.com`, anything ending `.test` or `.invalid`). Refused before anything is charged, because it would certainly bounce | Use a real address. To test, send to a [simulator address](/relay-email/testing) |
+| `simulator_recipient_mixed` | 400 | Email | One message addressed to both a simulator address and a real one. Nothing is sent for a simulator address, so the message would be half sent and half invented | Send them as two requests |
+| `unknown_simulator_address` | 400 | Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/relay-email/testing) |
+| `relay_email_unavailable` | 503 | Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
+| `from_domain_not_verified` | 400 | Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the project's Email tab, and check the whole domain rather than the address |
+| `invalid_domain` | 400 | Email | Not a domain anyone can send from. Email addresses, bare TLDs, public suffixes and IP addresses are refused | Send `yourdomain.com` or a subdomain such as `mail.yourdomain.com` |
+| `domain_taken` | 409 | Email | Another project already holds this domain. Which one is deliberately not disclosed | Remove it from your other project, or contact support if you believe it is yours |
+| `domain_limit_reached` | 409 | Email | This project already holds 25 domains, counting unverified ones | Remove one you are not using. Unverified claims expire after seven days |
+| `domain_not_found` | 404 | Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/relay/email/domains` |
+| `invalid_address` | 400 | Email | An address in `from`, `to`, `cc`, `bcc` or `replyTo` did not parse | Correct it. `error` names what failed |
+| `no_recipients` | 400 | Email | `to`, `cc` and `bcc` were all empty | Supply at least one recipient |
+| `empty_body` | 400 | Email | Neither `text` nor `html` was supplied | Send at least one of them |
+| `header_injection` | 400 | Email | A carriage return or line feed appeared in `from`, `fromName`, `replyTo` or `subject`. Refused outright, never stripped, because stripping it silently would let a crafted value forge headers | Strip newlines from user input before putting it in a header |
+| `subject_too_long` | 400 | Email | `subject` is over 998 characters, the limit the mail standard sets for a header line | Shorten it |
+| `message_too_large` | 400 | Email | Over 10 MB **once encoded**. Base64 adds about a third to every attachment, so a 9 MB file is roughly 12 MB on the wire | Send a smaller file. `error` states the encoded size, which is the figure the limit is about |
+| `too_many_attachments` | 400 | Email | More than 10 files on one message | Send fewer, or split the message |
+| `invalid_attachment` | 400 | Email | An attachment is missing a filename or its content, declares something that is not a `type/subtype` media type, has a `contentId` that cannot go in a header, or its `content` is not valid base64 | `error` names the index and what is wrong. A `data:` prefix left on the base64 is the usual cause |
+| `attachment_type_not_allowed` | 400 | Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar` | Host the file and send a link. Most mail providers reject executable attachments anyway |
+| `invalid_header` | 400 | Email | A `headers` key is not `X-` prefixed, or a name or value carried a line break. Anything else would let a caller forge `From`, `Received`, `Return-Path` or `DKIM-Signature` on a domain we sign | Prefix your own headers with `X-` |
+| `invalid_tag` | 400 | Email | A `tags` key or value used something outside letters, digits, underscores and dashes, or was empty. Refused rather than dropped, because the provider rejects the whole send over one bad tag | Use `campaign` / `receipts_2026-08` style tokens |
+| `rate_limited` | 429 | Email, SMS, WhatsApp | Too many sends from this project. On Email that is over 5 per second for the project, or the platform ceiling. Refused before the hold | Wait the `Retry-After` interval, then retry |
+| `invalid_template_name` | 400 | Email | A template name that is not letters, digits, `-` and `_`, up to 64, starting with a letter or digit | Rename it |
+| `invalid_template` | 400 | Email | A template with no subject, no body at all, a subject or body past its ceiling, or a line break in the subject | Fix what `error` names |
+| `invalid_placeholder` | 400 | Email | A `{{…}}` in a template that is not a plain name | Fix the placeholder the message quotes |
+| `template_exists` | 409 | Email | The project already has a template of that name | `PUT` to replace it |
+| `template_limit_reached` | 409 | Email | The project already holds 100 templates | Delete one you no longer send from |
+| `template_not_found` | 404 | Email | No template of that name in this project | Check the name. Templates belong to one project |
+| `no_messages` | 400 | Email | A batch with an empty `messages` array | Send at least one message |
+| `too_many_messages` | 400 | Email | A batch of more than 500 messages | Split it |
+| `no_valid_messages` | 400 | Email | Nothing in the batch could be sent. Each reason is in `messages` | Fix the messages named, then send again |
+| `not_suppressed` | 404 | Email | Clearing a suppression for an address this project has no permanent bounce on record for | Nothing to clear |
+| `clear_limit_reached` | 429 | Email | The project has spent its suppression clears for the day | Try again tomorrow |
+| `audio_unavailable` | 410 | Voice | The recording is known but its stored file is gone | Send the text again. You get the **same** `audioId` back, so nothing in your database needs updating. The per-character synthesis charge does apply again, because the file had to be re-made |
+| `invalid_callback_url` | 400 | Voice | `callbackUrl` is not an absolute https URL | Use https. Plain http is refused because the body lists who was called |
+| `text_rejected` | 502 | Voice | The speech provider would not synthesize this text, on length or content. The hold is released | Shorten or reword it. Nothing was charged |
+| `voice_unavailable` | 502 | Voice | The voice or synthesis model no longer exists at the speech provider. The hold is released | Pick another voice and tell support. This is an operator problem |
+| `speech_provider_unauthorized` | 502 | Voice | The speech provider rejected our credentials. The hold is released | Nothing you can fix. Contact support |
+| `speech_quota_exhausted` | 502 | Voice | The speech provider's quota is spent. The hold is released | Retry later, and tell support |
+| `speech_provider_throttled` | 502 | Voice | The speech provider is rate limiting. The hold is released | Retry shortly with backoff |
+| `speech_provider_error` | 502 | Voice | Any other synthesis failure, including an unreachable provider. The hold is released | Retry. If it persists, contact support |
+| `relay_sms_disabled` | 403 | SMS | SMS is not switched on for this project | Turn it on. No new key needed |
+| `relay_sms_unavailable` | 503 | SMS | SMS is off, or unable to send, on this deployment. Nothing was charged | Contact support. It never means your wallet: that would be a `402` |
+| `no_sender_identity` | 400 | SMS | Neither your own DLT header nor Tristack's shared header is available for this project | Register your own on the project's SMS tab, or ask support to enable the shared header |
+| `template_missing` | 400 | SMS | No approved template text is configured for this send | Paste it on the project's SMS tab |
+| `template_variable_mismatch` | 400 | SMS | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
+| `template_variable_too_long` | 400 | SMS | A value exceeds DLT's 30-character ceiling | Shorten it |
+| `template_variable_empty` | 400 | SMS | A placeholder has no value | Fill it on the project's SMS tab |
+| `template_variable_invalid` | 400 | SMS | A value carries a `\|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
+| `recipient_rate_limited` | 429 | SMS, WhatsApp | This number is over its hourly or daily cap | Wait, or offer the person another route |
+| `project_volume_capped` | 429 | SMS | The project is over its hourly or daily message ceiling | Ask support for it to be raised |
+| `dlt_sender_not_approved` | 502 | SMS | The operator refused the sender header | Check spelling, letter case and the telemarketer binding. [DLT setup](/relay-sms/dlt-setup) |
+| `dlt_template_not_approved` | 502 | SMS | The operator refused the content template | The text must match your registration exactly |
+| `dlt_blacklisted` | 502 | SMS | The header or template is blacklisted on DLT | Settle it with your operator |
+| `dlt_content_rejected` | 502 | SMS | The operator refused the content | Usually a link or an unexpected character |
+| `provider_rate_limited` | 502 | SMS | Refused as a repeat to the same number too quickly | Back off |
+| `otp_not_found` | 404 | SMS, WhatsApp | No code with that id for this project. Another project's id answers identically | Check the id came from this project's send |
+| `relay_whatsapp_disabled` | 403 | WhatsApp | WhatsApp is not switched on for this project | Turn it on. No new key needed |
+| `relay_whatsapp_unavailable` | 503 | WhatsApp | WhatsApp is off, or half-configured, on this deployment | Contact support |
+| `whatsapp_not_configured` | 400 | WhatsApp | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |
+| `credential_unreadable` | 409 | WhatsApp | The stored access token could not be decrypted | Enter it again on the project's WhatsApp tab |
+| `whatsapp_token_invalid` | 502 | WhatsApp | Meta refused the token, or the number is not ready | Paste a new token, or finish registering the number. [Meta setup](/relay-whatsapp/meta-setup) |
+| `whatsapp_template_not_approved` | 502 | WhatsApp | The template name, language or parameter count does not match an approved template | Check it in WhatsApp Manager |
+| `whatsapp_recipient_unreachable` | 502 | WhatsApp | The number is not on WhatsApp, or will not accept messages from this business | Nothing to retry |
+| `whatsapp_throttled` | 502 | WhatsApp | Meta is throttling the number | Retry with backoff |
 
 <Accordion title="Codes from the dashboard API" icon="gauge">
   These come from the account and wallet routes under `/api/v1`, which use your session token
@@ -135,6 +175,10 @@ Two fields ride along on specific failures:
   - `invalid_status` (400): the usage `status` filter is not one of `all`, `succeeded`,
     `failed`, `provider_error`.
   - `invalid_request` (400): a validation failure, with `fields` naming what to fix.
+  - `account_disabled` (403 at sign-in, 401 on a session): Tristack has disabled the account.
+    Signing in with the right password or with Google answers `403`, a password reset link
+    answers `403` when it is used, and a session token issued before the disable answers `401`
+    with this code on its next request. Write to hello@tristack.tech.
 </Accordion>
 
 ## Wallet and top-up codes
@@ -166,7 +210,7 @@ own page.
 [Billing profile →](/platform/billing-profile)
 
 <Note>
-  The three session codes are the reason `410` is not a Relay Voice recording story alone.
+  The three session codes are the reason `410` is not a Voice recording story alone.
   They reach your app as a window telling the payer it cannot continue, not as a response to
   a call your backend made, and all three mean one thing: the permit is spent, and the fix is
   a new one.
@@ -179,14 +223,15 @@ Almost nothing, by design. The order of checks is deliberate:
 
 <Steps>
   <Step title="Authentication and product gates">
-    `invalid_api_key`, `project_archived`, `manifold_disabled`, `relay_voice_disabled`,
-    `relay_voice_unavailable`, `relay_email_disabled` and `relay_email_unavailable` are decided
-    before any money is touched.
+    `invalid_api_key`, `account_disabled`, `project_archived`, `insufficient_scope`, every
+    product and channel switch (`manifold_disabled`, `relay_voice_disabled`,
+    `relay_email_disabled`, `relay_whatsapp_disabled`, `relay_sms_disabled`) and every
+    `..._unavailable` code are decided before any money is touched.
   </Step>
   <Step title="Validation and allowlists">
     `invalid_request`, `unknown_model`, `model_not_allowed`, `invalid_phone_number`,
     `unknown_voice`, `invalid_audio_id` and `invalid_callback_url` are all refused before the
-    wallet hold. So are Relay Email's `from_domain_not_verified`, `invalid_address`,
+    wallet hold. So are Email's `from_domain_not_verified`, `invalid_address`,
     `no_recipients`, `empty_body`, `header_injection`, `subject_too_long` and
     `message_too_large`, and `rate_limited` is refused before the hold too.
   </Step>
@@ -213,12 +258,17 @@ Almost nothing, by design. The order of checks is deliberate:
 |---|---|---|
 | `/v1/manifold/*` and `/v1/relay/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
 | `/v1/relay/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
-| `/api/v1/account/*` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
+| Sign-in and account recovery: `/api/v1/account/register`, `/login`, `/google-login`, `/forgot-password`, `/reset-password`, `/verify-email` and `/resend-verification` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
 
 <Note>
-  Manifold and Relay Voice are not throttled on purpose: your wallet is the limit. Relay Email
-  is the exception, because email sending is rate-limited to protect deliverability.
+  Manifold and Voice are not throttled on purpose: your wallet is the limit. Email is the
+  exception, because email sending is rate-limited to protect deliverability, and SMS and
+  WhatsApp hold each project and each recipient to send limits of their own (`rate_limited`,
+  `recipient_rate_limited`).
+
+  The rest of the dashboard API, including the signed-in account routes such as the profile,
+  is not rate limited.
 
   Either way, a retry loop against a `402` or a `403` will spin as fast as you can send,
   writing nothing but rejections. Back off on your side.
@@ -228,18 +278,29 @@ An empty-body `429` is the only response on the API without the JSON envelope. U
 under `/api/` or `/v1/` answer `404 { "error": "Unknown API route" }` with no `code`, rather
 than serving the dashboard's HTML.
 
-## Relay Voice failures that are not status codes
+## Failures that are not status codes
 
-A Relay Voice request can be accepted with `202` and still go wrong later, so those failures
-are read from the job rather than from a status code.
+A Voice request or a Manifold embedding job can be accepted with `202` and still go wrong
+later, so those failures are read from the job rather than from a status code.
 
-- **`error` on the job**: `audio_unavailable` (the recording vanished before dialing),
-  `interrupted` (the service restarted mid-job; nothing is redialed and the undelivered calls
-  are refunded), or `internal_error`.
+- **`error` on a Voice job**: `audio_unavailable` (the recording vanished before dialing),
+  `interrupted` (the service restarted mid-job; nothing is redialed, and the calls were free),
+  `internal_error`, `account_disabled` or `project_archived`.
+- **`account_disabled` and `project_archived` on a Voice job**: the account was disabled, or
+  the project archived, after the job was accepted. The job checks before every call it
+  places, so the calls not yet placed end `Cancelled`, calls already ringing finish, and the
+  job ends `Failed` with that code. It settles like any other finish: the speech charge stands,
+  because the recording was made, and the calls cost nothing. The key can no longer read the
+  job back once that has happened, so a `callbackUrl` is how you learn of it.
+  [Job status →](/api-reference/relay-voice/job)
 - **`error` on a call**: why that one number failed, alongside its status.
 - **Call statuses that are not errors at all**: `Busy`, `NoAnswer` and `Cancelled` are normal
   outcomes of telephoning people. None of them is billed. A job status of `Completed` means
   every call reached a terminal state, not that anyone answered.
+- **`account_disabled` on an embedding job**: a video or audio job of an account that was
+  disabled while it ran ends `failed` with this code at its next check. No vectors are
+  returned, nothing is charged and the reservation is released in full. Archiving a project
+  does not stop an embedding job. [Embeddings →](/api-reference/manifold/embeddings)
 
 ## Handling them
 

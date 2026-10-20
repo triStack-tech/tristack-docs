@@ -149,8 +149,9 @@ recording was the whole bill, and it was known before a phone rang.
 
     <ResponseField name="error" type="string | null">
       A plain sentence when this call failed: the provider refused it, it dropped before it
-      was answered, the provider never reported an outcome, or the service was shutting down
-      before it was placed. `null` otherwise, including for a phone that was engaged or rang
+      was answered, the provider never reported an outcome, or the call was never placed
+      because the service was shutting down, the account was disabled or the project was
+      archived. `null` otherwise, including for a phone that was engaged or rang
       out, which are ordinary outcomes rather than errors.
     </ResponseField>
 
@@ -205,7 +206,7 @@ sits in one of them.
 | `Busy` | The line was engaged. | Yes |
 | `NoAnswer` | It rang and nobody picked up. | Yes |
 | `Failed` | The provider refused the call, it dropped before it was answered, or the provider never reported its outcome. `error` says which. Silence from the provider is recorded as failed rather than as an outcome nobody confirmed. | Yes |
-| `Cancelled` | Never dialed at all, because the service was shutting down before its turn came. | Yes |
+| `Cancelled` | Never dialed at all: the service was shutting down before its turn came, or the account was disabled or the project archived first (see [When a whole job fails](#when-a-whole-job-fails)). `error` says which. | Yes |
 
 None of them is a charge. The column that used to say which outcome you paid for is gone,
 because the answer is now none of them.
@@ -213,7 +214,7 @@ because the answer is now none of them.
 <Note>
   Nothing here is a delivery receipt for a human being. `Completed` means the call was
   answered and the audio played to whatever picked up, which includes voicemail and answering
-  machines. Relay Voice does not detect them.
+  machines. Voice does not detect them.
 </Note>
 
 ## When a whole job fails
@@ -226,9 +227,24 @@ already had your `202`:
 | `audio_unavailable` | The recording vanished between being prepared and being dialed. Nobody is called rather than being called and played silence. | Nothing is charged for the calls. Send the `text` again to make a new recording. |
 | `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | Nothing to refund: the calls were free. If this job made the recording, that charge stands, since the recording was made. |
 | `internal_error` | Something on our side failed while the job was running. | Nothing to refund unless the recording was never made, in which case the hold is released in full. |
+| `account_disabled` | The account was disabled after the job was accepted. Checked before every dial, retries included. | The calls were free, so nothing is owed for them. If this job made the recording, that charge stands, since the recording was made. |
+| `project_archived` | The job's project was archived after the job was accepted. Checked before every dial, retries included. If the account was disabled too, the job reads `account_disabled`. | As for `account_disabled`. |
 
 Calls left unfinished by an interruption are closed out as `Cancelled` if they were never
 dialed, or `Failed` if they had been, each with an `error` sentence saying so.
+
+A job stopped by `account_disabled` or `project_archived` stops at its next dial, not at the
+end. Calls already ringing finish as usual. Calls not yet placed are closed out as `Cancelled`,
+with the `error` "The account was disabled before this call was placed." or "The project was
+archived before this call was placed." A call that was waiting to retry after a busy line or no
+answer is not dialed again and keeps that first outcome.
+
+<Note>
+  Once an account is disabled its keys are refused with `403 account_disabled`, and an
+  archived project's keys with `401 project_archived`, so reading the job back with the same key
+  fails. If you need to learn how such a job ended, send a
+  [`callbackUrl`](/relay-voice/callbacks): the finished job is still POSTed to it.
+</Note>
 
 ## Polling, or not polling
 
@@ -282,7 +298,8 @@ print("charged", job["costPaise"], "paise of", job["estimatedCostPaise"], "held"
 |---|---|---|---|
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
-| 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it back on. Jobs already sent keep running and stay readable once it is. |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key. Every key it owns is refused. | Write to hello@tristack.tech. |
+| 403 | `relay_voice_disabled` | Voice is switched off on the project. | Turn it back on. Jobs already sent keep running and stay readable once it is. |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing part of its voice configuration. | Retry later. Reads are gated the same way sends are. |
 | 404 | `job_not_found` | No job with that id on this account. A job belonging to another account answers identically, on purpose, so a guessed id cannot be confirmed as real. | Check the `jobId` came from one of your own sends, on a key from the same account. |

@@ -81,13 +81,13 @@ Raising the threshold means raising the other two amounts with it. The refill ha
 needs a refill above Rs 3,000 and a cap at least as large as that refill. Left at the
 Rs 2,000 default cap, that arrangement will not save.
 
-Remember that Manifold reserves `max_tokens` in full while a request is in flight, so the
+Remember that Manifold AI reserves `max_tokens` in full while a request is in flight, so the
 balance a threshold has to outlast is the held one, not the settled one.
 [How holds work →](/platform/wallet)
 
 ### What stands a charge down
 
-Once a notice is out, three things cancel the charge before it happens. None of them counts
+Once a notice is out, four things cancel the charge before it happens. None of them counts
 as a failure:
 
 - **The balance recovers on its own.** A refund, a released hold, or simply less traffic than
@@ -97,6 +97,11 @@ as a failure:
   cancel a pending automatic charge you did not want.
 - **You switch automatic top-ups off during the notice period.** The state is re-read at the
   moment of the charge, not at the moment of the notice.
+- **Tristack disables the account.** A disabled account is never charged: no cycle starts,
+  and a cycle waiting in its notice window is stood down. Your settings and payment method are
+  left exactly as they were, and once the account is enabled again the next charge waits for a
+  fresh notice rather than going ahead on the old one. A charge already sent to the bank before the
+  disable is left to finish as usual.
 
 <Note>
   **No notice, no charge.** If the deployment cannot send email, no cycle is started at all.

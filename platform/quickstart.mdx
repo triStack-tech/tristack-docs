@@ -1,11 +1,11 @@
 ---
 title: "Quickstart"
-description: "Account, project, product switch, API key, wallet. The five steps both products need before their own quickstart makes sense."
+description: "Account, project, product switch, API key, wallet. The five steps Manifold AI and every Tristack CPaaS channel need before their own quickstart makes sense."
 ---
 
-Every Tristack integration starts the same way, whichever product you are here for. Five
-steps in the browser get you a working key and a funded wallet. After that, the two product
-quickstarts pick up from the same place.
+Every Tristack integration starts the same way, whether you are here for Manifold AI or for a
+Tristack CPaaS channel. Five steps in the browser get you a working key and a funded wallet.
+After that, each quickstart picks up from the same place.
 
 <Info>
   You need a browser for all five steps. Nothing here has to be automated, and the dashboard
@@ -31,35 +31,35 @@ quickstarts pick up from the same place.
     Give it a name of 1 to 128 characters.
 
     A project is the boundary for everything except money: keys belong to a project, product
-    switches are per project, usage is reported per project, and Relay Voice rents each
-    project its own caller-id number. One project per application, or one per environment,
-    is the usual split.
+    switches are per project, and usage is reported per project. One project per
+    application, or one per environment, is the usual split.
 
-    A new project is `Active`, with **both products switched off**.
+    A new project is `Active`, with **Manifold AI and every CPaaS channel switched off**.
   </Step>
 
   <Step title="Turn on the product you want" icon="toggle-on">
-    Open the project and switch on Manifold, Relay Voice, or both. The switches are
-    independent: turning one on does nothing to the other.
+    Open the project and switch on Manifold AI, a CPaaS channel such as Voice, or both. The
+    switches are independent: turning one on does nothing to the others.
 
     This is a deliberate step, not a default. A key on a project with the switch off
     authenticates correctly and is then refused:
 
     | Product | Refusal when the switch is off |
     |---|---|
-    | Manifold | `403` `{ "code": "manifold_disabled" }` |
-    | Relay Voice | `403` `{ "code": "relay_voice_disabled" }` |
+    | Manifold AI | `403` `{ "code": "manifold_disabled" }` |
+    | Voice | `403` `{ "code": "relay_voice_disabled" }` |
 
     Flipping the switch takes effect on the next request. You do not need a new key.
 
     <Warning>
-      **Relay Voice charges Rs 200 the first time you switch it on for a project.** The fee
-      rents that project its own caller-id number, so a second project is a second number and
-      a second Rs 200. Switching it off and back on again inside the same project is free.
+      **Voice charges Rs 200 the first time you switch it on for a project.** It is a
+      one-time activation fee, not a phone number: it pays for the project's place on the
+      shared outbound line and its registration with the carriers. A second project pays a
+      second Rs 200. Switching it off and back on again inside the same project is free.
 
       The charge happens at the toggle, before the switch is set. On an empty wallet it
       answers `402 insufficient_balance` with `requiredPaise: 20000` and leaves the product
-      off, so **do step 5 before this step** if Relay Voice is what you came for.
+      off, so **do step 5 before this step** if Voice is what you came for.
     </Warning>
   </Step>
 
@@ -89,8 +89,8 @@ quickstarts pick up from the same place.
   </Step>
 
   <Step title="Fund the wallet" icon="wallet">
-    One prepaid wallet belongs to your account and is shared by every project and both
-    products. Top up through the checkout flow in the dashboard.
+    One prepaid wallet belongs to your account and is shared by every project, by Manifold AI
+    and by every CPaaS channel. Top up through the checkout flow in the dashboard.
 
     - Minimum top-up: **10000 paise (Rs 100)**.
     - Every amount in the API is an integer in paise. Rs 1 is `100`, Rs 1.50 is `150`. There
@@ -109,21 +109,21 @@ Neither call below costs anything, and each one proves the whole chain: key vali
 active, product switched on.
 
 <CodeGroup>
-```bash Manifold
+```bash Manifold AI
 curl https://api.tristack.tech/v1/manifold/models \
   -H "Authorization: Bearer $TRISTACK_API_KEY"
 ```
 
-```bash Relay Voice
+```bash Voice
 curl https://api.tristack.tech/v1/relay/voice/voices \
   -H "Authorization: Bearer $TRISTACK_API_KEY"
 ```
 </CodeGroup>
 
 Manifold answers with the models **this project** may call, which is the authoritative list
-for that key. Relay Voice answers with the voice aliases and the per-call price:
+for that key. Voice answers with the voice aliases and the per-call price:
 
-```json Relay Voice voices
+```json Voice voices
 {
   "defaultVoice": "bella",
   "pricePerCallPaise": 0,
@@ -139,21 +139,22 @@ If either one refuses, the code says which step to go back to:
 |---|---|
 | `401 invalid_api_key` | Step 4. The header is `Authorization: Bearer tsk_live_…`, one space, no quotes, no trailing newline. |
 | `401 project_archived` | The project was archived. Unarchive it, or use a key from an active project. |
-| `403 manifold_disabled` | Step 3, Manifold switch. |
-| `403 relay_voice_disabled` | Step 3, Relay Voice switch. |
+| `403 account_disabled` | Tristack has disabled the account. No step fixes this: write to hello@tristack.tech. |
+| `403 manifold_disabled` | Step 3, Manifold AI switch. |
+| `403 relay_voice_disabled` | Step 3, Voice switch. |
 | `402 insufficient_balance` | Step 5. |
 
-## Now pick a product
+## Now pick where to start
 
 <CardGroup cols={2}>
-  <Card title="Manifold quickstart" icon="brain" href="/manifold/quickstart">
+  <Card title="Manifold AI quickstart" icon="brain" href="/manifold/quickstart">
     Send messages to a model and read the answer back, with the cost of the call on the
     response.
   </Card>
-  <Card title="Relay Voice quickstart" icon="phone" href="/relay-voice/quickstart">
+  <Card title="Voice quickstart" icon="phone" href="/relay-voice/quickstart">
     Send a mobile number and a sentence, and make the phone ring.
   </Card>
 </CardGroup>
 
-Using both? They are separate products that share this account, this key and this wallet, and
-nothing else. [What that means →](/platform/products)
+Using both? Manifold AI and Tristack CPaaS are separate platforms that share this account, this
+key and this wallet, and nothing else. [What that means →](/platform/products)

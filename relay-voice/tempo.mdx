@@ -14,7 +14,7 @@ where it does rather than letting you pick anything.
 
 ## Hear it before you set it
 
-Open a project, go to the **Relay Voice** tab, and the tempo slider sits directly above the
+Open a project, go to the **CPaaS** tab and then **Voice**, and the tempo slider sits directly above the
 voice list. Move it, press play on a voice, and you hear that voice at that tempo. Auditioning
 costs nothing and is not billed.
 
@@ -28,7 +28,7 @@ The first one that is set wins.
 | Where | Applies to | How |
 |---|---|---|
 | The request | One call | `speed` on [`POST /v1/relay/voice`](/api-reference/relay-voice/send) |
-| The project | Every call from that project | The Relay Voice tab, or `relayVoiceSpeed` on the project |
+| The project | Every call from that project | The project's Voice tab, or `relayVoiceSpeed` on the project |
 | The platform | Everything else | `1.0`, the voice's natural pace |
 
 A project that has never chosen a tempo says so on screen, and follows the platform default.
@@ -50,7 +50,7 @@ Out of range is refused with `400 invalid_speed` rather than quietly clamped, so
 
 ## For every call from a project
 
-Set it on the Relay Voice tab, or through the dashboard API:
+Set it on the project's Voice tab (under **CPaaS**), or through the dashboard API:
 
 ```bash
 curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \

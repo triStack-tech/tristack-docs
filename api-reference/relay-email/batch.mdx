@@ -145,7 +145,7 @@ Messages that were refused before sending do not spend anything.
 | `header_injection` | 400 | A CR or LF in `from`, `fromName` or `replyTo`. Refused, never stripped. |
 | `insufficient_balance` | 402 | Top up. Nothing was sent. |
 | `rate_limited` | 429 | Wait `Retry-After` seconds. |
-| `relay_email_disabled` | 403 | Relay Email is off for this project. |
+| `relay_email_disabled` | 403 | Email is off for this project. |
 
 Per-message `code` values are the ordinary send codes, plus `missing_variable` (the template
 used a placeholder this message gave no value for) and `invalid_variable` (a value that was not

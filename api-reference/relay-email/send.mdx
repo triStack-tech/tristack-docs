@@ -182,7 +182,7 @@ without it costs. The attachment limits are what keep that sustainable rather th
 
 | Status | Code | What it means and what to do |
 | --- | --- | --- |
-| 400 | `from_domain_not_verified` | The `from` domain is not verified, or belongs to another project. Check the Relay Email tab. |
+| 400 | `from_domain_not_verified` | The `from` domain is not verified, or belongs to another project. Check the project's Email tab. |
 | 400 | `invalid_address` | An address did not parse. |
 | 400 | `no_recipients` | `to`, `cc` and `bcc` were all empty. |
 | 400 | `empty_body` | Neither `text` nor `html` was supplied. |
@@ -197,7 +197,7 @@ without it costs. The attachment limits are what keep that sustainable rather th
 | 400 | `invalid_request` | Malformed body, or too many recipients. |
 | 401 | `invalid_api_key` | Key missing, wrong, or revoked. |
 | 402 | `insufficient_balance` | Wallet cannot cover the send. The body carries `requiredPaise`. Nothing was sent. |
-| 403 | `relay_email_disabled` | Relay Email is switched off for this project. |
+| 403 | `relay_email_disabled` | Email is switched off for this project. |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 429 | `rate_limited` | Over 5 per second for this project, or the platform ceiling. Honour `Retry-After`. |
 | 502 | `provider_error` | The provider refused the message. Nothing was charged. |

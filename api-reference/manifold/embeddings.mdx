@@ -159,6 +159,18 @@ A job that has not finished within **90 minutes** is failed with `embedding_job_
 its reservation is returned in full, so a job that never completes does not hold your balance
 indefinitely.
 
+A job whose account Tristack disables before it finishes is closed at its next check, with
+`status` `failed` and this `error`:
+
+```json
+{ "error": "The account was disabled before this embedding job finished.", "code": "account_disabled" }
+```
+
+No vectors are returned, nothing is charged (the job carries no `cost`), and the reservation is
+released in full. While the account stays disabled its keys answer `403 account_disabled`, so
+the `GET` itself is refused too; write to hello@tristack.tech. Archiving the project does not
+stop a job that is already running.
+
 **You are billed for the seconds actually processed, not the seconds you declared.** The
 declared duration only sizes the hold, so understating it does not reduce the bill.
 

@@ -5,8 +5,8 @@ icon: "id-badge"
 ---
 
 You only need this page if your recipients must see **your** company name in the sender field.
-With nothing set up, Relay SMS works immediately under Tristack's own registered header. See
-[Relay SMS](/relay-sms/index).
+With nothing set up, SMS works immediately under Tristack's own registered header. See
+[SMS](/relay-sms/index).
 
 <Note>
   Everything here happens on your operator's DLT portal, using your own login. Tristack cannot
@@ -77,14 +77,14 @@ A workable shape:
 
 <Note>
   If your template promises a validity, it has to be **ten minutes**, because that is how long
-  a Relay SMS code lives. The text cannot be changed later without re-registering the template,
+  an SMS code lives. The text cannot be changed later without re-registering the template,
   so it is worth getting right the first time.
 </Note>
 
 ## Putting it into Tristack
 
-Open the project's **Relay SMS** tab and paste in four values: the entity ID, the registered
-entity name, the header, the content template ID, and the approved text.
+Open the project's **SMS** tab, under **CPaaS**, and paste in five values: the entity ID, the
+registered entity name, the header, the content template ID, and the approved text.
 
 Paste the text rather than typing it. Every message is rendered from it and checked before
 anything is charged, because an operator drops a message whose text does not match the
@@ -102,7 +102,7 @@ send. There is no waiting period.
 | `ready` | In use. Your header is on every message from this project. |
 | `verified` | Your template is now validated before each send, so a mismatch is refused rather than charged for. |
 | `rejected` | Not accepted. Messages have fallen back to Tristack's header, so nothing has stopped working. The reason is shown on the tab. |
-| `suspended` | Stopped. Messages have fallen back to Tristack's header. |
+| `suspended` | Stopped. Messages have fallen back to Tristack's header. A suspension stays in place even if the header is later reported approved. |
 
 The fallback is deliberate. A problem with your registration should cost you your branding for
 a while, not your ability to sign people in.

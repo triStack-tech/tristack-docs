@@ -1,5 +1,5 @@
 ---
-title: "Manifold quickstart"
+title: "Manifold AI quickstart"
 description: "From an API key to a billed model response, with every field of that response explained."
 sidebarTitle: "Quickstart"
 icon: "rocket"
@@ -9,8 +9,8 @@ Six steps from an empty account to generated text. Steps 1 to 3 happen in the da
 the rest in a terminal. Each step names the error you get if you skip it.
 
 <Steps>
-  <Step title="Create a project and switch Manifold on" icon="folder-plus">
-    In the [dashboard](https://tristack.tech/login), create a project and turn **Manifold**
+  <Step title="Create a project and switch Manifold AI on" icon="folder-plus">
+    In the [dashboard](https://tristack.tech/login), create a project and turn **Manifold AI**
     on in it. The switch is off until you turn it on, deliberately: a key on a project
     without it authenticates correctly and still fails.
 
@@ -38,7 +38,7 @@ the rest in a terminal. Each step names the error you get if you skip it.
   </Step>
 
   <Step title="Put money in the wallet" icon="wallet">
-    One prepaid wallet per account, shared by every project and by Relay Voice. Top up
+    One prepaid wallet per account, shared by every project and by Tristack CPaaS. Top up
     through the dashboard checkout: minimum **10000 paise (Rs 100)**, and your email must be
     verified first.
 
@@ -265,6 +265,11 @@ the rest in a terminal. Each step names the error you get if you skip it.
   <Accordion title="401 project_archived" icon="box-archive">
     The key's project was archived. Keys stop working with it. Unarchive the project, or use
     a key from an active one.
+  </Accordion>
+
+  <Accordion title="403 account_disabled" icon="user-lock">
+    The key is real, but Tristack has disabled the account that owns it, so every key on the
+    account is refused. A new key will not help. Write to hello@tristack.tech.
   </Accordion>
 
   <Accordion title="403 manifold_disabled" icon="toggle-off">

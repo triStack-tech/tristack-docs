@@ -1,11 +1,14 @@
 ---
-title: "Relay Email"
+title: "Email"
 description: "Verify a domain you own, then send transactional email from it with a project API key. Billed per recipient, from the same wallet as everything else."
 ---
 
-Tristack Relay Email sends transactional email from a domain you own. You prove the domain by
-publishing three DNS records, and after that any API key on that project can send from any
-address at it.
+Email is the Tristack CPaaS channel for transactional email from a domain you own. You prove
+the domain by publishing three DNS records, and after that any API key on that project can send
+from any address at it.
+
+The API still says `relay` in its paths, fields, scopes and error codes (`/v1/relay/email`,
+`relay_email_disabled`), from the channel's earlier name. Those are unchanged.
 
 ```bash One request, one email
 curl https://api.tristack.tech/v1/relay/email \

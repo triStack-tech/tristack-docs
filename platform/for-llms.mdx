@@ -63,7 +63,7 @@ than the page.
   **Prices.** The tables here are a snapshot. `GET /v1/manifold/models` reports the live
   per-1000-token paise for every model, and it answers **per key**, so it also tells you
   which models that key may actually call. It is the authority; these pages are not.
-  Manifold prices changed on 2026-08-21, which is exactly the kind of move a cached page
+  Manifold AI prices changed on 2026-08-21, which is exactly the kind of move a cached page
   would miss.
 </Warning>
 
@@ -90,13 +90,14 @@ If you are summarising this site for a model, these are the load-bearing ones:
 | Base URL | `https://api.tristack.tech` |
 | Auth | `Authorization: Bearer tsk_live_…`, or `X-Api-Key` |
 | Money | every amount is an integer in **paise**; Rs 1.50 is `150`. No endpoint takes a rupee float |
-| Products | **Manifold** (`/v1/manifold/…`, text in, text out) and **Relay Voice** (`/v1/relay/…`, text in, a phone rings) |
-| Relationship | separate products, separate switches, separate pricing, one wallet and one key format. Nothing passes between them automatically |
-| Recipients | Indian mobiles only, any common spelling, normalized to E.164 and deduplicated |
+| Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out) and **Tristack CPaaS** (`/v1/relay/…`: Voice, Email, WhatsApp and SMS channels). The CPaaS paths, fields, scopes and codes still say `relay`; do not rename them in code |
+| Relationship | separate platforms, a separate switch per product and channel, separate pricing, one wallet and one key format. Nothing passes between them automatically |
+| Recipients | Voice and SMS: Indian mobiles only, in any common spelling. Voice normalizes its `to` list to E.164 and deduplicates it. WhatsApp takes an international number |
+| A refused account | `403 account_disabled` on every key means Tristack has disabled the account. Retrying or minting a new key will not help; the owner writes to hello@tristack.tech |
 
 <Note>
   The single most common mistake a model makes with this API is assuming Manifold's output
-  can be handed to Relay Voice in one call. It cannot. Ask Manifold for text, read the
-  string out of the response, then send it to Relay Voice as `text`. Two calls, made by
-  your code. See [the two products](/platform/products) for why they are built that way.
+  can be handed to the Voice channel in one call. It cannot. Ask Manifold for text, read the
+  string out of the response, then send it to Voice as `text`. Two calls, made by your code.
+  See [the platforms](/platform/products) for why they are built that way.
 </Note>

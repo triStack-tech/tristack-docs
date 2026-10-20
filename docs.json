@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Tristack",
-  "description": "Developer documentation for Tristack: Manifold for language models, Relay Voice for phone calls. One account, one wallet, one API key scheme.",
+  "description": "Developer documentation for Tristack: Manifold AI for language models, Tristack CPaaS for SMS, OTP, voice calls, WhatsApp and email. One account, one wallet, one API key scheme.",
   "colors": {
     "primary": "#047857",
     "light": "#34d399",
@@ -43,7 +43,7 @@
             ]
           },
           {
-            "group": "Manifold",
+            "group": "Manifold AI",
             "icon": "brain",
             "pages": [
               "manifold/quickstart",
@@ -56,12 +56,12 @@
             ]
           },
           {
-            "group": "Relay",
+            "group": "Tristack CPaaS",
             "icon": "tower-broadcast",
             "pages": [
               "relay/index",
               {
-                "group": "Relay Voice",
+                "group": "Voice",
                 "icon": "phone",
                 "pages": [
                   "relay-voice/quickstart",
@@ -75,7 +75,7 @@
                 ]
               },
               {
-                "group": "Relay Email",
+                "group": "Email",
                 "icon": "envelope",
                 "pages": [
                   "relay-email/quickstart",
@@ -88,7 +88,7 @@
                 ]
               },
               {
-                "group": "Relay WhatsApp",
+                "group": "WhatsApp",
                 "icon": "whatsapp",
                 "pages": [
                   "relay-whatsapp/index",
@@ -97,7 +97,7 @@
                 ]
               },
               {
-                "group": "Relay SMS",
+                "group": "SMS",
                 "icon": "message-sms",
                 "pages": [
                   "relay-sms/index",
@@ -127,7 +127,7 @@
         "tab": "API reference",
         "groups": [
           {
-            "group": "Manifold",
+            "group": "Manifold AI",
             "pages": [
               "api-reference/manifold/messages",
               "api-reference/manifold/models",
@@ -135,10 +135,10 @@
             ]
           },
           {
-            "group": "Relay",
+            "group": "Tristack CPaaS",
             "pages": [
               {
-                "group": "Relay Voice",
+                "group": "Voice",
                 "pages": [
                   "api-reference/relay-voice/send",
                   "api-reference/relay-voice/job",
@@ -147,7 +147,7 @@
                 ]
               },
               {
-                "group": "Relay Email",
+                "group": "Email",
                 "pages": [
                   "api-reference/relay-email/send",
                   "api-reference/relay-email/batch",
@@ -157,14 +157,14 @@
                 ]
               },
               {
-                "group": "Relay WhatsApp",
+                "group": "WhatsApp",
                 "pages": [
                   "api-reference/relay-whatsapp/otp",
                   "api-reference/relay-whatsapp/verify"
                 ]
               },
               {
-                "group": "Relay SMS",
+                "group": "SMS",
                 "pages": [
                   "api-reference/relay-sms/otp",
                   "api-reference/relay-sms/verify",
@@ -218,12 +218,12 @@
         "header": "Products",
         "items": [
           {
-            "label": "Manifold",
+            "label": "Manifold AI",
             "href": "/manifold/index"
           },
           {
-            "label": "Relay Voice",
-            "href": "/relay-voice/index"
+            "label": "Tristack CPaaS",
+            "href": "/relay/index"
           }
         ]
       },

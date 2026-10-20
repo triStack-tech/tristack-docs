@@ -1,12 +1,14 @@
 ---
 title: "Phone numbers"
-description: "Rent your own number to call from: what India requires, how to search and buy, what it costs each month, and how to give one back."
+description: "Rent your own number for Voice calls: what India requires, how to search and buy, what it costs each month, how it gets assigned to a project, and how to give one back."
 sidebarTitle: "Phone numbers"
 icon: "phone"
 ---
 
-By default your calls go out from a shared Tristack number. Rent your own and every call from
-the project shows your number instead.
+By default, calls on Voice (the Tristack CPaaS calling channel) go out from a shared Tristack
+number. You can rent a number of your own for your account. Calls from a project show it once
+Tristack support has assigned it to that project, which is done on request for now: see
+[assigning a number to a project](#assigning-a-number-to-a-project).
 
 <Warning>
 
@@ -28,10 +30,10 @@ whether you use it or not.
 ## Getting verified
 
 Once per account, not per project. In the dashboard it is on your
-[profile](https://api.tristack.tech/profile), under **Business verification**, beside the
+[profile](https://tristack.tech/profile), under **Business verification**, beside the
 billing identity it evidences: it is a fact about the account rather than about any one
 project, and the status there reads *Not verified*, *Under review*, *Verified* or *Rejected*.
-Renting stays on a project's Relay Voice tab, because the rental is billed to a project.
+Renting stays on a project's Voice tab (under **CPaaS**), because the rental is billed to a project.
 
 Over the API:
 
@@ -82,6 +84,8 @@ to commit you to a monthly bill.
 ## Renewal, and giving a number back
 
 Auto-renew is on when you rent. Each month the rental is taken and the number continues.
+Renewal carries on even if Tristack disables your account, because a number that lapsed would
+go to somebody else.
 
 **Switch auto-renew off and the number is released at the end of the period you have already
 paid for.** Nothing is refunded, because that month is bought. You can switch it back on at any
@@ -113,12 +117,18 @@ balance to cover every number you hold.
 
 ## Assigning a number to a project
 
-A number belongs to your account. Point it at a project and calls from that project use it as
-their caller id; leave it unassigned and it costs the same but nothing calls from it.
+A number belongs to your account, and renting it does not change who your calls come from. A
+call goes out from your number only once the number is assigned to a project, and then every
+call from that project uses it as its caller id. Until then the project keeps calling from the
+shared Tristack number, and an unassigned number costs the same but nothing calls from it.
+
+Assignment is not available through the API or the dashboard yet. **Tristack support assigns a
+number to a project on request**: write to [support@tristack.tech](mailto:support@tristack.tech)
+with the number and the project it should call from.
 
 Separately from that, the rental itself is **billed** to the project you rented from: the API
 key's project, or the project whose settings page you bought it on in the dashboard. That never
-moves, even if you later point the number at a different project, so a number's cost stays with
+moves, even if the number is later assigned to a different project, so a number's cost stays with
 whoever took it on.
 
 ## Errors
@@ -133,4 +143,4 @@ whoever took it on.
 | `document_too_large` | A document is over 5 MB |
 | `unsupported_document_type` | Documents must be PDF, JPEG or PNG |
 
-See [platform errors](/platform/errors) for the codes every product shares.
+See [platform errors](/platform/errors) for the codes shared across the API.

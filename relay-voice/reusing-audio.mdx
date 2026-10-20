@@ -1,10 +1,10 @@
 ---
 title: "Reusing a recording"
-description: "audioId is the handle on a recording you have already paid for. Since speech is the only thing Relay Voice meters, sending it instead of text makes the whole send free."
+description: "audioId is the handle on a recording you have already paid for. Since speech is the only thing Voice meters, sending it instead of text makes the whole send free."
 ---
 
-Calls cost nothing. Recording speech, at 3 paise per character, is the only charge Relay
-Voice has, which makes it the whole bill and makes how you write your code the only thing
+Calls cost nothing. Recording speech, at 3 paise per character, is the only charge the
+Voice channel has, which makes it the whole bill and makes how you write your code the only thing
 that decides whether a campaign costs Rs 1.95 or Rs 1,065.
 
 `audioId` is the lever. It is the handle on a recording you have already paid for. Send it in
@@ -12,7 +12,7 @@ place of `text` and there is no synthesis, no charge, and no wallet movement wha
 
 ## Where the id comes from
 
-Every Relay Voice response carries one, including every status read, so a lost `202` is not a
+Every Voice response carries one, including every status read, so a lost `202` is not a
 lost recording:
 
 ```json The id is on every representation of a job
@@ -34,8 +34,8 @@ calls this message: a campaign row, a template record, a config entry.
 ## Or upload a recording you already have
 
 Not every message is best read by a machine. A notice recorded by the person who signs it, a
-jingle, a voice no catalog has: upload the MP3 in the dashboard, under **Relay Voice ->
-Recordings**, and you get an `audioId` back for it.
+jingle, a voice no catalog has: upload the MP3 in the dashboard, on the project's Voice tab (under **CPaaS**) in
+**Your recordings**, and you get an `audioId` back for it.
 
 It is the same handle in every respect. Send it as `audioId` exactly as above, replay it as
 often as you like, and it costs nothing: uploading is free, and nothing is synthesized when
@@ -176,7 +176,7 @@ Two consequences worth knowing:
   nonexistent id does. The two are answered identically on purpose: a different answer would
   confirm that a guessed id belongs to somebody.
 - **The Rs 200 activation fee is still per project.** Sharing recordings across projects does
-  not share the caller-id number they are dialed from. See
+  not share the activation: each project that turns Voice on pays its own. See
   [pricing](/relay-voice/pricing).
 
 ## When an id stops working
@@ -189,7 +189,7 @@ Two consequences worth knowing:
 
 <Note>
   **On `410 audio_unavailable`**: the record of your recording is intact, only the audio file
-  behind it went missing. Relay Voice refuses the send rather than dialing everybody and
+  behind it went missing. Voice refuses the send rather than dialing everybody and
   playing silence at them.
 
   The recovery is one line of code you should already have: fall back to sending `text`. That

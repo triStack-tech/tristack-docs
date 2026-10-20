@@ -5,7 +5,7 @@ icon: "gear"
 ---
 
 Everything on this page happens in **Meta's** tools, not ours. You end with four values to
-paste into the project's Relay WhatsApp tab:
+paste into the project's WhatsApp tab:
 
 | Value | Where it comes from |
 | --- | --- |
@@ -61,7 +61,7 @@ In WhatsApp Manager, open
 <Steps>
   <Step title="Category: Authentication">
     Not Marketing and not Utility. Authentication templates are the only category allowed to
-    carry a one-time code, and they are the cheapest per conversation.
+    carry a one-time code.
   </Step>
 
   <Step title="One body parameter">
@@ -122,9 +122,8 @@ in Message Templates, and only **Approved** works.
 
 ## 5. Paste them into Tristack
 
-Open your project in the [dashboard](https://tristack.tech/projects), go to the **Relay
-WhatsApp** tab, fill in the four values and save. Turn the product on with the switch on
-Overview.
+Open your project in the [dashboard](https://tristack.tech/projects), go to **CPaaS**, then
+the **WhatsApp** tab, fill in the four values and save. Turn the channel on with its switch.
 
 Then send one code to your own number. If it arrives, you are done.
 
@@ -140,6 +139,6 @@ Every failure names which of these steps to go back to:
 | `whatsapp_throttled` | Nothing here. Meta is rate-limiting the number. Retry with backoff. |
 
 <Note>
-  Meta bills you directly for each conversation, separately from what Tristack charges. See
-  [Pricing](/relay-whatsapp/pricing).
+  Meta bills you separately for WhatsApp messages, directly, on top of what Tristack charges.
+  See [Pricing](/relay-whatsapp/pricing).
 </Note>

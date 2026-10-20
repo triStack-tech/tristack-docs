@@ -4,7 +4,7 @@ description: "One prepaid balance in paise for the whole account, how hold-then-
 ---
 
 Tristack is prepaid. Your account holds one wallet, denominated in paise, and every charge
-from every product and every project comes out of it. There is no invoice at the end of the
+from Manifold AI, from every Tristack CPaaS channel and from every project comes out of it. There is no invoice at the end of the
 month and no credit: work that the balance cannot cover is refused before it starts.
 
 ## One balance, one account
@@ -12,12 +12,12 @@ month and no credit: work that the balance cannot cover is refused before it sta
 <Info>
   The wallet belongs to the **account**. Projects do not have balances. A project id is
   recorded on each ledger row so you can see which project spent what, but the money is a
-  single pool that a Manifold call and a Relay Voice job draw on equally.
+  single pool that a Manifold AI call and a Tristack CPaaS send draw on equally.
 </Info>
 
 That has one consequence worth designing around: a runaway loop in a staging project can
 drain the balance a production project is relying on. If that matters to you, the lever is
-the Manifold model allowlist and the product switches, not separate wallets.
+the Manifold AI model allowlist and the product switches, not separate wallets.
 [Projects and keys →](/platform/projects-and-keys)
 
 ## Money is always an integer in paise
@@ -71,14 +71,15 @@ credited once.
 
 ## Hold, then settle
 
-Neither product knows what a request costs until it is over. A model's output length is not
-known before it is generated, and how many phones answer is not known before they are dialed.
-So both products bill in two movements.
+Neither Manifold AI nor the Voice channel knows what a request costs until it is over. A
+model's output length is not known before it is generated, and how many phones answer is not
+known before they are dialed. So both bill in two movements, and the other CPaaS channels use
+the same hold and settle.
 
 <Steps>
   <Step title="Estimate, before anything happens" icon="calculator">
     The request is priced at its worst realistic case: for Manifold, the input plus the whole
-    of `max_tokens`; for Relay Voice, every recipient answering, plus any speech that has to
+    of `max_tokens`; for Voice, every recipient answering, plus any speech that has to
     be synthesized.
   </Step>
   <Step title="Hold that estimate" icon="lock">
@@ -91,7 +92,7 @@ So both products bill in two movements.
     request is refused.
   </Step>
   <Step title="Do the work" icon="play">
-    Manifold calls the model. Relay Voice synthesizes the audio, returns `202`, and dials in
+    Manifold calls the model. Voice synthesizes the audio, returns `202`, and dials in
     the background.
   </Step>
   <Step title="Settle against what actually happened" icon="scale-balanced">
@@ -118,7 +119,7 @@ estimate = (input_tokens  x paisePer1KTokensIn  / 1000)
            rounded up to whole paise, never less than 1 paise
 ```
 
-```text Relay Voice
+```text Voice
 estimate = characters of NEWLY synthesized speech x 3 paise
            (the calls are not metered, so recipients do not appear)
            a replay synthesizes nothing, costs nothing, and takes no hold at all
@@ -131,7 +132,7 @@ Two practical consequences:
   one-line answer holds the money for 65536 tokens until the call finishes, and hands almost
   all of it straight back. That money is unavailable to your other requests in the meantime.
   Set `max_tokens` near what you actually expect.
-- **Reusing a recording removes the synthesis half of the Relay Voice estimate.** Replaying
+- **Reusing a recording removes the synthesis half of the Voice estimate.** Replaying
   an `audioId`, or sending wording this account has already synthesized in the same voice,
   makes the character count zero: nothing is prepared, so nothing is charged for preparing
   it. [Reusing audio →](/relay-voice/reusing-audio)
@@ -140,7 +141,7 @@ The rates `GET /v1/manifold/models` reports are the rates you are charged. Use t
 stand: nothing is added on top of them at settlement.
 
 <Note>
-  The Rs 200 Relay Voice activation fee goes through the same hold and settle, keyed to the
+  The Rs 200 Voice activation fee goes through the same hold and settle, keyed to the
   project rather than to a request. It is charged when the switch is turned on, not when the
   first call is made. [Why it exists →](/relay-voice/pricing)
 </Note>
@@ -163,7 +164,7 @@ stand: nothing is added on top of them at settlement.
 - It is a state, not a transient error. Retrying without topping up produces the same answer.
   Manifold is deliberately not rate limited by us, so a tight retry loop against a `402` will
   spin as fast as your client can send.
-- The same code and shape come back from turning Relay Voice on for a project when the
+- The same code and shape come back from turning Voice on for a project when the
   balance cannot cover the Rs 200 activation fee.
 
 <Tip>
@@ -221,18 +222,20 @@ balance is 3 paise, and all three rows share one `reference`.
 | `reference` | Came from |
 |---|---|
 | `mfr_…` | A Manifold request. The same id is on the response as `id` |
-| `rvj_…` | A Relay Voice job. The same id is the `jobId` from the `202` |
-| `relay-activation-…` | The one-time Relay Voice activation fee for the project in `projectId` |
-| `relay-number-…` | A month's rental of a Relay Voice phone number, base and GST as separate lines |
+| `rvj_…` | A Voice job. The same id is the `jobId` from the `202` |
+| `relay-activation-…` | The one-time Voice activation fee for the project in `projectId` |
+| `relay-number-…` | A month's rental of a Voice phone number, base and GST as separate lines |
 | `pay_…` | A wallet top-up |
 
-A Relay Voice job produces its rows when the job finishes, not when it is accepted. A job
+A Voice job produces its rows when the job finishes, not when it is accepted. A job
 still dialing shows only its `Hold`. A job that replayed an existing recording cost nothing
 and so produces no rows at all: it never touched the wallet.
 
-`description` is usually null. On a `HoldRelease` it carries the reason the hold came back,
-which is either an error code such as `provider_error`, `nothing_billable` when a job ended
-owing nothing, or `Released by the stale-hold sweep`.
+`description` is written for a person reading the ledger, so its wording can change: never
+parse it. On a CPaaS `Debit` it says what was charged, for example `SMS: one OTP` or
+`Voice activation for <project name>`. On a `HoldRelease` it carries the reason the hold came back, which is either an error code
+such as `provider_error`, `nothing_billable` when a job ended owing nothing, or
+`Released by the stale-hold sweep`.
 
 <Accordion title="What happens to a hold if the service restarts mid-request" icon="rotate">
   Nothing is stranded. A background sweep runs hourly and releases any hold still active
@@ -253,11 +256,11 @@ owing nothing, or `Released by the stale-hold sweep`.
 
 ## Where usage figures live instead
 
-`GET /api/v1/usage` reports consumption across both products, per day, project and item, with
+`GET /api/v1/usage` reports consumption across Manifold AI and Tristack CPaaS, per day, project and item, with
 a `product=manifold|relay_voice|all` filter. It answers "what did we use", where the ledger
 answers "what moved in the wallet".
 
-One thing it does not include: the Relay Voice activation fee. That is account spend rather
+One thing it does not include: the Voice activation fee. That is account spend rather
 than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.
 
 ## Other ways to add money

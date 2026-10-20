@@ -1,10 +1,10 @@
 ---
 title: "Callbacks"
-description: "Pass a callbackUrl and Relay Voice POSTs you the finished job, signed. How to verify the signature, and why the URL rules are as strict as they are."
+description: "Pass a callbackUrl and the Voice channel POSTs you the finished job, signed. How to verify the signature, and why the URL rules are as strict as they are."
 ---
 
 Polling works and costs nothing. A callback saves you from it: pass `callbackUrl` on the
-send, and when the job finishes, Relay Voice POSTs the finished job to that URL.
+send, and when the job finishes, Voice POSTs the finished job to that URL.
 
 ```bash Ask to be told
 curl https://api.tristack.tech/v1/relay/voice \
@@ -71,8 +71,11 @@ it, so you can point the same parser at both.
 
 <ResponseField name="error" type="string | null">
   Set only when `status` is `Failed`: `audio_unavailable`, `interrupted` (the service
-  restarted mid-job; nothing is redialed, and since the calls were free there is nothing to refund), or
-  `internal_error`.
+  restarted mid-job; nothing is redialed, and since the calls were free there is nothing to refund),
+  `internal_error`, `account_disabled` (the account was disabled after the job was accepted) or
+  `project_archived` (the project was archived after the job was accepted). The last two stop
+  the job at its next dial; the calls not yet placed read `Cancelled`. See
+  [When a whole job fails](/api-reference/relay-voice/job#when-a-whole-job-fails).
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
