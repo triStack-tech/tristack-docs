@@ -97,7 +97,7 @@ Two fields ride along on specific failures:
 | `unknown_simulator_address` | 400 | Relay Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/relay-email/testing) |
 | `relay_email_unavailable` | 503 | Relay Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
 | `from_domain_not_verified` | 400 | Relay Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the Relay Email tab, and check the whole domain rather than the address |
-| `invalid_domain` | 400 | Relay Email | Not a registrable domain. Subdomains, email addresses and bare TLDs are refused | Send `yourdomain.com` |
+| `invalid_domain` | 400 | Relay Email | Not a domain anyone can send from. Email addresses, bare TLDs, public suffixes and IP addresses are refused | Send `yourdomain.com` or a subdomain such as `mail.yourdomain.com` |
 | `domain_taken` | 409 | Relay Email | Another project already holds this domain. Which one is deliberately not disclosed | Remove it from your other project, or contact support if you believe it is yours |
 | `domain_limit_reached` | 409 | Relay Email | This project already holds 25 domains, counting unverified ones | Remove one you are not using. Unverified claims expire after seven days |
 | `domain_not_found` | 404 | Relay Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/relay/email/domains` |
