@@ -30,7 +30,7 @@ with the actual record.
     `model_not_allowed` and `403` with `manifold_disabled` are different problems.
   </Card>
   <Card title="The alias" icon="tag">
-    The model alias for Manifold, the voice alias for Relay Voice. Behaviour differs by
+    The model alias for Manifold AI, the voice alias for Voice. Behaviour differs by
     model and by voice.
   </Card>
   <Card title="Roughly when" icon="clock">
@@ -39,15 +39,15 @@ with the actual record.
   </Card>
 </CardGroup>
 
-Which identifier depends on the product:
+Which identifier depends on the product or channel:
 
 | Product | Send this | Where you got it |
 |---|---|---|
-| Manifold | `mfr_…` | `id` on the response, or `message_start.id` on a stream |
-| Relay Voice | `rvj_…` | `jobId` on the `202`, and on every status read |
-| Relay Voice, one number | `rvc_…` | `callId` on that entry in the job's `calls` array |
-| Relay Voice, a recording | `aud_…` | `audioId` on the job |
-| Either | Your own `reference` | Whatever you set on the request, echoed back |
+| Manifold AI | `mfr_…` | `id` on the response, or `message_start.id` on a stream |
+| Voice | `rvj_…` | `jobId` on the `202`, and on every status read |
+| Voice, one number | `rvc_…` | `callId` on that entry in the job's `calls` array |
+| Voice, a recording | `aud_…` | `audioId` on the job |
+| Any | Your own `reference` | Whatever you set on the request, echoed back |
 
 The project id helps too, especially when the answer turns out to be a switch or an allowlist
 rather than the request.
@@ -58,7 +58,7 @@ rather than the request.
 |---|---|
 | A `4xx` or `5xx` you want explained | [Errors](/platform/errors) |
 | A bill that does not match what you expected | [Wallet and billing](/platform/wallet) |
-| An Rs 200 charge you did not expect | [Relay Voice pricing](/relay-voice/pricing) |
+| An Rs 200 charge you did not expect | [Voice pricing](/relay-voice/pricing) |
 | `403 model_access_denied` on an alias from the catalog | [Models](/manifold/models) |
 | An image refused with `400 provider_rejected` | [Models](/manifold/models) |
 | A stream that stops early, or costs more than it looks like it should | [Streaming](/manifold/streaming) |
@@ -66,10 +66,11 @@ rather than the request.
 | A callback that never arrived, or one you cannot verify | [Callbacks](/relay-voice/callbacks) |
 | Being charged to synthesize the same sentence twice | [Reusing audio](/relay-voice/reusing-audio) |
 | A key that stopped working everywhere at once | [Projects and keys](/platform/projects-and-keys) |
+| `403 account_disabled` on every key, or a sign-in refused with it | Tristack has disabled the account. Write to hello@tristack.tech |
 
 ## The contact form
 
-The form on [tristack.tech](https://tristack.tech) posts to a public endpoint,
+The form on the [company page](https://tristack.tech/company#contact) posts to a public endpoint,
 `POST /api/v1/contact`. It takes no authentication and stores nothing: a submission becomes
 an email.
 
@@ -108,10 +109,10 @@ request id, and the request id is what makes the answer specific.
 Tristack is a technology company. We build and operate our own software products, and we help
 businesses build theirs.
 
-Tristack Manifold and Tristack Relay Voice are products of Tristack Technologies LLP (LLPIN
+Manifold AI and Tristack CPaaS are platforms built and run by Tristack Technologies LLP (LLPIN
 ACP-3743), registered office B-35, Vinoba Kunj Apartments, Sector 9, Rohini, Delhi 110085,
 India.
 
 There are two ways in, and they are the two on this page: the email address above, and the
-contact form on [tristack.tech](https://tristack.tech). Neither carries a published response
+contact form on the [company page](https://tristack.tech/company#contact). Neither carries a published response
 time.

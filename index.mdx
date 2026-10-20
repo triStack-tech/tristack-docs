@@ -1,41 +1,42 @@
 ---
 title: "Tristack developer docs"
-description: "Manifold answers with a language model. Relay reaches people by phone or email. One account, one wallet, one kind of API key."
+description: "Manifold AI answers with a language model. Tristack CPaaS reaches people by SMS, OTP, voice call, WhatsApp and email. One account, one wallet, one kind of API key."
 mode: "wide"
 ---
 
-Tristack runs **two products**. Manifold generates text. Relay delivers messages to people.
-You can use one without ever touching the other.
+Tristack runs platforms you build on: **Manifold AI** generates text, and **Tristack CPaaS**
+delivers messages to people. You can use one without ever touching the other.
 
 <CardGroup cols={2}>
-  <Card title="Manifold" icon="brain" href="/manifold/quickstart" horizontal>
+  <Card title="Manifold AI" icon="brain" href="/manifold/quickstart" horizontal>
     **Text in, text out.** One HTTP API for language models: send messages, name a model
     by alias, read the answer back. Metered per token.
 
     `POST /v1/manifold/messages`
   </Card>
 
-  <Card title="Relay" icon="tower-broadcast" href="/relay/index" horizontal>
-    **Reach a person.** A family of channels sharing one key and one wallet: a phone call
-    today, transactional email today, SMS and one-time passcodes to come.
+  <Card title="Tristack CPaaS" icon="tower-broadcast" href="/relay/index" horizontal>
+    **Reach a person.** A set of channels sharing one key and one wallet: voice calls,
+    transactional email, and one-time codes by WhatsApp or SMS.
 
     `POST /v1/relay/voice` · `POST /v1/relay/email`
   </Card>
 </CardGroup>
 
-## Relay is a family, not a single endpoint
+## Tristack CPaaS is a set of channels, not a single endpoint
 
-Each Relay channel is its own product with its own endpoint, request shape and price. They
-share a key, a wallet and a project, and nothing else.
+Each CPaaS channel has its own endpoint, request shape and price. They share a key, a wallet
+and a project, and nothing else. The API paths still say `relay`, from the product's earlier
+name; they are unchanged.
 
 | Channel | Status | Endpoint | Billed |
 | --- | --- | --- | --- |
-| [Relay Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per character of speech |
-| [Relay Email](/relay-email/quickstart) | Available | `POST /v1/relay/email` | Per recipient |
-| [Relay WhatsApp](/relay-whatsapp/index) | Available | `POST /v1/relay/whatsapp/otp` | Per code sent |
-| [Relay SMS](/relay-sms/index) | Available | `POST /v1/relay/sms/otp` | Per code sent |
+| [Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per character of speech |
+| [Email](/relay-email/quickstart) | Available | `POST /v1/relay/email` | Per recipient |
+| [WhatsApp](/relay-whatsapp/index) | Available | `POST /v1/relay/whatsapp/otp` | Per code sent |
+| [SMS](/relay-sms/index) | Early access | `POST /v1/relay/sms/otp` | Per code sent |
 
-## They are separate products, not halves of one
+## They are separate platforms, not halves of one
 
 This is worth being clear about up front, because the shared plumbing makes them look more
 connected than they are.
@@ -45,7 +46,7 @@ connected than they are.
     **What they share**
 
     - One Tristack account and one dashboard
-    - One prepaid wallet: every product draws from the same balance
+    - One prepaid wallet: Manifold AI and every CPaaS channel draw from the same balance
     - The same kind of API key (`tsk_live_…`), scoped to a project
     - The same error envelope and the same base URL
   </div>
@@ -62,43 +63,44 @@ connected than they are.
 </Columns>
 
 <Note>
-  A key with Manifold enabled and Relay Voice disabled calls Manifold and gets
-  `403 relay_voice_disabled` from Relay Voice. The switches are per project and per product.
+  A key with Manifold AI enabled and Voice disabled calls Manifold and gets
+  `403 relay_voice_disabled` from Voice. The switches are per project and per channel.
 </Note>
 
 ## Which one do you want?
 
 <AccordionGroup>
   <Accordion title="I want a model to answer a prompt" icon="brain">
-    That is **Manifold**. You send messages and get generated text back, streaming or not.
+    That is **Manifold AI**. You send messages and get generated text back, streaming or not.
     Billing is per token, at the model's own rate.
 
-    [Manifold quickstart →](/manifold/quickstart)
+    [Manifold AI quickstart →](/manifold/quickstart)
   </Accordion>
 
   <Accordion title="I want to telephone people and play them a message" icon="phone">
-    That is **Relay Voice**. You send a list of Indian mobile numbers and the words to say.
+    That is the **Voice** channel of Tristack CPaaS. You send a list of Indian mobile numbers and the words to say.
     It synthesizes the speech once and calls everyone. You are billed for preparing the
     recording and not for the calls, so reaching five hundred people costs what reaching one
     does.
 
-    [Relay Voice quickstart →](/relay-voice/quickstart)
+    [Voice quickstart →](/relay-voice/quickstart)
   </Accordion>
 
   <Accordion title="I want to send a receipt, a password reset or an alert by email" icon="envelope">
-    That is **Relay Email**. You verify a domain you own with three DNS records, then send
+    That is the **Email** channel of Tristack CPaaS. You verify a domain you own with three DNS records, then send
     from any address at it. Billing is per recipient, so one email to fifty people costs
     fifty times one email to one person.
 
-    [Relay Email quickstart →](/relay-email/quickstart)
+    [Email quickstart →](/relay-email/quickstart)
   </Accordion>
 
   <Accordion title="I want a model to write the message, then send it" icon="arrow-right-arrow-left">
-    That is **two products, called in sequence, by your code**. Ask Manifold for the text,
-    take the string out of the response, and pass it to Relay as `text`.
+    That is **Manifold AI and a CPaaS channel, called in sequence, by your code**. Ask
+    Manifold for the text, take the string out of the response, and pass it to the channel
+    as `text`.
 
-    There is no shortcut that does it in one call, and no hidden coupling: to Relay, text
-    written by a model is just text.
+    There is no shortcut that does it in one call, and no hidden coupling: to Tristack CPaaS,
+    text written by a model is just text.
   </Accordion>
 </AccordionGroup>
 
@@ -112,8 +114,9 @@ connected than they are.
     [Projects and keys →](/platform/projects-and-keys)
   </Step>
 
-  <Step title="Turn on the products you want">
-    Each product has its own switch on the project. They are independent.
+  <Step title="Turn on what you need">
+    Manifold AI and each CPaaS channel have their own switch on the project. They are
+    independent.
   </Step>
 
   <Step title="Create an API key">
@@ -122,30 +125,30 @@ connected than they are.
   </Step>
 
   <Step title="Fund the wallet">
-    One prepaid balance in paise, drawn on by every product. A call that cannot be covered
+    One prepaid balance in paise, drawn on by Manifold AI and Tristack CPaaS alike. A call that cannot be covered
     is refused with `402` before anything is spent.
 
     [Wallet and billing →](/platform/wallet)
   </Step>
 </Steps>
 
-```bash Three products, one key, one base URL
+```bash One key, one base URL
 export TRISTACK_API_KEY="tsk_live_your_key_here"
 
-# Manifold: a model answers
+# Manifold AI: a model answers
 curl https://api.tristack.tech/v1/manifold/messages \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"nova-micro","max_tokens":256,
        "messages":[{"role":"user","content":"Say hello from Tristack."}]}'
 
-# Relay Voice: a phone rings
+# Voice: a phone rings
 curl https://api.tristack.tech/v1/relay/voice \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"to":["+91XXXXXXXXXX"],"text":"Your delivery arrives between 4 and 6 today."}'
 
-# Relay Email: a message lands in an inbox
+# Email: a message lands in an inbox
 curl https://api.tristack.tech/v1/relay/email \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
