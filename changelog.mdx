@@ -12,6 +12,62 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-10-21" description="Relay is now Tristack CPaaS, and disabled accounts are refused">
+
+  **New names, same API.** Tristack Relay is now **Tristack CPaaS**, and its channels are
+  called by their own names: **Voice**, **Email**, **WhatsApp** and **SMS**. Manifold is now
+  **Manifold AI**. Nothing you call has changed: every path (`/v1/relay/...`), request field,
+  scope, error code and usage product id keeps `relay`, and these pages keep their addresses.
+  The website's `/relay` pages moved to `/cpaas`, and the old links redirect.
+
+  What reads differently:
+
+  - Error sentences name the channel, for example "Voice is not enabled for this project."
+    rather than "Relay Voice is not enabled for this project.". The `code` beside each one is
+    unchanged, which is why you should branch on `code` and never on `error`.
+  - Wallet ledger descriptions do the same: `Voice: …`, `Email: …`, `SMS: one OTP`,
+    `WhatsApp: one OTP` and `Voice activation for <project name>`.
+  - The bounce, complaint and stopped-webhook emails link to **Open Email settings**.
+
+  **Accounts Tristack disables are refused everywhere**
+
+  - Every API key of a disabled account answers `403 account_disabled`, before any project or
+    product check. Signing in to the dashboard, with a password or with Google, answers `403`
+    with the same code, a session already open answers `401` with it on its next request, and
+    no password reset goes through. Write to hello@tristack.tech.
+  - Work accepted before the disable stops too. A queued Voice job checks before every call it
+    places: calls not yet placed end `Cancelled`, calls already ringing finish, and the job
+    ends `Failed` with `account_disabled`. The speech charge stands, since the recording was
+    made, and a `callbackUrl` still receives the finished job. A video or audio embedding job
+    ends `failed` with `account_disabled`, with nothing charged and its reservation released.
+  - Automatic top-ups never charge a disabled account, and a charge waiting in its notice
+    window is stood down. Rented numbers keep renewing, so a number is not lost to a disable.
+  - Archiving a project now stops its queued Voice jobs in the same way, with
+    `project_archived` on the job.
+
+  See [errors](/platform/errors) and [job status](/api-reference/relay-voice/job).
+
+  **Corrections and smaller changes**
+
+  - A rented number is used as the caller id only once Tristack support has assigned it to a
+    project, on request. Until then calls go out from the shared Tristack number. The pages
+    that said renting alone changed the caller id are corrected.
+    [Phone numbers →](/relay-voice/numbers)
+  - The one-time Rs 200 Voice activation is not a phone number. A few pages still said it
+    rented one, and no longer do.
+  - Meta bills you separately for WhatsApp messages; the pages no longer say it bills per
+    conversation.
+  - SMS is in early access: ask us to switch it on for your account.
+  - The dashboard API's rate limit of 10 requests a minute now applies only to signing in,
+    registering and the password and verification routes. Signed-in account routes, such as
+    reading your profile, are no longer limited.
+  - A DLT entity or template that is suspended stays suspended even if its header is later
+    reported approved.
+  - [Errors](/platform/errors) now lists every SMS and WhatsApp code, and the Email and Voice
+    codes it was missing.
+
+</Update>
+
 <Update label="2026-08-31" description="Relay Voice calls are free, and you can rent your own number">
 
   **Calls are no longer metered.** `pricePerCallPaise` is `0`. Every call, in every outcome,
