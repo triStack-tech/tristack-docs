@@ -55,7 +55,7 @@ The code is **never returned**: the `id` is your only handle on it.
 | Status | `code` | Means | What to do |
 | --- | --- | --- | --- |
 | 400 | `invalid_phone_number` | `to` is not an international number | Fix the number |
-| 400 | `whatsapp_not_configured` | The project has no WhatsApp credentials | Add them on the Relay WhatsApp tab |
+| 400 | `whatsapp_not_configured` | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_whatsapp_disabled` | Not switched on for this project | Turn it on. No new key needed |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |

@@ -82,7 +82,7 @@ invented, so a request carrying both is refused with `simulator_recipient_mixed`
 ## Do not use documentation domains instead
 
 `example.com`, `example.org`, anything ending `.test` or `.invalid`: these are reserved and
-can never receive mail. Relay Email refuses them outright, because when it did not, a send to
+can never receive mail. The Email channel refuses them outright, because when it did not, a send to
 one was accepted, charged, retried by the mail provider for fourteen hours, and only then
 bounced.
 

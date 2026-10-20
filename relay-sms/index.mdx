@@ -1,17 +1,27 @@
 ---
-title: "Relay SMS"
+title: "SMS"
 description: "One-time codes by SMS to Indian numbers. No DLT registration of your own required: Tristack sends under its own registered header unless you bring yours."
 icon: "message-sms"
 ---
 
-Two calls. `POST /v1/relay/sms/otp` sends a code to an Indian mobile, and
+SMS is the Tristack CPaaS channel for one-time codes by SMS to Indian mobiles. Two calls.
+`POST /v1/relay/sms/otp` sends a code to an Indian mobile, and
 `POST /v1/relay/sms/otp/verify` checks what the person typed. You write no expiry, no attempt
 cap, no resend throttle and no storage.
 
+The API still says `relay` in its paths, fields, scopes and error codes, from the channel's
+earlier name. Those are unchanged.
+
+<Note>
+  SMS is in early access. Create an account and a project, then ask us to switch it on at
+  [support@tristack.tech](mailto:support@tristack.tech). Until it is on, the endpoints answer
+  `503 relay_sms_unavailable` and nothing is charged.
+</Note>
+
 ## You do not need a DLT registration
 
-This is the part that is different from Relay WhatsApp, and it is the reason most people use
-this product.
+This is the part that is different from the WhatsApp channel, and it is the reason most people
+use this one.
 
 Sending commercial SMS in India normally means registering as a Principal Entity on an
 operator's DLT portal, getting a sender header approved, registering the exact text of every

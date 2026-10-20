@@ -24,12 +24,12 @@ in faster than operators report on it.
 <ResponseField name="delivery" type="object">
   `status` is one of:
 
-  - `pending` — accepted, no report yet.
-  - `delivered` — it reached the handset.
-  - `failed` — the operator could not deliver it.
-  - `blocked` — the operator refused it outright, most often DLT scrubbing against the content
+  - `pending`: accepted, no report yet.
+  - `delivered`: it reached the handset.
+  - `failed`: the operator could not deliver it.
+  - `blocked`: the operator refused it outright, most often DLT scrubbing against the content
     template.
-  - `unknown` — the report was no longer available by the time we asked. A gap in what we can
+  - `unknown`: the report was no longer available by the time we asked. A gap in what we can
     tell you, not a lost message.
 
   `checkedAt` is when the report was last read, and `detail` carries the operator's own words

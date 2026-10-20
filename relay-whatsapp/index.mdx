@@ -1,27 +1,31 @@
 ---
-title: "Relay WhatsApp"
+title: "WhatsApp"
 description: "One-time codes over WhatsApp, sent through your own Meta number. You call two endpoints; Tristack generates the code, sends it and verifies it."
 icon: "whatsapp"
 ---
 
-Two calls. `POST /v1/relay/whatsapp/otp` sends a code to a number, and
+WhatsApp is the Tristack CPaaS channel for one-time codes over WhatsApp. Two calls.
+`POST /v1/relay/whatsapp/otp` sends a code to a number, and
 `POST /v1/relay/whatsapp/otp/verify` checks what the person typed. You write no expiry, no
 attempt cap, no resend throttle and no storage.
 
+The API still says `relay` in its paths, fields, scopes and error codes, from the channel's
+earlier name. Those are unchanged.
+
 ## You own the WhatsApp number, not us
 
-This is the part that is different from Relay Voice and Relay Email, and it is worth being
+This is the part that is different from the Voice and Email channels, and it is worth being
 plain about before you start.
 
 You create the WhatsApp Business Account, pass Meta's business verification, buy the number
-and get your own authentication template approved. Meta bills **you** for each conversation,
-directly, at their rates. Tristack never appears in that relationship.
+and get your own authentication template approved. Meta bills **you** separately for
+WhatsApp messages, directly, at their rates. Tristack never appears in that relationship.
 
 What you hand us is the credentials to send as you, and what you get back is that none of the
 one-time-code logic is yours to write or to get wrong.
 
 <Note>
-  Meta's charge for the conversation is separate from, and additional to, what Tristack
+  Meta's charge for WhatsApp messages is separate from, and additional to, what Tristack
   charges. See [Pricing](/relay-whatsapp/pricing).
 </Note>
 
@@ -38,7 +42,8 @@ system user token, in that order. Business verification alone takes days, so sta
   Every screen, every link, and which failure sends you back to which step.
 </Card>
 
-Then open the project's **Relay WhatsApp** tab in the dashboard and paste the four values in.
+Then open the project's **WhatsApp** tab, under **CPaaS**, in the dashboard and paste the four
+values in.
 
 ## What happens to your access token
 
@@ -49,9 +54,9 @@ to your project so a copy of the row is useless anywhere else.
 endpoint and no masked preview, because the only party who needs the token already has it.
 Replacing it is the only way to change it, and saving a new one rotates it.
 
-If it ever stops working, the dashboard says so on the Relay WhatsApp tab and the send answers
-`whatsapp_token_invalid` rather than a generic failure, so you know to paste a new one rather
-than to open a support ticket.
+If it ever stops working, the dashboard says so on the project's WhatsApp tab and the send
+answers `whatsapp_token_invalid` rather than a generic failure, so you know to paste a new one
+rather than to open a support ticket.
 
 ## Sending a code
 

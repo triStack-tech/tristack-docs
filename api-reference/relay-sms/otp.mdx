@@ -69,12 +69,12 @@ silently would mean being charged for a message different from the one you asked
 | --- | --- | --- | --- |
 | 400 | `invalid_phone_number` | `to` is not an Indian mobile number | Fix the number |
 | 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
-| 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the Relay SMS tab, or contact support |
-| 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the Relay SMS tab |
+| 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the project's SMS tab, or contact support |
+| 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | 400 | `template_variable_too_long` | A value exceeds DLT's 30-character ceiling | Shorten it |
-| 400 | `template_variable_empty` | A placeholder has no value | Fill it on the Relay SMS tab |
+| 400 | `template_variable_empty` | A placeholder has no value | Fill it on the project's SMS tab |
 | 400 | `template_variable_invalid` | A value carries a `|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
-| 400 | `template_missing` | No approved template text is configured for this send | Paste it on the Relay SMS tab |
+| 400 | `template_missing` | No approved template text is configured for this send | Paste it on the project's SMS tab |
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on. No new key needed |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
