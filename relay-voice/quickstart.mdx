@@ -1,5 +1,5 @@
 ---
-title: "Relay Voice quickstart"
+title: "Voice quickstart"
 description: "From an API key to a ringing phone: enable the product on a project, fund the wallet, send the call, and read the job back."
 ---
 
@@ -9,7 +9,8 @@ you have a project and a `tsk_live_…` key in it.
 <Info>
   You need an account, a project, and an API key minted in that project before you start.
   If you do not have those yet, do [projects and keys](/platform/projects-and-keys) first.
-  Relay Voice needs no other setup: no numbers to buy, no audio to upload.
+  Voice, the Tristack CPaaS calling channel, needs no other setup: no numbers to buy, no
+  audio to upload.
 </Info>
 
 ```bash Your key, in the environment
@@ -23,8 +24,8 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
 </Warning>
 
 <Steps>
-  <Step title="Turn Relay Voice on for the project" icon="toggle-on">
-    Open the project in the dashboard and switch **Relay Voice** on, or call the dashboard
+  <Step title="Turn Voice on for the project" icon="toggle-on">
+    Open the project in the dashboard and switch **Voice** on, or call the dashboard
     API with your session JWT. It is a per-project switch, and it is a deliberate one: a key
     on a project without it authenticates correctly and still gets `403`.
 
@@ -61,7 +62,8 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     That fee buys the project its place on the outbound line and its registration with the
     carriers. It is not a subscription, it is not per call, and it is **not a phone number**:
     a number of your own is [rented separately](/relay-voice/numbers) and monthly, and is
-    optional. Without one you call from a shared Tristack number.
+    optional. Until one is rented and assigned to the project, you call from a shared Tristack
+    number.
 
     - Switching the project off and back on again later is **free**. The fee is never charged
       twice for the same project.
@@ -74,7 +76,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
 
     ```json 402 Payment Required
     {
-      "error": "Turning Relay on for this project costs a one-time activation fee, and the wallet balance cannot cover it. Top up and try again.",
+      "error": "Turning Voice on for this project costs a one-time activation fee, and the wallet balance cannot cover it. Top up and try again.",
       "code": "insufficient_balance",
       "requiredPaise": 20000
     }
@@ -82,7 +84,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
   </Step>
 
   <Step title="Fund the wallet" icon="wallet">
-    One prepaid wallet serves the whole account and every product in it. Top up in the
+    One prepaid wallet serves the whole account, Manifold AI and every CPaaS channel. Top up in the
     dashboard through the checkout flow. The minimum top-up is 10000 paise (Rs 100), and
     your email has to be verified before you can add money.
 

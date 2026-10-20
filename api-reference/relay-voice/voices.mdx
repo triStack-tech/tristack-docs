@@ -46,7 +46,7 @@ What one call costs, in paise. **`0`, and not a placeholder:** calls are not met
 
   It has never included the 3 paise per character charged once when a new recording is
   prepared, which is now the only per-use charge, nor the one-time activation fee per
-  project. See [Relay Voice pricing](/relay-voice/pricing).
+  project. See [Voice pricing](/relay-voice/pricing).
 </ResponseField>
 
 <ResponseField name="voices" type="object[]">
@@ -112,7 +112,8 @@ What one call costs, in paise. **`0`, and not a placeholder:** calls are not met
 |---|---|---|---|
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
-| 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it on for the project. This endpoint runs the same gate a send does, so it refuses rather than showing you a menu you cannot order from. |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key. Every key it owns is refused. | Write to hello@tristack.tech. |
+| 403 | `relay_voice_disabled` | Voice is switched off on the project. | Turn it on for the project. This endpoint runs the same gate a send does, so it refuses rather than showing you a menu you cannot order from. |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. | Retry later or [contact support](mailto:support@tristack.tech). A deployment with no configured voice reports itself unavailable rather than returning an empty list. |
 

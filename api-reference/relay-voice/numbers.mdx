@@ -1,6 +1,6 @@
 ---
 title: "Phone numbers"
-description: "Verify the business once, then search, rent and stop renewing the numbers your calls go out from."
+description: "Verify the business once, then search for, rent and stop renewing numbers of your own for Voice calls."
 ---
 
 Seven endpoints under `/v1/relay/voice`, split in two: the account-level verification that
@@ -195,6 +195,14 @@ so a number shows up on one project's spend rather than floating on the account.
 the body changes that: a key names its project already, and honouring a body field would let a
 key issued for one project put a monthly charge on another. Rent from the key belonging to the
 project that should carry the cost.
+
+<Note>
+  Renting does not change your caller id by itself. Calls go out from a rented number only once
+  it is assigned to a project, and none of these endpoints does that: Tristack support assigns
+  it on request, at [support@tristack.tech](mailto:support@tristack.tech). Until then the
+  project keeps calling from the shared Tristack number.
+  [Assigning a number to a project](/relay-voice/numbers#assigning-a-number-to-a-project)
+</Note>
 
 <ParamField path="GET /v1/relay/voice/numbers" type="endpoint">
   Every number on the account, including ones already released.

@@ -1,11 +1,18 @@
 ---
-title: "Relay Voice"
-description: "Send Indian mobile numbers and a line of text. Relay Voice speaks it down a phone call to every one of them. You pay for the speech, once, and nothing for the calls."
+title: "Voice"
+description: "Send Indian mobile numbers and a line of text. Voice speaks it down a phone call to every one of them. You pay for the speech, once, and nothing for the calls."
 ---
 
-Relay Voice turns a line of text into a phone call. You POST a list of Indian mobile numbers
-and the words to say. It synthesizes the speech once and dials everybody. You pay for the
-speech, once, and nothing for the calls: see [pricing](/relay-voice/pricing).
+Voice, a Tristack CPaaS channel, turns a line of text into a phone call. You POST a list of
+Indian mobile numbers and the words to say. It synthesizes the speech once and dials
+everybody. You pay for the speech, once, and nothing for the calls: see
+[pricing](/relay-voice/pricing).
+
+<Note>
+  The API still says `relay` in its paths, fields, scopes and error codes (`/v1/relay/voice`,
+  `relayVoiceEnabled`, `relay-voice:send`, `relay_voice_disabled`), from the product's earlier
+  name. They are unchanged and keep working exactly as documented.
+</Note>
 
 ```bash One request, three phones ring
 curl https://api.tristack.tech/v1/relay/voice \
@@ -51,9 +58,9 @@ HTTP client should hold a socket open for that:
   `0XXXXXXXXXX` and `XXXXXXXXXX` in one request are one recipient and one charge, not three.
 </Note>
 
-## It is a separate product from Manifold
+## It is a separate product from Manifold AI
 
-Relay Voice and [Manifold](/manifold/index) share an account, a wallet and a key format, and
+Voice and [Manifold AI](/manifold/index) share an account, a wallet and a key format, and
 nothing else. They are not two halves of one thing.
 
 <Columns cols={2}>
@@ -75,10 +82,10 @@ nothing else. They are not two halves of one thing.
   </div>
 </Columns>
 
-A key whose project has Relay Voice switched off answers `403 relay_voice_disabled` here
+A key whose project has Voice switched off answers `403 relay_voice_disabled` here
 while still calling Manifold happily. If you want a model to write the message and a phone to
 say it, your code makes both calls: ask Manifold for the text, take the string out of the
-response, and send it to Relay Voice as `text`.
+response, and send it to Voice as `text`.
 
 ## What actually happens when you call it
 
@@ -151,7 +158,7 @@ Two statuses matter and they answer different questions.
 | `Busy` | Engaged. | Yes |
 | `NoAnswer` | Rang out. | Yes |
 | `Failed` | The network or the provider refused it. | Yes |
-| `Cancelled` | Never placed, for example the service restarted mid-job. | Yes |
+| `Cancelled` | Never placed: for example the service restarted mid-job, or the account was disabled or the project archived before its turn came. | Yes |
 
 No outcome here is a charge. Read these to know who you reached, not what you owe.
 
@@ -164,7 +171,7 @@ No outcome here is a charge. Read these to know who you reached, not what you ow
 ## What it costs, in one line
 
 3 paise per character of newly synthesized speech, charged once per recording, and a
-one-time Rs 200 the first time you switch Relay Voice on for a project. The calls are free.
+one-time Rs 200 the first time you switch Voice on for a project. The calls are free.
 
 The 65-character message at the top of this page costs 195 paise to record, once, and then
 nothing to send, to those three phones or to five hundred. Full arithmetic on the
@@ -172,7 +179,7 @@ nothing to send, to those three phones or to five hundred. Full arithmetic on th
 
 ## When to use it
 
-Relay Voice fits a message that has to reach a phone rather than a screen, where the
+Voice fits a message that has to reach a phone rather than a screen, where the
 recipient does not need to answer back: a delivery window, a clinic closure, a fee reminder,
 a shift change, an outage notice to a list of site owners.
 

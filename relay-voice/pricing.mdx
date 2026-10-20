@@ -1,14 +1,14 @@
 ---
-title: "Relay Voice pricing"
-description: "You pay to turn text into speech, and not to make the calls: 3 paise per character, once, plus Rs 200 the first time a project switches Relay Voice on."
+title: "Voice pricing"
+description: "You pay to turn text into speech, and not to make the calls: 3 paise per character, once, plus Rs 200 the first time a project switches Voice on."
 ---
 
-Relay Voice meters one thing: **speech**. Making a recording costs 3 paise per character,
+Voice, the Tristack CPaaS calling channel, meters one thing: **speech**. Making a recording costs 3 paise per character,
 once. Dialing it costs nothing, however many phones it reaches and whoever picks up.
 
 | Charge | Amount | When |
 |---|---|---|
-| Activation | **20000 paise (Rs 200)** | Once, the first time Relay Voice is switched on for a project |
+| Activation | **20000 paise (Rs 200)** | Once, the first time Voice is switched on for a project |
 | New speech | **3 paise per character** | Once, when a recording is prepared. Never again for that recording |
 | Calls | **Nothing** | Answered, busy, rung out or refused, a call is not a charge |
 
@@ -18,8 +18,9 @@ listing voices.
 <Note>
   Renting a phone number of your own is separate, optional, and the only recurring charge on
   the platform: Rs 200 plus Rs 36 GST per number per month. See
-  [phone numbers](/relay-voice/numbers). Without one your calls go out from a shared Tristack
-  number, which costs nothing beyond the activation fee.
+  [phone numbers](/relay-voice/numbers). Until a number of your own is rented and Tristack
+  support has assigned it to the project, your calls go out from a shared Tristack number,
+  which costs nothing beyond the activation fee.
 </Note>
 
 ## 3 paise per character of new speech
@@ -35,7 +36,7 @@ costs `65 x 3 = 195 paise` to record, whether it then goes to one phone or five 
 
 **You do not pay it twice for the same words.** Sending an `audioId`, or re-sending wording
 your account has already recorded in the same voice, skips synthesis entirely and the charge
-with it. That makes it the only variable in a Relay Voice bill: see
+with it. That makes it the only variable in a Voice bill: see
 [reusing a recording](/relay-voice/reusing-audio).
 
 <Warning>
@@ -64,7 +65,7 @@ what you are buying is the sentence, not the dialing.
 
 ## Activation: Rs 200, once, per project
 
-Switching **Relay Voice** on for a project charges 20000 paise the first time it happens for
+Switching **Voice** on for a project charges 20000 paise the first time it happens for
 that project. It buys the project its place on the outbound line and its registration with
 the carriers, both of which we are billed for monthly whether or not you place a single call.
 
@@ -183,7 +184,7 @@ the carriers, both of which we are billed for monthly whether or not you place a
     | One call | 1 x 0 | 0 |
     | **Charged** | | **213** |
 
-    **Rs 2.13**, answered or not. Personalized sending is where a Relay Voice bill comes
+    **Rs 2.13**, answered or not. Personalized sending is where a Voice bill comes
     from: every message is different, so every message is a new recording. Five hundred of
     these cost Rs 1,065; the same words broadcast to the same five hundred cost Rs 2.13.
   </Tab>
@@ -225,6 +226,10 @@ the carriers, both of which we are billed for monthly whether or not you place a
     If the service restarts mid-job, the job ends as `Failed` with `error: "interrupted"` and
     nothing is redialed. You are charged for the recording, if this job made it, and nothing
     else.
+
+    The same goes for a job stopped because the account was disabled or the project archived
+    after it was accepted: it ends as `Failed` with `account_disabled` or `project_archived`,
+    the calls not yet placed are `Cancelled`, and only the recording charge stands.
   </Accordion>
 </AccordionGroup>
 
@@ -233,12 +238,12 @@ the carriers, both of which we are billed for monthly whether or not you place a
 | Surface | Shows |
 |---|---|
 | The job body, `costPaise` | The final charge for that job: the recording charge if this job made it, and `0` if it replayed one. |
-| `GET /api/v1/wallet/transactions` | The ledger. A Relay Voice job that made a recording appears as a `Hold` then a `Debit`, referenced by its `rvj_…` id. A job that replayed one appears not at all. The activation fee is a `Debit` referenced `relay-activation-<projectId>`; a number rental is referenced `relay-number-<numberId>`. |
+| `GET /api/v1/wallet/transactions` | The ledger. A Voice job that made a recording appears as a `Hold` then a `Debit`, referenced by its `rvj_…` id. A job that replayed one appears not at all. The activation fee is a `Debit` referenced `relay-activation-<projectId>`; a number rental is referenced `relay-number-<numberId>`. |
 | `GET /api/v1/usage?product=relay_voice` | Per day, project and voice. `units` is calls placed, which is a volume rather than a bill: `costPaise` is the money, and it moves with characters, not calls. |
 
 <Tip>
   Estimating a campaign before you run it: `characters x 3`, once per **distinct** message,
-  plus `20000` if the project has never had Relay Voice switched on, plus `23600` a month for
+  plus `20000` if the project has never had Voice switched on, plus `23600` a month for
   each number you rent. The number of people you call does not enter the arithmetic.
 </Tip>
 
@@ -246,10 +251,10 @@ the carriers, both of which we are billed for monthly whether or not you place a
 
 <CardGroup cols={2}>
   <Card title="Cut the speech bill" icon="rotate-left" href="/relay-voice/reusing-audio">
-    The one lever that changes a Relay Voice invoice by an order of magnitude.
+    The one lever that changes a Voice invoice by an order of magnitude.
   </Card>
 
   <Card title="Rent a number" icon="phone" href="/relay-voice/numbers">
-    Call from your own number instead of a shared one, for Rs 236 a month.
+    Rent your own number for Rs 236 a month, and have support assign it to a project.
   </Card>
 </CardGroup>

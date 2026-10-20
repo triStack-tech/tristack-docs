@@ -31,8 +31,8 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 | `pricePerCallPaise` | `0`. Calls are not metered. Kept on the response because it is the operator's rate rather than a constant, and a client that reads it will see the day it changes. |
 
 <Note>
-  This endpoint runs the same product gate a send does, so a key whose project has Relay
-  Voice switched off answers `403 relay_voice_disabled` here as well. It lists what you can
+  This endpoint runs the same product gate a send does, so a key whose project has Voice
+  switched off answers `403 relay_voice_disabled` here as well. It lists what you can
   actually order, never a menu you would be refused from.
 </Note>
 
@@ -120,7 +120,7 @@ The dashboard has two ways to audition a voice, and they answer different questi
     either, because the sample is our wording rather than yours and it was recorded once for
     everybody. A real number rings and a real call is placed, and it is still free.
 
-    It needs Relay Voice already switched on for the project you pick, since that is the
+    It needs Voice already switched on for the project you pick, since that is the
     project whose wallet pays and whose usage records it. The call shows up in your job
     history with `reference` set to `dashboard-test-call`.
   </Accordion>

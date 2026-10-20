@@ -179,7 +179,7 @@ console.log(job.jobId, job.audioId, job.estimatedCostPaise, "paise held");
 
 <ParamField body="speed" type="number">
   How fast the voice reads the text, from **0.7** to **1.2**. Omit it and the call uses the
-  project's tempo, set on the Relay Voice tab of the dashboard; omit that too and it uses the
+  project's tempo, set on the project's Voice tab in the dashboard; omit that too and it uses the
   platform default of `1.0`, which is the voice's own natural pace.
 
   Below `1.0` is slower, which carries better on a poor line. Above is faster, which shortens
@@ -225,10 +225,11 @@ touched: no hold, no debit, no ledger row. Such a send works on an empty balance
   same voice: the same words resolve to the same `audioId` and skip the charge. The explicit
   id makes that guaranteed and visible rather than incidental.
 
-  There is also a one-time ₹200 activation fee the first time Relay Voice is switched on for a
-  project, charged on the dashboard toggle rather than here. It rents that project its own
-  caller-id number. Switching the product off and on again is free; a second project is a
-  second number and a second fee. See [Relay Voice pricing](/relay-voice/pricing).
+  There is also a one-time ₹200 activation fee the first time Voice is switched on for a
+  project, charged on the dashboard toggle rather than here. It pays for the project's place on
+  the shared outbound line and its registration with the carriers; it is **not** a phone
+  number. Switching the product off and on again is free; a second project pays a second fee.
+  See [Voice pricing](/relay-voice/pricing).
 </Note>
 
 ## Response
@@ -395,7 +396,8 @@ touched: no hold, no debit, no ledger row. Such a send works on an empty balance
 |---|---|---|---|
 | 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked. | Check the header, or mint a new key. |
 | 401 | `project_archived` | The key's project is archived. | Unarchive the project, or use a key from an active one. |
-| 403 | `relay_voice_disabled` | Relay Voice is switched off on the project. | Turn it on for the project. The first time charges the one-time activation fee. |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key. Every key it owns is refused. | Write to hello@tristack.tech. |
+| 403 | `relay_voice_disabled` | Voice is switched off on the project. | Turn it on for the project. The first time charges the one-time activation fee. |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 503 | `relay_voice_unavailable` | The operator switched the product off, or the deployment is missing its public base URL, call-provider credentials, speech credentials or any usable voice. Half configured is refused rather than half served. | Nothing you can fix in the request. Retry later or [contact support](mailto:support@tristack.tech). |
 | 400 | `invalid_request` | `to` empty or over 500, both or neither of `text` and `audioId`, `text` over 1500 characters, `voice` sent with `audioId`, or `reference` over 128 characters. `error` names which. | Fix the field named in `error`. |
