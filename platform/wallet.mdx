@@ -256,9 +256,24 @@ such as `provider_error`, `nothing_billable` when a job ended owing nothing, or
 
 ## Where usage figures live instead
 
-`GET /api/v1/usage` reports consumption across Manifold AI and Tristack CPaaS, per day, project and item, with
-a `product=manifold|relay_voice|all` filter. It answers "what did we use", where the ledger
+`GET /api/v1/usage` reports consumption across Manifold AI and Tristack CPaaS, per day, project and item. It answers "what did we use", where the ledger
 answers "what moved in the wallet".
+
+Its `product=` filter takes exactly these values:
+
+| `product` | Rows |
+|---|---|
+| `manifold` | Manifold AI chat requests |
+| `manifold_embeddings` | Manifold AI embeddings, reported apart from chat |
+| `relay_voice` | Relay Voice, counted in calls placed |
+| `relay_email` | Relay Email, counted in recipients |
+| `relay_sms` | Relay SMS, counted in messages sent |
+| `verify` | Verify, counted in deliveries, one per channel a code was sent on |
+| `all`, or no `product` | Every product |
+
+Case and surrounding spaces are ignored. A value not on this list is not an error: it
+reports every product, the same as `all`. Relay WhatsApp does not appear in usage at all; its
+charges are in the ledger only.
 
 One thing it does not include: the Voice activation fee. That is account spend rather
 than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.

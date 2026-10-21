@@ -105,7 +105,8 @@ because Voice will refuse text longer than that rather than truncate it.
   <Accordion title="One ledger and one usage report" icon="receipt">
     Wallet rows from both sit in the same ledger, told apart by the `reference` field:
     `mfr_…` for a Manifold request, `rvj_…` for a Voice job. `GET /api/v1/usage` reports
-    both, with a `product=manifold|relay_voice|all` filter.
+    both, with a `product=` filter that takes `manifold`, `manifold_embeddings`,
+    `relay_voice`, `relay_email`, `relay_sms`, `verify` or `all`.
 
     A Voice row counts calls placed and a Manifold row counts requests, so the two are never
     added into one number.

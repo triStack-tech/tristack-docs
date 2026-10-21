@@ -83,23 +83,39 @@ A workable shape:
 
 ## Putting it into Tristack
 
-Open the project's **SMS** tab, under **CPaaS**, and paste in five values: the entity ID, the
-registered entity name, the header, the content template ID, and the approved text.
+Open the project's **SMS** tab, under **CPaaS**. Each registration there is a brand: your
+entity, with its headers and templates beneath it.
 
-Paste the text rather than typing it. Every message is rendered from it and checked before
-anything is charged, because an operator drops a message whose text does not match the
-registration and that message is still billed. The screen shows you the finished sentence a
-recipient will read, which is the quickest way to notice a wrong placeholder.
+1. **Register the brand.** Press **Register my DLT identity** and enter two values exactly as
+   your portal shows them: the **Principal Entity ID** and the **registered entity name**.
+2. **Add your headers**, under **Sender headers**. Letter case is kept as you type it, because
+   DLT treats `ACMEOT` and `Acmeot` as two different approvals.
+3. **Add your template**, under **Content templates**: a name of your own, the **content
+   template ID**, the **approved template text**, the **DLT content category** it was
+   registered under, and a tick on every header it was approved for. A template is sent only
+   under the headers ticked on it.
+4. **Choose what carries your codes**, under **One-time codes**: pick the template and header
+   pair and press **Use this pair**. Only pairs that step 3 bound together are offered.
+5. **Attach the approval screenshots** the provider asks for: the portal screens showing your
+   entity, each header and the template approved. PNG, JPEG or PDF, up to 5 MB each. The tab
+   says which are still missing.
 
-Then press **Start using my header**. Your messages switch to your own header on the next
-send. There is no waiting period.
+Paste the template text rather than typing it. Every message is rendered from it and checked
+before anything is charged, because an operator drops a message whose text does not match the
+registration and that message is still billed. For a template with one placeholder, the
+screen shows you the finished sentence a recipient will read, which is the quickest way to
+notice a wrong placeholder.
+
+Then press **Start using this brand**. Your codes move to your own header once the brand, and
+the template and header chosen to carry them, are all `ready` or `verified`; until then they
+keep going out under Tristack's header.
 
 ## What the statuses mean
 
 | Status | What it means |
 | --- | --- |
 | `draft` | Saved but not in use. Messages still go out under Tristack's header. |
-| `ready` | In use. Your header is on every message from this project. |
+| `ready` | In use, and with the provider for approval. Your header is on every code from this project once the template and header that carry them are `ready` too. |
 | `verified` | Your template is now validated before each send, so a mismatch is refused rather than charged for. |
 | `rejected` | Not accepted. Messages have fallen back to Tristack's header, so nothing has stopped working. The reason is shown on the tab. |
 | `suspended` | Stopped. Messages have fallen back to Tristack's header. A suspension stays in place even if the header is later reported approved. |
@@ -116,8 +132,9 @@ a while, not your ability to sign people in.
 | `dlt_blacklisted` | The header or template is blacklisted on DLT. | This is settled with your operator. Messages will keep failing until it is. |
 | `dlt_content_rejected` | The operator refused the content. | Usually a link, an unexpected character, or a word on a blocked list. |
 
-Editing and saving the registration again returns it to `draft`, because a changed header or
-template is a different registration and the previous approval cannot carry across.
+Saving a template with a changed text, template ID or category returns it to `draft`, and your
+codes to Tristack's header until you press **Submit again**: a changed template is a different
+registration, and the previous approval cannot carry across. Renaming it changes nothing.
 
 ## Changing your mind
 

@@ -302,13 +302,22 @@ Archiving is the off switch for a whole project.
     `error: "project_archived"`. The speech charge stands, because the recording was made; the
     calls cost nothing. A `callbackUrl` on the job still receives the final status.
   </Step>
+  <Step title="The project becomes read-only">
+    In the dashboard and the dashboard API you can still read everything on an archived
+    project, but you cannot change it. Every change to the project, or to anything filed under
+    it, answers `409` `{ "error": "This project is archived. Restore it before changing it.", "code": "project_archived" }`
+    and writes nothing, so no fee is charged either. Two changes stay open: **restoring** the
+    project, and **revoking** one of its keys, so a leaked key can always be cut off. Switching
+    off a rented number's renewal, or releasing the number, stays open too, because stopping a
+    charge always does.
+  </Step>
   <Step title="Nothing is deleted">
     The project, its keys, its usage rows and its ledger entries stay exactly as they were.
     Keys are not revoked, and the Voice activation fee is not charged again.
   </Step>
   <Step title="It is reversible">
     Unarchive the project and the same keys start working again on the next request, with the
-    same product switches they had.
+    same product switches they had, and the project takes changes again.
   </Step>
 </Steps>
 
@@ -323,6 +332,10 @@ curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
   -H "Content-Type: application/json" \
   -d '{ "archived": false }'
 ```
+
+Archiving and restoring each travel alone. A `PATCH` that carries anything besides
+`archived` is refused whole: on an archived project with `409 project_archived`, and when it
+would archive the project with `400 archive_with_changes`. Restore first, then change.
 
 Reach for archiving when a project is finished or compromised and you want it stopped in one
 move. Reach for revocation when one credential leaked and the project should carry on.

@@ -44,6 +44,11 @@ live.
     window is stood down. Rented numbers keep renewing, so a number is not lost to a disable.
   - Archiving a project now stops its queued Voice jobs in the same way, with
     `project_archived` on the job.
+  - An archived project is read-only for its owner. Every change to it, or to anything filed
+    under it, answers `409 project_archived` and writes nothing. Restoring it and revoking its
+    keys still go through, as does stopping a rented number's renewal. A `PATCH` that archives
+    a project and changes something else in the same request answers
+    `400 archive_with_changes`. [Archiving a project →](/platform/projects-and-keys#archiving-a-project)
 
   See [errors](/platform/errors) and [job status](/api-reference/relay-voice/job).
 
@@ -57,7 +62,7 @@ live.
     rented one, and no longer do.
   - Meta bills you separately for WhatsApp messages; the pages no longer say it bills per
     conversation.
-  - SMS is in early access: ask us to switch it on for your account.
+  - SMS is in early access: ask us to switch it on through the [contact form](https://tristack.tech/company#contact).
   - The dashboard API's rate limit of 10 requests a minute now applies only to signing in,
     registering and the password and verification routes. Signed-in account routes, such as
     reading your profile, are no longer limited.

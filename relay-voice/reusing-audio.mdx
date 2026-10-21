@@ -20,11 +20,11 @@ lost recording:
   "jobId": "rvj_cfa25cf49446fe8f8558de5c",
   "status": "Completed",
   "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
-  "voice": "bella",
+  "voice": "default",
   "language": "en-IN",
   "recipients": 500,
-  "estimatedCostPaise": 20195,
-  "costPaise": 13795
+  "estimatedCostPaise": 195,
+  "costPaise": 195
 }
 ```
 
@@ -83,7 +83,7 @@ curl https://api.tristack.tech/v1/relay/voice \
   "jobId": "rvj_cc0f9625e621341dee629ec7",
   "status": "Queued",
   "audioId": "aud_6a0c39fdf27efd2d9a0d70c0",
-  "voice": "bella",
+  "voice": "default",
   "language": "en-IN",
   "recipients": 2,
   "estimatedCostPaise": 0,
@@ -126,14 +126,14 @@ any money is held:
 # Monday
 curl https://api.tristack.tech/v1/relay/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"to":["+91XXXXXXXXXX"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"lily"}'
-# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 247  (40 call + 207 speech)
+  -d '{"to":["+91XXXXXXXXXX"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"default"}'
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 207  (69 characters at 3 paise; calls are not metered)
 
 # Tuesday, a different list, the same sentence and voice
 curl https://api.tristack.tech/v1/relay/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"to":["+91YYYYYYYYYY"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"lily"}'
-# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 40   (the recording is already yours)
+  -d '{"to":["+91YYYYYYYYYY"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"default"}'
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 0    (the recording is already yours)
 ```
 
 So why keep the id at all? Because the automatic match is exact, and "exact" is a stricter
