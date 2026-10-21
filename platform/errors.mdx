@@ -39,7 +39,7 @@ Two fields ride along on specific failures:
 | `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
 | `410` | It existed and is gone: a Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
-| `409` | An `Idempotency-Key` conflict: an earlier request with the same key is still running |
+| `409` | A conflict with the current state: an `Idempotency-Key` whose earlier request is still running, a change to an archived project, or a resource that already exists or is taken |
 | `422` | The request was understood but could not be completed as asked: an `Idempotency-Key` reused for a different body, or output truncated before it satisfied a format contract |
 | `429` | Throttled. From the model provider, from a CPaaS channel's own send limits, or from the rate limiter on the dashboard API's sign-in routes |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
@@ -58,7 +58,7 @@ Two fields ride along on specific failures:
 | `invalid_api_key` | 401 | All | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
 | `account_disabled` | 403 | All | Tristack has disabled the account that owns the key. Every key the account owns is refused, before the project and product checks, so this is the answer even on an archived project. The dashboard refuses the account's sign-in the same way | Write to hello@tristack.tech. A new key will not help: it belongs to the same account |
 | `insufficient_scope` | 403 | All | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
-| `project_archived` | 401 | All | The key's project is archived. Checked before any product gate. Voice jobs already queued on the project stop before their next call: see [failures that are not status codes](#failures-that-are-not-status-codes) | Unarchive the project, or use a key from an active one |
+| `project_archived` | 401, 409 | All | **401, on an API key:** the key's project is archived. Checked before any product gate. Voice jobs already queued on the project stop before their next call: see [failures that are not status codes](#failures-that-are-not-status-codes). **409, on the dashboard API:** a change to an archived project, or to anything filed under it. An archived project is read-only: only restoring it, revoking its keys and stopping a rented number's renewal go through, and a refused change writes and charges nothing | Restore the project (a `PATCH` with only `{ "archived": false }`), or use a key from an active one |
 | `invalid_request` | 400 | All | Shape or limit failure. `error` says which, and `fields` may name them | Fix the payload. Watch the casing: Manifold is `snake_case`, Tristack CPaaS is `camelCase` |
 | `insufficient_balance` | 402 | All | The balance cannot cover the estimated hold. `requiredPaise` is included. Checked before any provider call | Top up, then retry. Nothing was spent |
 | `manifold_disabled` | 403 | Manifold | Manifold is not switched on for this project | Turn the switch on. It applies to the next request, with no new key |
@@ -175,6 +175,8 @@ Two fields ride along on specific failures:
   - `invalid_status` (400): the usage `status` filter is not one of `all`, `succeeded`,
     `failed`, `provider_error`.
   - `invalid_request` (400): a validation failure, with `fields` naming what to fix.
+  - `archive_with_changes` (400): one `PATCH` both archived a project and changed something
+    else. Archive in a request of its own.
   - `account_disabled` (403 at sign-in, 401 on a session): Tristack has disabled the account.
     Signing in with the right password or with Google answers `403`, a password reset link
     answers `403` when it is used, and a session token issued before the disable answers `401`
