@@ -17,15 +17,12 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
   -H "Authorization: Bearer $TRISTACK_API_KEY"
 ```
 
-```json 200 OK (abridged: the live catalog carries 16 voices)
+```json 200 OK (the catalog as shipped: the voices on offer are set by configuration, so read your own list from this endpoint)
 {
-  "defaultVoice": "bella",
+  "defaultVoice": "default",
   "pricePerCallPaise": 0,
   "voices": [
-    { "voice": "adam", "name": "Adam (male)", "language": "en" },
-    { "voice": "alice", "name": "Alice (female)", "language": "en" },
-    { "voice": "bella", "name": "Bella (female, warm)", "language": "en" },
-    { "voice": "lily", "name": "Lily (female)", "language": "en" }
+    { "voice": "default", "name": "Default voice", "language": "en-IN" }
   ]
 }
 ```
@@ -33,7 +30,8 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 ## Response
 
 <ResponseField name="defaultVoice" type="string">
-  The alias used when a send omits `voice`. It is always one of the aliases in `voices`.
+  The alias used when a send omits `voice`. When the operator names no default, it is the
+  first alias in `voices`.
 </ResponseField>
 
 <ResponseField name="pricePerCallPaise" type="integer">
@@ -58,8 +56,8 @@ What one call costs, in paise. **`0`, and not a placeholder:** calls are not met
     </ResponseField>
 
     <ResponseField name="name" type="string">
-      A human-readable label for a picker, for example `Asha (Hindi, female)`. Not an
-      identifier: send `voice`.
+      A human-readable label for a picker, for example `Default voice`. A voice configured
+      without a label reports its alias here. Not an identifier: send `voice`.
     </ResponseField>
 
     <ResponseField name="language" type="string">

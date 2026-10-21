@@ -121,14 +121,16 @@ curl https://api.tristack.tech/v1/relay/voice/voices \
 </CodeGroup>
 
 Manifold answers with the models **this project** may call, which is the authoritative list
-for that key. Voice answers with the voice aliases and the per-call price:
+for that key. Voice answers with the voice aliases and the per-call price. The example is
+the catalog as it ships; the voices on offer are set by configuration, so use the aliases
+your own response lists:
 
 ```json Voice voices
 {
-  "defaultVoice": "bella",
+  "defaultVoice": "default",
   "pricePerCallPaise": 0,
   "voices": [
-    { "voice": "lily", "name": "Asha (Hindi, female)", "language": "hi-IN" }
+    { "voice": "default", "name": "Default voice", "language": "en-IN" }
   ]
 }
 ```

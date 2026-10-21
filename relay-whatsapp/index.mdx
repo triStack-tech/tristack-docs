@@ -161,8 +161,9 @@ Not oversights, and each is a deliberate line:
 - **No non-OTP messaging.** Marketing and utility templates are not sent through this.
 - **No template creation.** Yours to submit, and yours to own.
 - **No media, no inbound messages, no webhooks.**
-- **No SMS fallback.** A number without WhatsApp answers
-  `whatsapp_recipient_unreachable`, and what to do next is yours to decide.
+- **No SMS fallback.** Nothing is retried over SMS. When WhatsApp refuses the number at send
+  time, the call answers `502 whatsapp_recipient_unreachable` and nothing is charged; what to
+  do next is yours to decide.
 - **One number per project.**
 
 <Card title="API reference" icon="code" href="/api-reference/relay-whatsapp/otp">
