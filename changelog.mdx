@@ -12,6 +12,17 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-05" description="Manifold AI speaks the OpenAI Chat Completions format">
+
+  **Use any OpenAI client with Manifold.** `POST /v1/chat/completions` and `GET /v1/models`
+  accept your Tristack key and answer in OpenAI's format, with tools and streaming. Point the
+  OpenAI SDK, LiteLLM or an agent framework at `https://api.tristack.tech/v1` and use a Manifold
+  model alias as the model. It runs on the same pipeline as `POST /v1/manifold/messages`: the
+  same models, allowlist, wallet billing and usage records, at the same price. See
+  [OpenAI-compatible API](/manifold/openai-compatible).
+
+</Update>
+
 <Update label="2026-10-21" description="Relay is now Tristack CPaaS, and disabled accounts are refused">
 
   **New names, same API.** Tristack Relay is now **Tristack CPaaS**, and its channels are

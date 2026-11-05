@@ -51,6 +51,7 @@
               "manifold/models",
               "manifold/streaming",
               "manifold/tools",
+              "manifold/openai-compatible",
               "manifold/embeddings",
               "manifold/pricing"
             ]
