@@ -1,0 +1,188 @@
+---
+title: "OpenAI-compatible API"
+description: "Call Manifold with any OpenAI client: POST /v1/chat/completions and GET /v1/models, with tools and streaming, on the same pipeline and prices as /v1/manifold/messages."
+sidebarTitle: "OpenAI-compatible"
+icon: "plug"
+---
+
+Manifold speaks the OpenAI Chat Completions format, so any OpenAI client (the OpenAI SDKs,
+LiteLLM, agent frameworks) can use it by changing the base URL and the key. It runs the same
+pipeline as `POST /v1/manifold/messages`: the same models, project checks, model allowlist,
+wallet billing and usage records. The same tokens cost the same on both routes.
+
+## Base URL and auth
+
+```
+https://api.tristack.tech/v1
+```
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/v1/chat/completions` | A chat completion, whole or streamed |
+| `GET` | `/v1/models` | The models this key can call |
+| `GET` | `/v1/models/{model}` | One model, or `404` if this key cannot call it |
+
+Send your Tristack key as `Authorization: Bearer tsk_live_...` (or `tsk_test_...`), or as
+`X-Api-Key`. Manifold must be enabled on the key's project. The key needs the
+`manifold:invoke` scope to call and `manifold:read` to list (a key with no scopes has both).
+
+## Models
+
+`model` is a Manifold alias, the same ids `GET /v1/manifold/models` lists, for example
+`nova-lite` or `deepseek-v3-2`. `GET /v1/models` returns the same set in OpenAI's shape:
+
+```json
+{"object": "list", "data": [{"id": "nova-lite", "object": "model", "created": 1785542400, "owned_by": "tristack"}]}
+```
+
+Only text models can be called here; embedding aliases belong to `POST /v1/embeddings`.
+
+## Request fields
+
+| Field | Support |
+|---|---|
+| `model`, `messages` | Required |
+| `messages[].role` | `system`, `developer`, `user`, `assistant`, `tool` |
+| `messages[].content` | A string, or an array of `text` parts. User messages may also carry `image_url` parts as base64 data URLs (`data:image/png;base64,...`) for vision models; remote image URLs are not fetched |
+| `assistant.tool_calls` | `[{id, type: "function", function: {name, arguments}}]`, `arguments` a JSON string |
+| `tool` messages | `{role: "tool", tool_call_id, content}` |
+| `tools` | `[{type: "function", function: {name, description, parameters}}]` |
+| `tool_choice` | `"auto"`, `"none"`, `"required"`, or `{type: "function", function: {name}}` |
+| `max_tokens`, `max_completion_tokens` | The output cap. `max_completion_tokens` wins if both are sent. Default 4096 |
+| `temperature`, `top_p`, `stop` | Passed to the model. `stop` is a string or an array |
+| `stream`, `stream_options.include_usage` | See Streaming |
+| `response_format` | `{type: "text"}`, `{type: "json_object"}`, or `{type: "json_schema", json_schema: {name, schema}}`. Cannot be combined with `tools` |
+
+Fields that do not change the answer, such as `user`, `seed`, `metadata`, `store`,
+`parallel_tool_calls`, `frequency_penalty` and `presence_penalty`, are accepted and ignored.
+These are refused with a `400` because they cannot be honoured: `n` above 1, `audio`, any
+modality but `text`, `logprobs: true`, a non-empty `logit_bias`, `functions` and
+`function_call` (use `tools`), and `web_search_options`.
+
+Notes:
+
+- System and developer messages are combined, in order, into one system prompt.
+- `tool_choice: "none"` stops the model from seeing the tools. If the conversation already
+  contains tool calls, the tools must still be sent to the model, so it is instructed instead
+  not to call them.
+- A generation cut off by the token cap returns `200` with `finish_reason: "length"`.
+
+## Response
+
+```json
+{
+  "id": "mfr_9f2c...",
+  "object": "chat.completion",
+  "created": 1793700000,
+  "model": "nova-lite",
+  "choices": [{
+    "index": 0,
+    "message": {"role": "assistant", "content": "Hello!"},
+    "finish_reason": "stop"
+  }],
+  "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15}
+}
+```
+
+`finish_reason` is `stop`, `length`, `tool_calls` or `content_filter`. When the model calls
+tools, `message.tool_calls` holds them and `content` is `null` unless the model also wrote
+text. The `id` is the Manifold request id shown in your usage view.
+
+## Streaming
+
+With `stream: true` the answer arrives as server-sent events, one `data:` line per
+`chat.completion.chunk`:
+
+1. A first chunk with `delta: {role: "assistant", content: ""}`.
+2. Content chunks: `delta: {content: "..."}`.
+3. For each tool call, an opening chunk
+   `delta: {tool_calls: [{index, id, type: "function", function: {name, arguments: ""}}]}`,
+   then argument fragments `delta: {tool_calls: [{index, function: {arguments: "..."}}]}`.
+   Each call in a turn has its own `index`, from 0. Join the fragments per index and parse
+   once the stream ends.
+4. A final chunk with an empty `delta` and `finish_reason`.
+5. With `stream_options: {include_usage: true}`, a usage chunk with `choices: []` and `usage`.
+6. `data: [DONE]`.
+
+If the model fails after the stream has started, the last line is
+`data: {"error": {...}}` and there is no `[DONE]`. A provider failure costs nothing. If you
+disconnect mid-stream, you are charged for the output already delivered.
+
+## Errors
+
+Errors use OpenAI's shape. `code` is Manifold's own error code, the same one the native API
+and the usage view use.
+
+```json
+{"error": {"message": "Unknown model 'gpt-4o'.", "type": "invalid_request_error", "param": null, "code": "unknown_model"}}
+```
+
+| Status | `type` | Typical `code` |
+|---|---|---|
+| 400 | `invalid_request_error` | `invalid_request`, `unsupported_field`, `model_kind_mismatch` |
+| 401 | `authentication_error` | `invalid_api_key` |
+| 402 | `insufficient_quota` | `insufficient_balance` (top up the wallet, or lower `max_tokens`) |
+| 403 | `permission_error` | `manifold_disabled`, `model_not_allowed`, `insufficient_scope` |
+| 404 | `invalid_request_error` | `unknown_model` |
+| 409, 422 | `invalid_request_error` | `idempotency_in_progress`, `idempotency_key_reused` |
+| 429 | `rate_limit_error` | `provider_throttled` (retry with backoff) |
+| 5xx | `api_error` | `provider_error` |
+
+Requests may carry an `Idempotency-Key` header, as on the native API: a retry with the same
+key and body replays the first answer instead of being charged again.
+
+## OpenAI Python SDK
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="https://api.tristack.tech/v1", api_key="tsk_live_...")
+
+reply = client.chat.completions.create(
+    model="nova-lite",
+    messages=[
+        {"role": "system", "content": "Be brief."},
+        {"role": "user", "content": "What is the capital of India?"},
+    ],
+)
+print(reply.choices[0].message.content)
+
+for chunk in client.chat.completions.create(
+    model="nova-lite",
+    messages=[{"role": "user", "content": "Count to five."}],
+    stream=True,
+    stream_options={"include_usage": True},
+):
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+## LiteLLM
+
+Use the `openai/` prefix with a Manifold alias, and point `api_base` at Manifold:
+
+```python
+import litellm
+
+reply = litellm.completion(
+    model="openai/nova-lite",
+    api_base="https://api.tristack.tech/v1",
+    api_key="tsk_live_...",
+    messages=[{"role": "user", "content": "What is the weather in Pune?"}],
+    tools=[{
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Current weather in a city",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        },
+    }],
+)
+print(reply.choices[0].message.tool_calls)
+```
+
+Keep keys out of source code: read them from an environment variable or a secrets store.
