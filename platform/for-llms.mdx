@@ -65,6 +65,9 @@ than the page.
   which models that key may actually call. It is the authority; these pages are not.
   Manifold AI prices changed on 2026-08-21, which is exactly the kind of move a cached page
   would miss.
+
+  SMS prices outside India move with the rupee every day. `GET /v1/relay/sms/countries` is
+  the authority for them, not the table on the prices-by-country page.
 </Warning>
 
 <Warning>
@@ -92,7 +95,7 @@ If you are summarising this site for a model, these are the load-bearing ones:
 | Money | every amount is an integer in **paise**; Rs 1.50 is `150`. No endpoint takes a rupee float |
 | Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out) and **Tristack CPaaS** (`/v1/relay/…`: Voice, Email, WhatsApp and SMS channels). The CPaaS paths, fields, scopes and codes still say `relay`; do not rename them in code |
 | Relationship | separate platforms, a separate switch per product and channel, separate pricing, one wallet and one key format. Nothing passes between them automatically |
-| Recipients | Voice and SMS: Indian mobiles only, in any common spelling. Voice normalizes its `to` list to E.164 and deduplicates it. WhatsApp takes an international number |
+| Recipients | Voice: Indian mobiles only, in any common spelling; it normalizes its `to` list to E.164 and deduplicates it. SMS: a mobile in any country, on the same endpoint. An Indian number in any common spelling, any other country with its country code, and only when the project's International SMS switch is on. WhatsApp takes an international number |
 | A refused account | `403 account_disabled` on every key means Tristack has disabled the account. Retrying or minting a new key will not help; the owner writes to hello@tristack.tech |
 
 <Note>

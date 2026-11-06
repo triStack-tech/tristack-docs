@@ -16,9 +16,15 @@ in faster than operators report on it.
   The code: `pending`, `verified`, `expired`, `exhausted` or `superseded`.
 </ResponseField>
 
-<ResponseField name="header" type="string">
+<ResponseField name="header" type="string | null">
   The sender the recipient saw, as it was at the time of sending. It does not change if you
-  later edit or remove your registration.
+  later edit or remove your registration. `null` for a number abroad, where no DLT header
+  applies.
+</ResponseField>
+
+<ResponseField name="country" type="string">
+  The recipient's country, as a two-letter ISO code: `IN` for India, or the country abroad,
+  such as `DE`.
 </ResponseField>
 
 <ResponseField name="delivery" type="object">
@@ -30,7 +36,8 @@ in faster than operators report on it.
   - `blocked`: the operator refused it outright, most often DLT scrubbing against the content
     template.
   - `unknown`: the report was no longer available by the time we asked. A gap in what we can
-    tell you, not a lost message.
+    tell you, not a lost message. For a number abroad it is always `unknown`, with the detail
+    "Delivery reports are not available for SMS outside India yet."
 
   `checkedAt` is when the report was last read, and `detail` carries the operator's own words
   on a failure, which is the only actionable part of one.
@@ -48,7 +55,8 @@ in faster than operators report on it.
     "status": "delivered",
     "checkedAt": "2026-09-21T09:02:20Z",
     "detail": "Delivered successfully"
-  }
+  },
+  "country": "IN"
 }
 ```
 

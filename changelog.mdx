@@ -12,6 +12,39 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-06" description="SMS reaches any country, on the same endpoint">
+
+  **SMS codes to numbers outside India.** `POST /v1/relay/sms/otp` now takes a mobile number in
+  any country. Your integration does not change: the same request body, the same verify and
+  status calls. Write the number with its country code and the country code decides the route.
+  Indian numbers go out exactly as before, under DLT, at 40 paise. See
+  [Numbers in India and abroad](/relay-sms/index#numbers-in-india-and-abroad).
+
+  - **One switch per project, International SMS**, on the project's SMS tab in the dashboard.
+    It is off by default, because codes to numbers abroad are the usual target of SMS pumping.
+    Indian numbers do not need it.
+  - **Priced per country**, from the provider's price for that country in US dollars at the
+    day's exchange rate, so prices abroad move with the rupee. The list is on
+    [SMS prices by country](/relay-sms/countries), and live at the new
+    [`GET /v1/relay/sms/countries`](/api-reference/relay-sms/countries) (scope
+    `relay-sms:read`).
+  - A number abroad receives Tristack's fixed text, not your DLT template, from a sender that
+    depends on the country. `header` is `null` for it, and delivery reads `unknown`, because
+    there are no delivery reports outside India yet.
+  - At most 300 messages outside India per project in any 24 hours, on top of the existing
+    limits.
+  - The send and status responses carry a new field, `country`, the recipient's ISO code
+    (`IN` for India).
+  - New error codes: `403 international_sms_disabled`, `503 international_sms_unavailable`,
+    `400 sms_country_unavailable` and `502 recipient_opted_out`. `invalid_phone_number` now
+    also covers landlines, premium-rate, toll-free and shared-cost numbers abroad. See
+    [errors](/platform/errors).
+  - Tristack is not sending SMS outside India yet. Until it is, every number abroad answers
+    `503 international_sms_unavailable` and nothing is charged. The switch can be turned on
+    now.
+
+</Update>
+
 <Update label="2026-11-05" description="Manifold AI speaks the OpenAI Chat Completions format">
 
   **Use any OpenAI client with Manifold.** `POST /v1/chat/completions` and `GET /v1/models`

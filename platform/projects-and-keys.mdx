@@ -66,7 +66,13 @@ own switch, and they are unrelated to each other.
 | Voice | `POST /v1/relay/voice` and the other `/v1/relay/voice` routes | `403 relay_voice_disabled` |
 | Email | `/v1/relay/email` and its domain, template and suppression routes | `403 relay_email_disabled` |
 | WhatsApp | `/v1/relay/whatsapp/otp` and `/otp/verify` | `403 relay_whatsapp_disabled` |
-| SMS | `/v1/relay/sms/otp`, `/otp/verify` and `/otp/{id}` | `403 relay_sms_disabled` |
+| SMS | `/v1/relay/sms/otp`, `/otp/verify`, `/otp/{id}` and `/countries` | `403 relay_sms_disabled` |
+
+SMS has one more switch of its own, **International SMS**, on the project's SMS tab. It is off
+when a project is created and decides only whether SMS may go to numbers outside India: a
+number abroad on a project with it off answers `403 international_sms_disabled`, and Indian
+numbers are never affected. See
+[Numbers in India and abroad](/relay-sms/index#numbers-in-india-and-abroad).
 
 A switch takes effect on the next request. Existing keys keep working, and you never need to
 mint a new one after flipping one.
@@ -237,7 +243,7 @@ project can do, and the scope decides which part of that this key may reach.
 | `relay-whatsapp:verify` | Verify a code |
 | `relay-sms:send` | Send a code by SMS, which spends the wallet |
 | `relay-sms:verify` | Verify a code |
-| `relay-sms:read` | Read what became of a message, including delivery |
+| `relay-sms:read` | Read what became of a message, including delivery, and the list of countries with their prices |
 | `wallet:read` | Read the balance |
 | `wallet:topup` | Open top-up windows |
 

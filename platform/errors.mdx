@@ -88,7 +88,7 @@ Two fields ride along on specific failures:
 | `document_too_large` | 400 | Voice | A verification document is over 5 MB | Send a smaller scan. This is refused before anything is forwarded, so nothing was uploaded |
 | `unsupported_document_type` | 400 | Voice | A verification document is not a PDF, JPEG or PNG | Convert it and submit again |
 | `number_unavailable` | 409 | Voice | The number was taken between your search and your purchase | Search again and pick another. The wallet hold is released, so nothing was charged |
-| `invalid_phone_number` | 400 | Voice, SMS, WhatsApp | A number in `to` is not one the channel can reach: a dialable Indian mobile for Voice and SMS, an international number for WhatsApp. On Voice, `error` names the index and the value you sent | Drop or correct it. Voice and SMS refuse landlines and foreign numbers |
+| `invalid_phone_number` | 400 | Voice, SMS, WhatsApp | A number in `to` is not one the channel can reach: a dialable Indian mobile for Voice, a mobile in any country for SMS (with its country code outside India), an international number for WhatsApp. On Voice, `error` names the index and the value you sent | Drop or correct it. Voice refuses landlines and foreign numbers. SMS refuses landlines and premium-rate, toll-free and shared-cost numbers |
 | `unknown_voice` | 400 | Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
 | `invalid_audio_id` | 400 | Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
 | `audio_not_found` | 404 | Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
@@ -145,12 +145,16 @@ Two fields ride along on specific failures:
 | `template_variable_empty` | 400 | SMS | A placeholder has no value | Fill it on the project's SMS tab |
 | `template_variable_invalid` | 400 | SMS | A value carries a `\|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
 | `recipient_rate_limited` | 429 | SMS, WhatsApp | This number is over its hourly or daily cap | Wait, or offer the person another route |
-| `project_volume_capped` | 429 | SMS | The project is over its hourly or daily message ceiling | Ask support for it to be raised |
+| `project_volume_capped` | 429 | SMS | The project is over its hourly or daily message ceiling, or over its 300 messages outside India in 24 hours | Ask support for it to be raised |
 | `dlt_sender_not_approved` | 502 | SMS | The operator refused the sender header | Check spelling, letter case and the telemarketer binding. [DLT setup](/relay-sms/dlt-setup) |
 | `dlt_template_not_approved` | 502 | SMS | The operator refused the content template | The text must match your registration exactly |
 | `dlt_blacklisted` | 502 | SMS | The header or template is blacklisted on DLT | Settle it with your operator |
 | `dlt_content_rejected` | 502 | SMS | The operator refused the content | Usually a link or an unexpected character |
 | `provider_rate_limited` | 502 | SMS | Refused as a repeat to the same number too quickly | Back off |
+| `international_sms_disabled` | 403 | SMS | A number outside India, and the project's International SMS switch is off | Turn on International SMS on the project's SMS tab in the dashboard. No new key needed |
+| `international_sms_unavailable` | 503 | SMS | Tristack is not sending SMS outside India yet. Every number abroad answers this until sending abroad opens, even with the switch on. Nothing was charged | Send Indian numbers as usual. Reach a number abroad another way, for example WhatsApp |
+| `sms_country_unavailable` | 400 | SMS | The number is in a country Tristack cannot send to yet, because it needs a sender registration. Refused before the hold | Reach the person another way. [The list](/relay-sms/countries#countries-not-available-yet) |
+| `recipient_opted_out` | 502 | SMS | The recipient abroad replied STOP to an earlier message. The hold is released | Do not retry. Reach the person another way |
 | `otp_not_found` | 404 | SMS, WhatsApp | No code with that id for this project. Another project's id answers identically | Check the id came from this project's send |
 | `relay_whatsapp_disabled` | 403 | WhatsApp | WhatsApp is not switched on for this project | Turn it on. No new key needed |
 | `relay_whatsapp_unavailable` | 503 | WhatsApp | WhatsApp is off, or half-configured, on this deployment | Contact support |
@@ -227,13 +231,14 @@ Almost nothing, by design. The order of checks is deliberate:
   <Step title="Authentication and product gates">
     `invalid_api_key`, `account_disabled`, `project_archived`, `insufficient_scope`, every
     product and channel switch (`manifold_disabled`, `relay_voice_disabled`,
-    `relay_email_disabled`, `relay_whatsapp_disabled`, `relay_sms_disabled`) and every
-    `..._unavailable` code are decided before any money is touched.
+    `relay_email_disabled`, `relay_whatsapp_disabled`, `relay_sms_disabled`,
+    `international_sms_disabled`) and every `..._unavailable` code are decided before any
+    money is touched.
   </Step>
   <Step title="Validation and allowlists">
     `invalid_request`, `unknown_model`, `model_not_allowed`, `invalid_phone_number`,
-    `unknown_voice`, `invalid_audio_id` and `invalid_callback_url` are all refused before the
-    wallet hold. So are Email's `from_domain_not_verified`, `invalid_address`,
+    `sms_country_unavailable`, `unknown_voice`, `invalid_audio_id` and `invalid_callback_url`
+    are all refused before the wallet hold. So are Email's `from_domain_not_verified`, `invalid_address`,
     `no_recipients`, `empty_body`, `header_injection`, `subject_too_long` and
     `message_too_large`, and `rate_limited` is refused before the hold too.
   </Step>
