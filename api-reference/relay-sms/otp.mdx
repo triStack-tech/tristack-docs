@@ -101,7 +101,7 @@ silently would mean being charged for a message different from the one you asked
 | 400 | `sms_country_unavailable` | The number is in a country Tristack cannot send to yet, because it needs a sender registration | Reach the person another way. [The list](/relay-sms/countries#countries-not-available-yet) |
 | 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
 | 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the project's SMS tab, or contact support |
-| 400 | `app_name_required` | The project has no app name, and every code under Tristack's header (and abroad) must name the business it is for | Set the app name on the project's SMS tab. It needs one paid wallet top-up. Nothing was charged |
+| 400 | `app_name_required` | The project has no approved app name and none waiting for review, and every code under Tristack's header (and abroad) must name the business it is for | Set the app name and a link on the project's SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
 | 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | 400 | `template_variable_too_long` | A value exceeds DLT's 30-character ceiling | Shorten it |
 | 400 | `template_variable_empty` | A placeholder has no value | Fill it on the project's SMS tab |
@@ -110,6 +110,7 @@ silently would mean being charged for a message different from the one you asked
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on. No new key needed |
 | 403 | `international_sms_disabled` | A number outside India, and the project's International SMS switch is off | Turn on International SMS on the project's SMS tab in the dashboard. No new key needed |
+| 403 | `app_name_pending` | The project's app name is waiting for review, and this number is not one of the account's verified test numbers | Wait for the approval, and test meanwhile with the account's test numbers, set on the SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
 | 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or offer another route |

@@ -36,7 +36,7 @@ Two fields ride along on specific failures:
 | `400` | The request is wrong. Nothing was charged. Retrying it unchanged fails the same way |
 | `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, a dashboard session that has expired or whose account has been disabled, or a top-up session permit that is none of ours |
 | `402` | The wallet cannot cover the estimate. Checked before any provider is called |
-| `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, or a gate a payment has to clear first |
+| `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, an SMS app name still waiting for review, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
 | `410` | It existed and is gone: a Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `409` | A conflict with the current state: an `Idempotency-Key` whose earlier request is still running, a change to an archived project, or a resource that already exists or is taken |
@@ -139,7 +139,8 @@ Two fields ride along on specific failures:
 | `relay_sms_disabled` | 403 | SMS | SMS is not switched on for this project | Turn it on. No new key needed |
 | `relay_sms_unavailable` | 503 | SMS | SMS is off, or unable to send, on this deployment. Nothing was charged | Contact support. It never means your wallet: that would be a `402` |
 | `no_sender_identity` | 400 | SMS | Neither your own DLT header nor Tristack's shared header is available for this project | Register your own on the project's SMS tab, or ask support to enable the shared header |
-| `app_name_required` | 400 | SMS | The project has no app name. Every code under Tristack's shared header, and every code abroad, names the business it is for | Set the app name on the project's SMS tab. It needs one paid wallet top-up. Nothing was charged |
+| `app_name_required` | 400 | SMS | The project has no approved app name and none waiting for review. Every code under Tristack's shared header, and every code abroad, names the business it is for | Set the app name and a link to your website or app listing on the project's SMS tab, for Tristack to review. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
+| `app_name_pending` | 403 | SMS | The project's app name is waiting for Tristack's review, and the number is not one of the account's verified test numbers. Until the name is approved, codes go only to those | Wait for the approval, and test meanwhile with the account's test numbers, set on the SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
 | `template_missing` | 400 | SMS | No approved template text is configured for this send | Paste it on the project's SMS tab |
 | `template_variable_mismatch` | 400 | SMS | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | `template_variable_too_long` | 400 | SMS | A value exceeds DLT's 30-character ceiling | Shorten it |
