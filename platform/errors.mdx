@@ -148,6 +148,7 @@ Two fields ride along on specific failures:
 | `template_variable_invalid` | 400 | SMS | A value carries a `\|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
 | `recipient_rate_limited` | 429 | SMS, WhatsApp | This number is over its hourly or daily cap | Wait, or offer the person another route |
 | `project_volume_capped` | 429 | SMS | The project is over its hourly or daily message ceiling, or over its 300 messages outside India in 24 hours | Ask support for it to be raised |
+| `kyc_daily_limit` | 429 | SMS | The account is past its 30 days without a verified identity check, and has sent 200 codes under Tristack's header or abroad in the last 24 hours. `Retry-After` says when the next one can go | Complete the identity check on the dashboard's Profile page. [How](/relay-sms/index#identity-check-kyc). Nothing was charged |
 | `dlt_sender_not_approved` | 502 | SMS | The operator refused the sender header | Check spelling, letter case and the telemarketer binding. [DLT setup](/relay-sms/dlt-setup) |
 | `dlt_template_not_approved` | 502 | SMS | The operator refused the content template | The text must match your registration exactly |
 | `dlt_blacklisted` | 502 | SMS | The header or template is blacklisted on DLT | Settle it with your operator |

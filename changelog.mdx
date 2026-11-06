@@ -12,6 +12,21 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-07" description="An identity check for SMS under Tristack's header">
+
+  **Accounts that send under Tristack's header now go through an identity check.** The first
+  approved app name in an account starts 30 days. After them, until the check is verified, codes
+  under Tristack's header and abroad are limited to 200 in any 24 hours across the account. Codes
+  under your own DLT header are not affected. See
+  [Identity check (KYC)](/relay-sms/index#identity-check-kyc).
+
+  - The check is on the dashboard's Profile page: your legal name, PAN and, if you have one,
+    GSTIN, checked by a person at Tristack. No documents to upload.
+  - Accounts with an app name approved before today have their 30 days from today.
+  - New error code: `429 kyc_daily_limit`, with a `Retry-After` header. Nothing is charged.
+
+</Update>
+
 <Update label="2026-11-06" description="SMS reaches any country, on the same endpoint">
 
   **SMS codes to numbers outside India.** `POST /v1/relay/sms/otp` now takes a mobile number in
