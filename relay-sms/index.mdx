@@ -58,10 +58,8 @@ the code can tell which business asked for it:
 
 > 123456 is your requested OTP for YourApp. Best Regards, Tristack Technologies LLP Team.
 
-The one thing to set is that app name, on the project's **SMS** tab: letters, numbers and
-single spaces, up to 30 characters. Setting it needs one paid wallet top-up, which keeps a
-throwaway account from sending codes in a bank's name. Until a project has one, sends under
-Tristack's header answer `400 app_name_required` and nothing is charged.
+The one thing to set is that app name, and Tristack reviews it before it reaches the public.
+See [Setting your app name](#setting-your-app-name).
 
 <Warning>
   Every code names the business it is for because a code that names only Tristack is what a
@@ -72,6 +70,31 @@ Tristack's header answer `400 app_name_required` and nothing is charged.
   need to see **your** header, you need your own registration. See
   [Using your own header](/relay-sms/dlt-setup).
 </Warning>
+
+### Setting your app name
+
+A name anyone could type is no protection: a code "for your bank" sent under Tristack's header
+is exactly what a fraudster wants. So a person at Tristack checks every app name against the
+business it claims to be before any code carries it to the public.
+
+1. **Set the name and a link.** On the project's **SMS** tab, enter the name (letters, numbers
+   and single spaces, up to 30 characters) and a link to your website or your app's store
+   listing. The name goes to Tristack for review. Names of banks, payment apps, government
+   bodies, telecoms and large brands are refused on the spot and never reach review.
+2. **Test with your own numbers meanwhile.** Until the name is approved, codes go only to the
+   account's test numbers: up to three Indian mobiles, added on the same tab and confirmed
+   with a code we send them, free of charge. Those codes already carry the name waiting for
+   review. Any other number answers `403 app_name_pending`.
+3. **Once approved, it goes to everyone.** Every code from the project carries the name from
+   then on. A rejected name shows its reason on the tab; enter a different one to try again.
+
+An approved name is fixed. A different name is a new request, and the approved one keeps
+going out until the new one is approved, so a rename never stops your codes.
+
+A project with no approved name and none waiting for review answers
+`400 app_name_required`. Nothing is charged for either refusal. App names already in use
+before review began were kept as approved. Indian codes sent under your own DLT header do
+not use the app name; codes abroad always do.
 
 ## Sending a code
 
@@ -169,7 +192,10 @@ the switch off answers `403 international_sms_disabled`, and costs nothing.
 
   > 123456 is your YourApp verification code. It is valid for 10 minutes. Do not share it with anyone.
 
-  As in India, a project without an app name is refused with `400 app_name_required`.
+  As in India, it is the approved name. A project with none is refused with
+  `400 app_name_required`, and while a name waits for review every number abroad answers
+  `403 app_name_pending`, because test numbers are Indian mobiles. See
+  [Setting your app name](#setting-your-app-name).
 - **The sender depends on the country.** The recipient sees a shared sender that the networks
   in that country accept, not a header, so `header` in the response is `null`.
 - **The price depends on the country.** Each country has its own price per message, which
