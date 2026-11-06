@@ -1,14 +1,42 @@
 ---
 title: "SMS pricing"
-description: "What a one-time code by SMS costs, what is free, and what is never charged twice."
+description: "What a one-time code by SMS costs in India and in every other country, what is free, and what is never charged twice."
 icon: "indian-rupee-sign"
 ---
+
+**40 paise per message to an Indian number.** Every other country has a price of its own,
+listed on [SMS prices by country](/relay-sms/countries).
+
+Charged from the same wallet as Manifold AI and the other CPaaS channels, with no subscription, no minimum and no
+per-project fee.
+
+## India
 
 **40 paise per message sent.** One flat rate, whether the message goes out under your own
 header or under Tristack's.
 
-Charged from the same wallet as Manifold AI and the other CPaaS channels, with no subscription, no minimum and no
-per-project fee.
+## Outside India
+
+A price per message for each country, charged once the message is accepted for delivery.
+Sending abroad needs the project's **International SMS** switch on; see
+[Sending to other countries](/relay-sms/index#sending-to-other-countries).
+
+How a country's price is set: each country is priced in US dollars, because that is how
+SMS abroad is charged, and converted to rupees at the day's exchange rate, rounded up to the
+next 50 paise. No country costs less than Rs 2.00 a message.
+
+**It moves with the rupee.** The exchange rate is read daily, and it is the same rate Manifold
+AI bills at, so a price abroad can change by a little from one day to the next. The rate is
+fixed for each request, and `costPaise` on the response is what that message cost.
+
+<Card title="SMS prices by country" icon="globe" href="/relay-sms/countries">
+  Every country Tristack can send to, with its price per message, and the countries it cannot
+  reach yet.
+</Card>
+
+The live list at today's rate is in the dashboard, on the project's **SMS** tab under
+**CPaaS**, and at [`GET /v1/relay/sms/countries`](/api-reference/relay-sms/countries). Read
+the endpoint rather than hardcoding a price.
 
 ## What is not charged
 
@@ -17,8 +45,9 @@ per-project fee.
   existing code and sends nothing, so nothing is charged. The response says `"reused": true`.
 - **A refused send.** If the message is not accepted for delivery, the hold is released whole
   and you are not charged. `costPaise` in the response is what you actually paid.
-- **A refusal before sending.** An invalid number, a rate limit, or a template that cannot be
-  filled all cost nothing, because nothing was sent.
+- **A refusal before sending.** An invalid number, a rate limit, a template that cannot be
+  filled, a number abroad with International SMS off, or a country Tristack cannot reach yet
+  all cost nothing, because nothing was sent.
 
 ## What is charged even when it does not arrive
 
@@ -31,11 +60,14 @@ The commonest cause on your own header is a template mismatch, which is why Tris
 rendered message against your registered text before spending anything. See
 [Using your own header](/relay-sms/dlt-setup).
 
+Abroad there are no delivery reports yet, so `delivery.status` reads `unknown` for every
+message there. A message abroad is charged once it is accepted, as in India.
+
 ## Unlike WhatsApp, there is no second bill
 
 The WhatsApp channel charges 20 paise and Meta bills you separately for WhatsApp messages. SMS
-does not work that way: 40 paise is the whole cost of the message, and no operator or
-aggregator will invoice you for anything.
+does not work that way: 40 paise in India, or the country's price abroad, is the whole cost of
+the message, and no operator or aggregator will invoice you for anything.
 
 If you bring your own DLT registration, your operator may charge you for the registration
 itself. That is between you and them and does not reach your Tristack wallet.
@@ -43,5 +75,7 @@ itself. That is between you and them and does not reach your Tristack wallet.
 ## Seeing what you spent
 
 Per-message lines appear in **Usage**, with the sender header as the item, so traffic on your
-own header and traffic on Tristack's are told apart. The rate is also published at
-`GET /api/v1/usage/rates`, so nothing has to hardcode it.
+own header and traffic on Tristack's are told apart. A message abroad has no header, so its
+item names the country instead, as in `Abroad (DE)`. The Indian rate is also published at
+`GET /api/v1/usage/rates`, and the prices abroad at `GET /v1/relay/sms/countries`, so nothing
+has to hardcode them.

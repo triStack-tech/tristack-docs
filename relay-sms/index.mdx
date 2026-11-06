@@ -1,11 +1,11 @@
 ---
 title: "SMS"
-description: "One-time codes by SMS to Indian numbers. No DLT registration of your own required: Tristack sends under its own registered header unless you bring yours."
+description: "One-time codes by SMS to mobiles in India and in other countries, on one endpoint. No DLT registration of your own required: in India Tristack sends under its own registered header unless you bring yours."
 icon: "message-sms"
 ---
 
-SMS is the Tristack CPaaS channel for one-time codes by SMS to Indian mobiles. Two calls.
-`POST /v1/relay/sms/otp` sends a code to an Indian mobile, and
+SMS is the Tristack CPaaS channel for one-time codes by SMS, to mobiles in India and in other
+countries. Two calls. `POST /v1/relay/sms/otp` sends a code, and
 `POST /v1/relay/sms/otp/verify` checks what the person typed. You write no expiry, no attempt
 cap, no resend throttle and no storage.
 
@@ -18,7 +18,31 @@ earlier name. Those are unchanged.
   `503 relay_sms_unavailable` and nothing is charged.
 </Note>
 
-## You do not need a DLT registration
+## Sending to other countries
+
+If you already send codes to Indian numbers, three things to know:
+
+1. **Your integration does not change.** The same `POST /v1/relay/sms/otp`, the same
+   `{ "to": "..." }` body, the same verify and status calls. Write the number in international
+   format, with its country code, and the country code decides where the message goes.
+   Indian numbers are sent exactly as before.
+2. **Turn on International SMS for the project.** It is one switch in the dashboard, on the
+   project's **SMS** tab under **CPaaS**, and it is off until you turn it on. Indian numbers
+   do not need it.
+3. **Each country has its own price.** India stays at 40 paise. Every other country has its own
+   price per message: see [SMS prices by country](/relay-sms/countries).
+
+<Warning>
+  **Tristack is not sending SMS outside India yet.** The route abroad is waiting for approval
+  from the provider that carries it. Until it opens, every number outside India answers
+  `503 international_sms_unavailable`, even with the switch on, and nothing is charged. You
+  can turn the switch on now. Indian numbers are not affected.
+</Warning>
+
+What changes for a number abroad, and why, is under
+[Numbers in India and abroad](#numbers-in-india-and-abroad).
+
+## In India you do not need a DLT registration
 
 This is the part that is different from the WhatsApp channel, and it is the reason most people
 use this one.
@@ -28,16 +52,24 @@ operator's DLT portal, getting a sender header approved, registering the exact t
 message as a content template, and binding a telemarketer to your entity. It takes weeks and
 costs money before you have sent anything.
 
-With nothing configured, your codes go out under **Tristack's own registered header and
-content template**. There is nothing to set up, and nothing to wait for.
+Without a registration of your own, your codes go out under **Tristack's own registered
+header and content template**, and the template names **your app**, so the person receiving
+the code can tell which business asked for it:
+
+> 123456 is your requested OTP for YourApp. Best Regards, Tristack Technologies LLP Team.
+
+The one thing to set is that app name, on the project's **SMS** tab: letters, numbers and
+single spaces, up to 30 characters. Setting it needs one paid wallet top-up, which keeps a
+throwaway account from sending codes in a bank's name. Until a project has one, sends under
+Tristack's header answer `400 app_name_required` and nothing is charged.
 
 <Warning>
-  The message your recipient reads is Tristack's registered text, and it names **Tristack**,
-  not your company. That is not a limitation we chose: under India's DLT rules a sender header
-  belongs to the entity whose brand it carries, and the brand in a content template has to be
-  the entity that registered it. Nobody can lawfully put your brand on someone else's header.
+  Every code names the business it is for because a code that names only Tristack is what a
+  fraudster sending through someone's account would hide behind.
 
-  If your recipients need to see **your** name, you need your own registration. See
+  The sender header itself stays Tristack's (`TRISTK`), and so does the sign-off. Under India's
+  DLT rules a sender header belongs to the entity whose brand it carries. If your recipients
+  need to see **your** header, you need your own registration. See
   [Using your own header](/relay-sms/dlt-setup).
 </Warning>
 
@@ -56,12 +88,28 @@ curl https://api.tristack.tech/v1/relay/sms/otp \
   "expiresAt": "2026-09-21T09:10:18Z",
   "costPaise": 40,
   "header": "TRISTK",
-  "reused": false
+  "reused": false,
+  "country": "IN"
 }
 ```
 
-The code is **never returned**. The `id` is your only handle on it, and `header` tells you
-which sender the recipient saw.
+The code is **never returned**. The `id` is your only handle on it, `header` tells you
+which sender the recipient saw, and `country` which country the number belongs to.
+
+A number abroad is the same call with its country code, for example
+`{ "to": "+49 xxxx xxxxxxx" }` for Germany. The answer has the same shape, with that
+country's price and no DLT header:
+
+```json 200 OK, a number in Germany
+{
+  "id": "sms_4b8e07d2f16a93c5e0b2d781",
+  "expiresAt": "2026-11-06T09:10:18Z",
+  "costPaise": 1550,
+  "header": null,
+  "reused": false,
+  "country": "DE"
+}
+```
 
 ## Verifying it
 
@@ -87,14 +135,64 @@ to the person waiting:
 | `superseded` | A newer code was issued for this number, so this one stopped being valid. |
 | `already_verified` | It was used. A code verifies exactly once. |
 
-## Indian mobiles only
+## Numbers in India and abroad
 
-`to` must be an Indian mobile number. `+91 98765 43210`, `91-9876543210`, `09876543210` and
-`9876543210` are all read as the same number.
+`to` takes a mobile number in any country, and its country code decides the route.
 
-Landlines and numbers outside India are refused with `invalid_phone_number` rather than
-attempted, because this product sends through an Indian operator under an Indian DLT
-registration and has nowhere else to send.
+**`+91` goes through an Indian operator under DLT, as it always has.** Your own header if the
+project has one, otherwise Tristack's, at 40 paise. The International SMS switch has no effect
+on Indian numbers. `+91 98765 43210`, `91-9876543210`, `09876543210` and `9876543210` are all
+read as the same number.
+
+**Every other country code goes through Tristack's route abroad**, when the project's
+International SMS switch is on. Write the number with its country code, starting `+` or `00`:
+`+49 xxxx xxxxxxx` and `0049 xxxx xxxxxxx` are the same German number. Spaces, hyphens,
+brackets and dots are ignored. A bare ten-digit number starting with 6, 7, 8 or 9 is always
+read as Indian, so a number abroad written without its country code does not reach the person
+you meant.
+
+Only mobiles can receive a code. Landlines, and premium-rate, toll-free and shared-cost
+numbers, are refused with `invalid_phone_number` before anything is charged.
+
+### Why the switch is off by default
+
+Codes to numbers abroad are the usual target of SMS pumping: bots request codes to expensive
+numbers in other countries, and the sender pays for every one. A project that serves only India
+should not be exposed to that because SMS is on. So a number outside India on a project with
+the switch off answers `403 international_sms_disabled`, and costs nothing.
+
+### What is different abroad
+
+- **The text is fixed.** DLT is India's system, so your DLT template and header are not used
+  outside India. A number abroad receives Tristack's own message, with your app name in it,
+  which fits in a single SMS:
+
+  > 123456 is your YourApp verification code. It is valid for 10 minutes. Do not share it with anyone.
+
+  As in India, a project without an app name is refused with `400 app_name_required`.
+- **The sender depends on the country.** The recipient sees a shared sender that the networks
+  in that country accept, not a header, so `header` in the response is `null`.
+- **The price depends on the country.** Each country has its own price per message, which
+  moves with the rupee. See [SMS prices by country](/relay-sms/countries).
+- **No delivery reports yet.** `delivery.status` for a number abroad reads `unknown`. The
+  code's own status (`pending`, `verified`, `expired`) works exactly as in India.
+- **A daily ceiling of its own.** 300 messages outside India per project in any 24 hours, on
+  top of the limits below.
+- **Some countries are not reachable yet.** A country that needs a sender registration
+  Tristack has not made answers `400 sms_country_unavailable`.
+  [The list](/relay-sms/countries#countries-not-available-yet).
+- **A reply of STOP is honoured.** A recipient abroad who replied STOP to an earlier message
+  is refused with `502 recipient_opted_out`, and nothing is charged.
+
+Everything else is the same: six digits, ten minutes, five attempts, one live code per number,
+the resend window, and the same verify call.
+
+A number abroad is checked in this order, and each refusal is decided before any money moves:
+the number itself (`invalid_phone_number`), the project's switch
+(`international_sms_disabled`), whether Tristack is sending outside India
+(`international_sms_unavailable`), the country (`sms_country_unavailable`), the limits
+(`project_volume_capped` and the others), and then the price against your balance
+(`insufficient_balance`).
 
 ## What protects the code
 
@@ -129,6 +227,11 @@ that is worth stopping early rather than explaining afterwards. A refusal answer
 `rate_limited`, `recipient_rate_limited` or `project_volume_capped`, and the first carries a
 `Retry-After`.
 
+Numbers abroad count towards all of these, and have one more ceiling of their own: **300
+messages outside India per project in any 24 hours**. A message to the dearest country costs
+about two hundred times an Indian one, so a run of pumped codes is stopped while it is still
+small. Going over it also answers `429 project_volume_capped`.
+
 If a ceiling is wrong for your traffic, ask and it will be raised. It is not a pricing tier.
 
 ## Did it arrive?
@@ -142,7 +245,11 @@ people type a code in faster than operators report on it.
 template. `unknown` means the report was no longer available by the time we asked, which is a
 gap in what we can tell you rather than a lost message.
 
+For a number abroad, `delivery.status` is always `unknown`, with the detail "Delivery reports
+are not available for SMS outside India yet." The code's own status is reported as usual.
+
 ## What is not in this yet
 
-Bulk and transactional SMS, your own message text per request, more than one template per
-project, scheduled sends, delivery webhooks, and regional-language templates.
+Bulk and transactional SMS, your own message text per request (in India or abroad), more than
+one template per project, scheduled sends, delivery webhooks, delivery reports outside India,
+and regional-language templates.

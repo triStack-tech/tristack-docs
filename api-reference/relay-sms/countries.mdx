@@ -1,0 +1,91 @@
+---
+title: "List countries"
+api: "GET https://api.tristack.tech/v1/relay/sms/countries"
+description: "Every country outside India an SMS code can go to, with its price per message at today's rate, and whether this project has International SMS switched on."
+---
+
+Free. Requires the `relay-sms:read` scope, the same as [checking a message](/api-reference/relay-sms/status).
+
+Prices abroad move with the rupee, so read them here rather than hardcoding them. India is not
+in the list: an Indian number is always 40 paise. The International SMS switch itself is turned
+on in the dashboard, never with an API key.
+
+```bash
+curl https://api.tristack.tech/v1/relay/sms/countries \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+## Response
+
+<ResponseField name="available" type="boolean">
+  Whether Tristack is sending SMS outside India right now. While it is `false`, every number
+  outside India answers `503 international_sms_unavailable`, whatever this project's switch
+  says, and nothing is charged.
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean">
+  This project's International SMS switch. While it is `false`, a number outside India answers
+  `403 international_sms_disabled`.
+</ResponseField>
+
+<ResponseField name="dailyLimit" type="number">
+  How many messages outside India this project may send in any 24 hours. Past it, a send
+  answers `429 project_volume_capped`.
+</ResponseField>
+
+<ResponseField name="countries" type="array">
+  Every country in the catalog, sorted by name.
+
+  <Expandable title="country">
+    <ResponseField name="iso" type="string">
+      The two-letter ISO code, as `country` reads on a send.
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      The country's name in English.
+    </ResponseField>
+    <ResponseField name="dialCode" type="string">
+      The calling code, without the `+`. Countries that share `1` or `44` carry the digits
+      that tell them apart, as in `1-268` for Antigua and Barbuda.
+    </ResponseField>
+    <ResponseField name="pricePaise" type="number">
+      The price of one message to this country, in paise, at today's exchange rate. It is what
+      a send there is charged, as `costPaise`.
+    </ResponseField>
+    <ResponseField name="available" type="boolean">
+      Whether a message to this country can be sent now. It is `false` for every country while
+      the top-level `available` is `false`.
+    </ResponseField>
+    <ResponseField name="needsRegistration" type="boolean">
+      The country accepts SMS only from a registered sender or a registered local number.
+      With `available: false`, Tristack has not made that registration yet, and a number there
+      answers `400 sms_country_unavailable`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```json 200 OK, trimmed to two countries
+{
+  "available": true,
+  "enabled": true,
+  "dailyLimit": 300,
+  "countries": [
+    { "iso": "DE", "name": "Germany", "dialCode": "49", "pricePaise": 1550,
+      "available": true, "needsRegistration": false },
+    { "iso": "SA", "name": "Saudi Arabia", "dialCode": "966", "pricePaise": 2800,
+      "available": false, "needsRegistration": true }
+  ]
+}
+```
+
+A switch that is off, or sending abroad that is not open, is a field here rather than an
+error, so this call answers `200` either way. The same list, with each price, is in the
+dashboard on the project's **SMS** tab, and on [SMS prices by country](/relay-sms/countries)
+as of the day that page was written.
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 403 | `relay_sms_disabled` | SMS is not switched on for this project | Turn it on |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with `relay-sms:read` |
+| 503 | `relay_sms_unavailable` | Off on this deployment | Contact support |

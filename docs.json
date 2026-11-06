@@ -103,7 +103,8 @@
                 "pages": [
                   "relay-sms/index",
                   "relay-sms/dlt-setup",
-                  "relay-sms/pricing"
+                  "relay-sms/pricing",
+                  "relay-sms/countries"
                 ]
               }
             ]
@@ -169,7 +170,8 @@
                 "pages": [
                   "api-reference/relay-sms/otp",
                   "api-reference/relay-sms/verify",
-                  "api-reference/relay-sms/status"
+                  "api-reference/relay-sms/status",
+                  "api-reference/relay-sms/countries"
                 ]
               }
             ]
