@@ -139,6 +139,7 @@ Two fields ride along on specific failures:
 | `relay_sms_disabled` | 403 | SMS | SMS is not switched on for this project | Turn it on. No new key needed |
 | `relay_sms_unavailable` | 503 | SMS | SMS is off, or unable to send, on this deployment. Nothing was charged | Contact support. It never means your wallet: that would be a `402` |
 | `no_sender_identity` | 400 | SMS | Neither your own DLT header nor Tristack's shared header is available for this project | Register your own on the project's SMS tab, or ask support to enable the shared header |
+| `app_name_required` | 400 | SMS | The project has no app name. Every code under Tristack's shared header, and every code abroad, names the business it is for | Set the app name on the project's SMS tab. It needs one paid wallet top-up. Nothing was charged |
 | `template_missing` | 400 | SMS | No approved template text is configured for this send | Paste it on the project's SMS tab |
 | `template_variable_mismatch` | 400 | SMS | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | `template_variable_too_long` | 400 | SMS | A value exceeds DLT's 30-character ceiling | Shorten it |

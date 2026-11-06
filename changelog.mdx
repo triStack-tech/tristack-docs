@@ -43,6 +43,14 @@ live.
     `503 international_sms_unavailable` and nothing is charged. The switch can be turned on
     now.
 
+  **Every code names your app.** Codes under Tristack's shared header now always use the
+  template that carries your app name ("123456 is your requested OTP for YourApp. Best
+  Regards, Tristack Technologies LLP Team."), and codes abroad name it too. A project without
+  an app name is refused with `400 app_name_required` and nothing is charged. Set the app name
+  on the project's SMS tab; it needs one paid wallet top-up. Projects already sending were
+  given their project name as app name where it fits the rules. A project with its own DLT
+  registration is not affected.
+
 </Update>
 
 <Update label="2026-11-05" description="Manifold AI speaks the OpenAI Chat Completions format">

@@ -52,16 +52,24 @@ operator's DLT portal, getting a sender header approved, registering the exact t
 message as a content template, and binding a telemarketer to your entity. It takes weeks and
 costs money before you have sent anything.
 
-With nothing configured, your codes go out under **Tristack's own registered header and
-content template**. There is nothing to set up, and nothing to wait for.
+Without a registration of your own, your codes go out under **Tristack's own registered
+header and content template**, and the template names **your app**, so the person receiving
+the code can tell which business asked for it:
+
+> 123456 is your requested OTP for YourApp. Best Regards, Tristack Technologies LLP Team.
+
+The one thing to set is that app name, on the project's **SMS** tab: letters, numbers and
+single spaces, up to 30 characters. Setting it needs one paid wallet top-up, which keeps a
+throwaway account from sending codes in a bank's name. Until a project has one, sends under
+Tristack's header answer `400 app_name_required` and nothing is charged.
 
 <Warning>
-  The message your recipient reads is Tristack's registered text, and it names **Tristack**,
-  not your company. That is not a limitation we chose: under India's DLT rules a sender header
-  belongs to the entity whose brand it carries, and the brand in a content template has to be
-  the entity that registered it. Nobody can lawfully put your brand on someone else's header.
+  Every code names the business it is for because a code that names only Tristack is what a
+  fraudster sending through someone's account would hide behind.
 
-  If your recipients need to see **your** name, you need your own registration. See
+  The sender header itself stays Tristack's (`TRISTK`), and so does the sign-off. Under India's
+  DLT rules a sender header belongs to the entity whose brand it carries. If your recipients
+  need to see **your** header, you need your own registration. See
   [Using your own header](/relay-sms/dlt-setup).
 </Warning>
 
@@ -156,11 +164,12 @@ the switch off answers `403 international_sms_disabled`, and costs nothing.
 ### What is different abroad
 
 - **The text is fixed.** DLT is India's system, so your DLT template and header are not used
-  outside India. A number abroad receives Tristack's own message, which fits in a single SMS:
+  outside India. A number abroad receives Tristack's own message, with your app name in it,
+  which fits in a single SMS:
 
-  > 123456 is your Tristack verification code. It is valid for 10 minutes. Do not share it with anyone.
+  > 123456 is your YourApp verification code. It is valid for 10 minutes. Do not share it with anyone.
 
-  Like the Indian shared header, it names **Tristack**, not your company.
+  As in India, a project without an app name is refused with `400 app_name_required`.
 - **The sender depends on the country.** The recipient sees a shared sender that the networks
   in that country accept, not a header, so `header` in the response is `null`.
 - **The price depends on the country.** Each country has its own price per message, which

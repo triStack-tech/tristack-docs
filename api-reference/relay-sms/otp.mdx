@@ -51,8 +51,8 @@ silently would mean being charged for a message different from the one you asked
 
 <ResponseField name="header" type="string | null">
   The sender the recipient saw. Your own registered header if the project has one, otherwise
-  Tristack's. Worth reading: on Tristack's header the message names Tristack rather than your
-  company.
+  Tristack's. On Tristack's header the message text names your app (set on the project's SMS
+  tab), and the header and sign-off are Tristack's.
 
   `null` for a number abroad. DLT headers exist only in India, and the sender a recipient
   abroad sees depends on their country.
@@ -101,6 +101,7 @@ silently would mean being charged for a message different from the one you asked
 | 400 | `sms_country_unavailable` | The number is in a country Tristack cannot send to yet, because it needs a sender registration | Reach the person another way. [The list](/relay-sms/countries#countries-not-available-yet) |
 | 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
 | 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the project's SMS tab, or contact support |
+| 400 | `app_name_required` | The project has no app name, and every code under Tristack's header (and abroad) must name the business it is for | Set the app name on the project's SMS tab. It needs one paid wallet top-up. Nothing was charged |
 | 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | 400 | `template_variable_too_long` | A value exceeds DLT's 30-character ceiling | Shorten it |
 | 400 | `template_variable_empty` | A placeholder has no value | Fill it on the project's SMS tab |
