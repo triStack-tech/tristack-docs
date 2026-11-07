@@ -12,6 +12,31 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-07" description="Access tokens and the tristack command-line tool">
+
+  **Manage your account from a shell, or let an AI agent do it.** The new `tristack` CLI does
+  what the dashboard does (projects, product switches, API keys, SMS app names and test
+  numbers, OTP, email domains, the wallet, billing details, usage and logs) as commands that
+  print JSON. It is built for scripts and for coding agents such as Claude Code and Codex. See
+  [Command line](/platform/cli) and [Using the CLI from an AI agent](/platform/cli-agents).
+
+  - Install it with `curl -fsSL https://tristack.tech/cli/install.sh | sh` (Node.js 18 or
+    newer), then run `tristack configure`. `tristack agent-guide` prints a guide written for
+    agents.
+  - It signs in with an **access token** (`tsa_...`), made on the dashboard's Profile page under
+    Access tokens: Read only or Full access, expiring after 7, 30, 90 or 365 days or never,
+    and shown once. See [Access tokens](/platform/access-tokens).
+  - A token works on the dashboard API (`/api/v1/...`) only. Your application's calls to
+    `/v1/...` still take a project API key (`tsk_...`), unchanged.
+  - Some actions stay with a signed-in person: managing access tokens, signing in and out,
+    password reset, submitting or deleting KYC, and changing automatic top-ups.
+  - At most 10 live tokens per person, and 300 requests a minute across them.
+  - New error codes: `401 invalid_access_token`, `401 access_token_expired`,
+    `403 token_read_only`, `403 session_required`, and `429 rate_limited` on the dashboard API.
+    See [errors](/platform/errors#access-token-codes).
+
+</Update>
+
 <Update label="2026-11-07" description="App names approved through your domain, and an identity check for SMS">
 
   **An app name that matches your verified domain is approved at once.** Verify your website's

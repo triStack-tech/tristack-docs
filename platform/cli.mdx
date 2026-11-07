@@ -1,0 +1,447 @@
+---
+title: "Command line (tristack CLI)"
+description: "The tristack command manages a Tristack account from a shell: projects, API keys, SMS app names and test numbers, OTP, email domains, the wallet and usage. JSON out, an access token in, made for scripts and AI agents."
+sidebarTitle: "Command line"
+icon: "terminal"
+---
+
+`tristack` manages your Tristack account from a shell, the way the AWS CLI manages an AWS
+account. Anything you would otherwise click through on the dashboard (create a project, switch
+on a product, mint an API key, set an SMS app name, add a test number, read the wallet) is one
+command, and every command prints JSON.
+
+It signs in with an [access token](/platform/access-tokens) (`tsa_...`), a long-lived
+credential you make on the dashboard. It is not the API key your application sends to `/v1`
+(`tsk_live_...`): the token manages the account, the key calls the products.
+
+<Info>
+  The CLI is written for scripts and for AI agents such as Claude Code and Codex as much as for
+  people. [Using it from an AI agent](/platform/cli-agents) covers how to hand one a token
+  safely.
+</Info>
+
+## Install
+
+<Tabs>
+  <Tab title="macOS and Linux">
+    ```bash
+    curl -fsSL https://tristack.tech/cli/install.sh | sh
+    ```
+
+    The installer needs Node.js 18 or newer and `curl` or `wget`. It puts the tool at
+    `~/.local/bin/tristack`, with no `sudo`, and tells you the line to add to your shell
+    profile if that folder is not on your `PATH`. Run it again to update.
+
+    Set `TRISTACK_INSTALL_DIR` before running it to install somewhere else.
+  </Tab>
+  <Tab title="Windows">
+    Install [Node.js](https://nodejs.org) 18 or newer, download
+    [`tristack.mjs`](https://tristack.tech/cli/tristack.mjs), and run it with `node`:
+
+    ```powershell
+    node tristack.mjs --version
+    ```
+
+    Every command on this page works the same way with `node tristack.mjs` in place of
+    `tristack`.
+  </Tab>
+</Tabs>
+
+Check it runs:
+
+```bash
+tristack --version
+```
+
+```json
+{
+  "name": "tristack",
+  "version": "0.1.0",
+  "node": "22.22.1"
+}
+```
+
+## Configure
+
+<Steps>
+  <Step title="Make an access token" icon="key">
+    On the dashboard, open [Profile](https://tristack.tech/profile#access-tokens), **Access
+    tokens**, and click **Create token**. Give it a name you will recognise later, such as the
+    machine or agent it is for, and pick:
+
+    - **Read only** or **Full access**. Read only can look at everything and change nothing.
+    - An expiry: 7 days, 30 days, 90 days, 1 year or No expiry.
+
+    The token is shown once. Copy it now. See [Access tokens](/platform/access-tokens) for what
+    each choice means.
+  </Step>
+  <Step title="Save it" icon="floppy-disk">
+    ```bash
+    tristack configure
+    ```
+
+    Paste the token at the hidden prompt. It is checked against the API before it is saved, so
+    a typo is caught here rather than on your first real command. Piped input is read as the
+    token, so a secret manager can feed it without the token ever appearing on a command line:
+
+    ```bash
+    pass show tristack | tristack configure
+    ```
+  </Step>
+  <Step title="Check who you are" icon="user-check">
+    ```bash
+    tristack whoami
+    ```
+
+    It prints the account, your user, and the token in use with its name, scope and expiry.
+  </Step>
+</Steps>
+
+<Warning>
+  A token acts as you. Treat it like your password: never paste it into chat, a ticket or a
+  commit. The CLI never takes it as a flag, because command-line arguments show up in process
+  lists and shell history.
+</Warning>
+
+### Where the token comes from
+
+The CLI looks for a token in this order and uses the first it finds:
+
+1. The environment variable `TRISTACK_ACCESS_TOKEN`.
+2. The profile named by `--profile`, then `TRISTACK_PROFILE`, then the profile called
+   `default`, in the config file.
+
+The config file is `~/.config/tristack/config.json` (under `$XDG_CONFIG_HOME` when that is
+set), or `%APPDATA%\tristack\config.json` on Windows. It is written with mode `0600`, readable
+only by you.
+
+### Profiles
+
+Keep several tokens side by side, for example one per account or one Read only and one Full
+access, as named profiles:
+
+```bash
+tristack configure --profile work
+tristack --profile work projects list
+TRISTACK_PROFILE=work tristack projects list
+tristack profiles
+```
+
+`tristack profiles` lists the saved profiles, the API address of each and which one is
+active, with the tokens masked.
+
+### Environment variables
+
+| Variable | What it does |
+|---|---|
+| `TRISTACK_ACCESS_TOKEN` | Access token to use. Wins over the config file |
+| `TRISTACK_PROFILE` | Profile to use when `--profile` is not given (default `default`) |
+| `TRISTACK_API_URL` | API base URL. `--api-url` wins over it; it wins over the profile's own, then `https://api.tristack.tech` |
+| `TRISTACK_PROJECT` | Default for `--project`, so a session about one project need not repeat it |
+| `TRISTACK_API_KEY` | A project API key (`tsk_...`), used only by `tristack api` on `/v1/` paths |
+
+## Commands
+
+Run `tristack --help`, `tristack <command> --help` or `tristack <command> <subcommand> --help`
+for the full usage of any command. Wherever a command takes a project, `--project` (or `-p`)
+accepts the project's id or its exact name, and falls back to `TRISTACK_PROJECT`.
+
+### Account and setup
+
+| Command | What it does |
+|---|---|
+| `tristack configure` | Save an access token to a profile (reads it from stdin or a hidden prompt) |
+| `tristack whoami` | Show the account, user and access token in use |
+| `tristack profiles` | List the saved profiles (tokens shown masked) |
+| `tristack account profile` | Show your profile (email, account, display currency) |
+| `tristack agent-guide` | Print a Markdown guide for AI agents (setup, commands, output, safety) |
+| `tristack version` | Print the version |
+
+```bash
+tristack account profile
+```
+
+### Projects
+
+| Command | What it does |
+|---|---|
+| `projects list` | List your projects |
+| `projects get <id\|name>` | Show one project and its product switches |
+| `projects create <name>` | Create a project |
+| `projects update <id\|name>` | Rename a project or switch its products on and off |
+| `projects archive <id\|name>` | Archive a project (it stops serving and becomes read-only; restore undoes it) |
+| `projects restore <id\|name>` | Restore an archived project |
+
+`projects update` changes only the flags given: `--name`, `--manifold`, `--sms`, `--otp`,
+`--voice`, `--email` and `--whatsapp` (each `on` or `off`), `--require-scoped-keys on|off`,
+`--wallet-topup on|off`, `--topup-origins a,b` (replaces the list; `""` clears it),
+`--voice-speed 0.7-1.2` (0 restores the default) and `--notify-email <address>` (`""` sends
+reports to the account owner). There is no delete: archive a project instead.
+
+```bash
+tristack projects update "My app" --sms on --otp on
+```
+
+<Note>
+  Switching Voice on for the first time charges the project's one-time activation fee to the
+  wallet, so `--voice on` (and `tristack voice enable`) also needs `--yes`.
+</Note>
+
+### API keys
+
+| Command | What it does |
+|---|---|
+| `keys list --project <p>` | List a project's API keys (hints only) |
+| `keys create --project <p> <name> [--mode live\|test] [--scopes a,b]` | Create an API key; the full key is in the output once, store it at once |
+| `keys revoke --project <p> <key id\|key name>` | Revoke an API key by id or by name |
+
+Leave out `--scopes` for a key with full access. `--mode` defaults to `live`.
+
+```bash
+tristack keys create --project "My app" backend --mode live
+```
+
+### Manifold models
+
+| Command | What it does |
+|---|---|
+| `models list --project <p>` | List every Manifold model, with prices and whether the project allows it |
+| `models set --project <p> <alias> [alias...]` | Allow only these models (replaces the whole list) |
+| `models allow-all --project <p>` | Clear the list, so the project may call every enabled model |
+
+```bash
+tristack models set --project "My app" nova-lite claude-haiku
+```
+
+### SMS
+
+| Command | What it does |
+|---|---|
+| `sms show --project <p>` | Show a project's SMS settings: header, template, app name and its review |
+| `sms enable` / `sms disable --project <p>` | Switch SMS on or off for a project |
+| `sms app-name show --project <p>` | Show the approved app name, any name waiting for review, and the last one turned down |
+| `sms app-name set --project <p> "<app name>" [--link <url>] [--template <id>]` | Ask for an app name (approved at once if it matches a verified domain, else reviewed) |
+| `sms app-name withdraw --project <p>` | Withdraw the name waiting for review (the approved one stays) |
+| `sms templates list --project <p>` | List the templates and which one the project uses |
+| `sms templates use --project <p> <template id>` | Choose the template the project's codes use |
+| `sms test-numbers list` | List the test numbers (shared by every project, at most 3) |
+| `sms test-numbers add <phone>` | Add an Indian mobile number; it is sent a 6-digit code to confirm |
+| `sms test-numbers confirm <id\|phone> <code>` | Confirm a test number with the code it received |
+| `sms test-numbers resend <id\|phone>` | Send a test number a new code |
+| `sms test-numbers remove <id\|phone>` | Remove a test number |
+| `sms international show --project <p>` | Show the International SMS switch and the price per message by country |
+| `sms international on` / `off --project <p>` | Allow or stop sending abroad |
+| `sms dlt show --project <p>` | Show the project's DLT registration and its review state (change it on the dashboard) |
+
+An app name is letters, numbers and single spaces, at most 30 characters. A new name needs
+`--link` (your website or app-store listing) unless it matches a domain the account has
+verified, see [Setting your app name](/relay-sms/index#setting-your-app-name).
+
+```bash
+tristack sms app-name set --project "My app" "Acme" --link https://acme.com
+```
+
+### OTP
+
+| Command | What it does |
+|---|---|
+| `otp enable` / `otp disable --project <p>` | Switch OTP (Verify) on or off for a project |
+| `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice]` | Send one real code to a phone number or email address (charged to the wallet) |
+| `otp test check --project <p> <verification id> <code>` | Check the code a test verification received |
+
+`otp test send` goes through the same path as `POST /v1/relay/otp`, with the project's
+switches, prices and limits, and is charged like any send.
+
+```bash
+tristack otp test send --project "My app" --to +919876543210
+```
+
+### Email
+
+| Command | What it does |
+|---|---|
+| `email enable` / `email disable --project <p>` | Switch Email on or off for a project |
+| `email domains list --project <p>` | List the project's sending domains and their DNS records |
+| `email domains add --project <p> <domain>` | Claim a sending domain; the output has the CNAME records to publish |
+| `email domains verify --project <p> <domain>` | Look the domain's records up in DNS now and report what is wrong |
+| `email domains remove --project <p> <domain>` | Give up a sending domain (no undo; re-adding issues new records) |
+| `email analytics --project <p> [--window 24h\|7d\|30d]` | Deliveries, bounces and complaints over a window |
+| `email templates list --project <p>` | List the project's email templates |
+
+```bash
+tristack email domains add --project "My app" mail.acme.com
+```
+
+### Account domains
+
+The account's website domains. A verified one approves a matching SMS app name at once, and
+is shared by every project.
+
+| Command | What it does |
+|---|---|
+| `domains list` | List the account's domains, verified or waiting |
+| `domains add <domain>` | Add a domain; the output has the TXT record that proves it |
+| `domains verify <id\|domain>` | Check the domain's TXT record now (also approves a waiting app name it matches) |
+| `domains remove <id\|domain>` | Remove a domain (a name already approved through it stays approved) |
+
+```bash
+tristack domains verify acme.com
+```
+
+### Wallet, billing and KYC
+
+| Command | What it does |
+|---|---|
+| `wallet balance` | Show the wallet balance |
+| `wallet transactions [--limit <n>] [--before <iso-time>]` | List wallet transactions, newest first (`--limit` 1 to 100) |
+| `wallet ledger [--page <n>] [--page-size <n>] [--search <text>]` | The wallet ledger grouped the way the dashboard shows it |
+| `billing show` | Show the billing details |
+| `billing set -f key=value...` | Change billing details: the fields given replace the current ones |
+| `kyc status` | Show the account's KYC status |
+
+`billing set` takes `entityType`, `legalName`, `pan`, `gstin`, `addressLine1`,
+`addressLine2`, `city`, `stateCode`, `postalCode` and `phone`, with `-f` or `--data`. It reads
+the current details first, so only the fields you give change.
+
+Top-ups, automatic top-ups and submitting KYC are done by a person on the dashboard. See
+[what a token cannot do](/platform/access-tokens#what-a-token-cannot-do).
+
+```bash
+tristack billing set -f legalName="Acme Pvt Ltd" -f gstin=27ABCDE1234F1Z5
+```
+
+### Voice and numbers
+
+| Command | What it does |
+|---|---|
+| `voice voices` | List the voices calls can be spoken in |
+| `voice enable --project <p> --yes` | Switch Voice on for a project (the first time charges the activation fee) |
+| `voice disable --project <p>` | Switch Voice off for a project |
+| `numbers list` | List the account's rented numbers |
+| `numbers available [--prefix <digits>]` | Search numbers that can be rented (renting one is done on the dashboard) |
+
+```bash
+tristack numbers available --prefix 9180
+```
+
+### Usage and logs
+
+| Command | What it does |
+|---|---|
+| `usage summary` | Totals per project, product and day |
+| `usage events` | The line items behind the totals, newest first |
+| `usage rates` | Every rate currently charged |
+| `logs` | Request log: every billable event, newest first (same as `usage events`) |
+
+`usage summary`, `usage events` and `logs` filter with `--project`, `--product` (for example
+`manifold`), `--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from` and
+`--to` (`yyyy-mm-dd`). `usage events` and `logs` also page with `--page`, `--page-size` and
+`--search`.
+
+```bash
+tristack logs --project "My app" --status failed --page-size 20
+```
+
+## Anything else: tristack api
+
+`tristack api` calls any API path with your credentials, like `gh api`, so anything the
+dashboard can do and no command covers yet is still one line:
+
+```bash
+tristack api GET /api/v1/projects
+tristack api PATCH /api/v1/projects/<id> -F relaySmsEnabled=true
+tristack api GET /api/v1/usage/events -f product=manifold -f pageSize=10
+```
+
+- The method defaults to `GET`, or `POST` when a body is given.
+- `--data` sends a JSON body: inline, `@file` to read a file, or `-` to read stdin.
+- `-f key=value` (`--raw-field`) adds a string field. `-F key=value` (`--field`) adds a typed
+  one: `true`, `false`, `null`, numbers and JSON stay typed, and `@file` reads a file. For a
+  `GET` they become the query string. `a.b=1` nests and `a[]=x` appends to an array.
+
+Paths under `/api/v1/` use the access token. Paths under `/v1/`, the product endpoints, take a
+project API key from `TRISTACK_API_KEY` instead, because an access token is never accepted
+there:
+
+```bash
+TRISTACK_API_KEY=tsk_live_... tristack api POST /v1/manifold/messages --data @request.json
+```
+
+## Output and exit codes
+
+Every command prints JSON on stdout, so it pipes straight into `jq`:
+
+```bash
+tristack projects list | jq -r '.[] | select(.status == "Active") | .name'
+```
+
+A call with no response body prints `{"ok": true, "status": 204}`.
+
+A failure prints one JSON line on stderr and exits non-zero. `code` is the API's own
+[error code](/platform/errors) where there is one; branch on it, not on `error`:
+
+```json
+{"status":403,"code":"token_read_only","error":"This access token is read only. Create one with full access to make changes."}
+```
+
+The fields are `status` (the HTTP status, `null` when nothing reached the server), `code`,
+`error`, and, when they apply, `retryAfter` (seconds, on a `429`) and `details`.
+
+| Exit code | Meaning |
+|:---:|---|
+| `0` | Success |
+| `1` | API error: validation, not found, conflict, limits |
+| `2` | Usage error: a bad command or flag. Nothing was sent |
+| `3` | Auth error: no token, a token refused or expired, `token_read_only`, `session_required` |
+| `4` | Network error: nothing reached the server, safe to retry |
+
+On a `429 rate_limited`, wait `retryAfter` seconds before trying again.
+
+## --dry-run and --debug
+
+`--dry-run` prints the request a command would make and sends nothing:
+
+```bash
+tristack projects create "My app" --dry-run
+```
+
+```json
+{
+  "dryRun": true,
+  "method": "POST",
+  "url": "https://api.tristack.tech/api/v1/projects",
+  "auth": "access token",
+  "body": {
+    "name": "My app"
+  }
+}
+```
+
+A dry run may still read: a command that names a project turns the name into an id first, and
+`billing set` reads the current details it builds on. It never writes.
+
+`--debug` logs each request and response to stderr as JSON lines (method, URL, status, time
+taken and the bodies), with the access token or API key it sends masked. The JSON on stdout
+is unchanged, so a script can keep reading it. A response that carries a new secret, such as
+the key `keys create` prints once, shows it in the debug log too, so do not share that log.
+
+## Global flags
+
+| Flag | What it does |
+|---|---|
+| `-h`, `--help` | Show help |
+| `--version` | Print the version |
+| `--profile <name>` | Config profile (default: `TRISTACK_PROFILE`, then `default`) |
+| `--api-url <url>` | API base URL (default: `TRISTACK_API_URL`, the profile's, then `https://api.tristack.tech`) |
+| `--dry-run` | Print the request (method, URL, body) and send nothing |
+| `--debug` | Log each request and response to stderr as JSON lines, with credentials redacted |
+
+<CardGroup cols={2}>
+  <Card title="Access tokens" icon="key" href="/platform/access-tokens">
+    Scopes, expiry, limits, what a token cannot do, and every error it can get.
+  </Card>
+  <Card title="Using it from an AI agent" icon="robot" href="/platform/cli-agents">
+    Give Claude Code or Codex a token, and the instructions to paste into its
+    CLAUDE.md or AGENTS.md.
+  </Card>
+</CardGroup>

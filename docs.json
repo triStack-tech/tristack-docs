@@ -118,6 +118,9 @@
               "platform/billing-profile",
               "platform/embedded-topup",
               "platform/auto-topup",
+              "platform/access-tokens",
+              "platform/cli",
+              "platform/cli-agents",
               "platform/errors",
               "platform/for-llms",
               "platform/support"

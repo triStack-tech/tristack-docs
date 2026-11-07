@@ -1,0 +1,166 @@
+---
+title: "Access tokens"
+description: "The tsa_ access token: a long-lived credential that manages your Tristack account from a shell or an AI agent. Format, Read only and Full access scopes, expiry, the 10-token and 300-a-minute limits, what it can never do, and every error it can get."
+icon: "key"
+---
+
+An **access token** lets the [`tristack` CLI](/platform/cli), a script or an AI agent manage
+your Tristack account without a browser. It does what you can do on the dashboard, as you,
+with a few exceptions kept for a person who is signed in.
+
+It is not an API key. The two never stand in for each other:
+
+| | Access token | API key |
+|---|---|---|
+| Looks like | `tsa_...` | `tsk_live_...` or `tsk_test_...` |
+| Belongs to | You, the person who made it | One project |
+| Made on | Dashboard, Profile, Access tokens | The project's API keys |
+| Accepted on | The dashboard API, `/api/v1/...` | The product endpoints, `/v1/...` |
+| For | Managing the account: projects, keys, settings, the wallet, usage | Calling Manifold AI and Tristack CPaaS from your application |
+
+An access token sent to a `/v1` product endpoint is refused with `401 invalid_api_key`, and an
+API key is never accepted on `/api/v1`. Tokens are also never accepted by Tristack's operator
+console.
+
+## Making one
+
+Sign in to the dashboard, open [Profile](https://tristack.tech/profile#access-tokens),
+**Access tokens**, and click **Create token**. Choose:
+
+- **A name**, 1 to 64 characters. Name it after the machine or agent that will hold it
+  (`laptop`, `claude-code-ci`), so the list tells you what to revoke later.
+- **Access**: Read only or Full access. See [scopes](#scopes).
+- **Expiry**: 7 days, 30 days, 90 days, 1 year, or No expiry.
+
+Your email address must be verified first. The token is shown **once**, on the screen that
+follows; Tristack keeps only a hash of it and can never show it again. Lose it and you make a
+new one.
+
+The list on the same page shows each token's name, access, a hint (`tsa_AbCd...wxyz`, its
+first and last four characters), when it was made, when it was last used and when it
+expires. An expired token stays listed, marked expired, until you revoke it.
+
+## Format
+
+`tsa_` followed by 43 characters of base64url, made from 32 random bytes. Send it as a bearer
+token:
+
+```bash
+curl https://api.tristack.tech/api/v1/projects \
+  -H "Authorization: Bearer $TRISTACK_ACCESS_TOKEN"
+```
+
+No other header is needed. The CLI does this for you.
+
+## Scopes
+
+| Access | Can do | Refused with |
+|---|---|---|
+| **Read only** (`read`) | `GET` and `HEAD` only: read projects, keys (as hints), settings, the wallet, usage, logs | `403 token_read_only` on anything that changes something |
+| **Full access** (`full`) | Everything you can do on the dashboard, except the session-only actions below | `403 session_required` on those |
+
+Pick Read only whenever the job is to look: reporting, checking settings, reading logs for a
+failed send. A leaked Read only token can show your account to someone, but cannot change it.
+
+### What a token cannot do
+
+Some actions need you, signed in to the dashboard, whatever the token's scope. A token gets
+`403 session_required` on:
+
+- **Access tokens themselves**: making, listing and revoking them. A token cannot make another
+  token, so revoking one is always final.
+- **Signing in and out**: sign-out, Google sign-in, and the forgot-password and
+  reset-password steps.
+- **The identity check for SMS (KYC)**: submitting it and deleting it. The consent has to be
+  your own. A token can read its status.
+- **Automatic top-ups**: every change to them, including saving a payment method.
+
+Top-ups themselves are paid in the browser, through Razorpay Checkout, so in practice they are
+done on the dashboard too.
+
+## Expiry and revocation
+
+A token with an expiry stops working at that moment, with `401 access_token_expired`. One
+with No expiry works until you revoke it.
+
+To revoke one, click **Revoke** beside it on the Profile page. It stops working on its next
+request, with `401 invalid_access_token`, the same answer as a token that never existed.
+Revoking cannot be undone. Revoking from a token is not possible, by design: that is a
+session-only action.
+
+## Limits
+
+| Limit | Value | When it is reached |
+|---|---|---|
+| Live tokens per person | 10, counting neither revoked nor expired ones | `409 too_many_tokens` on create. Revoke one you no longer use |
+| Requests | 300 a minute per person, across all their tokens | `429 rate_limited`, with a `Retry-After` header and `retryAfter` in the body, in seconds |
+
+Requests made from a signed-in dashboard session are not counted against the 300.
+
+`lastUsedAt` is updated at most once a minute per token, so it can trail the true last use by
+up to a minute.
+
+## Errors
+
+The envelope is the same as everywhere else on the API, `{ "error": "...", "code": "..." }`:
+branch on `code`. A `401` also carries `WWW-Authenticate: Bearer error="invalid_token"`.
+
+| `code` | Status | What happened | What to do |
+|---|:---:|---|---|
+| `invalid_access_token` | 401 | The token is unknown, malformed or revoked. All three answer the same, so a guessed token cannot be confirmed as real | Check the value. If it was revoked, make a new one |
+| `access_token_expired` | 401 | The token's expiry has passed | Make a new one on the Profile page |
+| `account_disabled` | 401 | Tristack has disabled the account. Every token and session of the account is refused | Write to hello@tristack.tech. A new token will not help |
+| `token_read_only` | 403 | A Read only token sent something other than `GET` or `HEAD` | Use a Full access token for changes |
+| `session_required` | 403 | The action is one only a signed-in person can take. See [what a token cannot do](#what-a-token-cannot-do) | Do it on the dashboard yourself |
+| `rate_limited` | 429 | Over 300 requests in a minute across your tokens | Wait `Retry-After` seconds, then retry |
+| `too_many_tokens` | 409 | You already have 10 live tokens | Revoke one, then create again |
+| `invalid_name` | 400 | The name is empty or longer than 64 characters | Send 1 to 64 characters |
+| `invalid_scope` | 400 | `scope` is not `read` or `full` | Send one of the two |
+| `invalid_expiry` | 400 | `expiresInDays` is not 7, 30, 90, 365 or `null` | Send one of those |
+| `not_found` | 404 | Revoking a token that is unknown, already revoked or someone else's | Nothing to revoke |
+| `not_a_token` | 404 | `GET /api/v1/account/access-tokens/current` was called from a session, not a token | Call it with a token |
+
+The last six come from managing tokens, which the dashboard does for you; you meet them only
+if you call those endpoints from your own signed-in code. Every code is also on
+[Errors](/platform/errors#access-token-codes).
+
+## Checking a token
+
+`GET /api/v1/account/access-tokens/current`, called with a token, describes the token making
+the call. It is what `tristack whoami` and `tristack configure` use:
+
+```json
+{
+  "id": "6b1f0c2e-4d7a-4a51-9a63-0e5d8f2b7c11",
+  "name": "laptop",
+  "scope": "full",
+  "hint": "tsa_AbCd...wxyz",
+  "createdAt": "2026-11-07T09:30:00Z",
+  "expiresAt": "2027-02-05T09:30:00Z",
+  "lastUsedAt": "2026-11-07T09:31:00Z",
+  "expired": false,
+  "user": { "email": "you@example.com", "name": "Your Name" },
+  "accountName": "Acme"
+}
+```
+
+`expiresAt` and `lastUsedAt` are `null` when the token never expires or was never used.
+
+## Keeping tokens safe
+
+- Treat a token like your password. It acts as you.
+- One token per machine or agent, named after it, so revoking one stops exactly one thing.
+- Read only unless the job needs to change something, and an expiry unless it truly must run
+  unattended for good.
+- Keep it in an environment variable or a secret manager, never in a repository, a chat or a
+  command line.
+- Revoke a token when the work it was made for is done, and at once if it may have leaked.
+
+<CardGroup cols={2}>
+  <Card title="The tristack CLI" icon="terminal" href="/platform/cli">
+    Install it, save a token, and manage the account from a shell.
+  </Card>
+  <Card title="Using it from an AI agent" icon="robot" href="/platform/cli-agents">
+    Give Claude Code or Codex a token safely.
+  </Card>
+</CardGroup>
