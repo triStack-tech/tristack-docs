@@ -110,7 +110,7 @@ silently would mean being charged for a message different from the one you asked
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on. No new key needed |
 | 403 | `international_sms_disabled` | A number outside India, and the project's International SMS switch is off | Turn on International SMS on the project's SMS tab in the dashboard. No new key needed |
-| 403 | `app_name_pending` | The project's app name is waiting for review, and this number is not one of the account's verified test numbers | Wait for the approval, and test meanwhile with the account's test numbers, set on the SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
+| 403 | `app_name_pending` | The project's app name is waiting for review, and this number is not one of the account's verified test numbers | Wait for the approval, or [verify a domain that matches the name](/relay-sms/index#instant-approval-through-your-domain) to have it approved at once. Test meanwhile with the account's test numbers, set on the SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
 | 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
 | 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
 | 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or offer another route |

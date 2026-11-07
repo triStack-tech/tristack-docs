@@ -53,13 +53,21 @@ message as a content template, and binding a telemarketer to your entity. It tak
 costs money before you have sent anything.
 
 Without a registration of your own, your codes go out under **Tristack's own registered
-header and content template**, and the template names **your app**, so the person receiving
-the code can tell which business asked for it:
+header and content templates**, and every template names **your app**, so the person
+receiving the code can tell which business asked for it. There are two to choose from:
 
-> 123456 is your requested OTP for YourApp. Best Regards, Tristack Technologies LLP Team.
+| Template | Approved text | What your users see |
+| --- | --- | --- |
+| `TRISTKDEFAULT2` (the default) | `{#number#} is your requested OTP for {#alphanumeric#}. Best Regards, Tristack Technologies LLP Team.` | 123456 is your requested OTP for Samaysheet. Best Regards, Tristack Technologies LLP Team. |
+| `TRK_OTP_3` | `{#number#} is your requested OTP for {#alphanumeric#} - Powered by Tristack Technologies` | 123456 is your requested OTP for Samaysheet - Powered by Tristack Technologies |
+
+`{#number#}` is the code and `{#alphanumeric#}` is your app name. A project uses
+`TRISTKDEFAULT2` until you pick the other one under **SMS template** on the project's **SMS**
+tab. Both cost the same 40 paise, and both carry the same approved app name.
 
 The one thing to set is that app name, and Tristack reviews it before it reaches the public.
-See [Setting your app name](#setting-your-app-name).
+See [Setting your app name](#setting-your-app-name), or skip the wait with
+[a verified domain](#instant-approval-through-your-domain).
 
 <Warning>
   Every code names the business it is for because a code that names only Tristack is what a
@@ -88,6 +96,9 @@ business it claims to be before any code carries it to the public.
 3. **Once approved, it goes to everyone.** Every code from the project carries the name from
    then on. A rejected name shows its reason on the tab; enter a different one to try again.
 
+A name that matches a domain you have verified skips the review and is approved at once. See
+[Instant approval through your domain](#instant-approval-through-your-domain).
+
 An approved name is fixed. A different name is a new request, and the approved one keeps
 going out until the new one is approved, so a rename never stops your codes.
 
@@ -95,6 +106,59 @@ A project with no approved name and none waiting for review answers
 `400 app_name_required`. Nothing is charged for either refusal. App names already in use
 before review began were kept as approved. Indian codes sent under your own DLT header do
 not use the app name; codes abroad always do.
+
+### Instant approval through your domain
+
+Prove that you own your website's domain, and an app name that matches it needs no review. It
+is approved the moment you save it, and codes go to every number straight away.
+
+1. **Add your domain.** In the dashboard, on the project's **SMS** tab, add your website's
+   domain, for example `samaysheet.com`. Pasting a whole address works too:
+   `https://www.samaysheet.co.in/login` is kept as `samaysheet.co.in`.
+2. **Publish one TXT record at the domain itself.** At your DNS provider, add a TXT record
+   with the host `@` (the domain itself, in most DNS panels) and the value the dashboard shows,
+   which starts `tristack-verification=`. Records you already have can stay.
+3. **Click Check now.** If the record is not found yet, wait a while and check again. A new
+   DNS record can take up to an hour to be seen.
+
+A domain you already verified for [Email](/relay-email/domains) counts at once, with no TXT
+record. Verified domains belong to the account, like test numbers, so every project in the
+account can use them. An account can list up to 10. Hosting addresses such as
+`yourapp.vercel.app`, `yourapp.github.io` or `yourapp.netlify.app` are refused, because only
+the platform controls their DNS: use a domain of your own.
+
+**What counts as a match.** Take the app name without its spaces. Take the domain's own name,
+the part before `.com`, `.in`, `.co.in` and the like, without its hyphens. Capitals do not
+matter. The two must be the same. A subdomain changes nothing: `app.samaysheet.com` is read
+as `samaysheet.com`.
+
+| App name | Domain | Result |
+| --- | --- | --- |
+| Samaysheet | `samaysheet.com` | Approved at once |
+| Samay Sheet | `samaysheet.com` | Approved at once |
+| Samaysheet | `samay-sheet.in` | Approved at once |
+| Samaysheet Pro | `samaysheet.com` | Goes to review |
+
+It works in either order. Save a name when a matching domain is already verified, and it is
+approved as you save it. Verify a domain while a matching name waits for review, and the name
+is approved as the check succeeds. When the name matches, the link to your website is
+optional: it defaults to your domain.
+
+**What still goes to review, or is refused:**
+
+- A name that does not match a verified domain, such as Samaysheet Pro for
+  `samaysheet.com`. It goes to review as usual.
+- A name of a bank, a payment app, a government body, a telecom or a large brand. It is
+  refused on the spot, whatever domain you own.
+- A name that contains such a name, even in a longer word, for example Sbionline with
+  `sbionline.in`. Anyone can buy a domain like that, so a person at Tristack checks it.
+- A name Tristack rejected or revoked on any project in your account, in any spelling
+  (Samay Sheet after Samaysheet was rejected). A person at Tristack decided that one, so it
+  goes back to a person.
+
+Tristack still sees every name approved this way and can revoke it. Removing a domain later
+does not undo a name it approved. Nothing changes in the API: once the name is approved,
+sends simply stop answering `403 app_name_pending`.
 
 ## Sending a code
 
@@ -186,9 +250,9 @@ the switch off answers `403 international_sms_disabled`, and costs nothing.
 
 ### What is different abroad
 
-- **The text is fixed.** DLT is India's system, so your DLT template and header are not used
-  outside India. A number abroad receives Tristack's own message, with your app name in it,
-  which fits in a single SMS:
+- **The text is fixed.** DLT is India's system, so your DLT template and header, and the
+  Tristack template you picked for India, are not used outside India. A number abroad receives
+  Tristack's own message, with your app name in it, which fits in a single SMS:
 
   > 123456 is your YourApp verification code. It is valid for 10 minutes. Do not share it with anyone.
 
