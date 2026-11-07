@@ -93,9 +93,10 @@ the CLI's config; never ask for it, print it, or put it on a command line.
 - Ask me before anything that costs money or cannot be undone: `voice enable`,
   `projects update --voice on`, `otp test send`, `projects archive`, `keys revoke`,
   `domains remove`, `email domains remove`.
-- `session_required` means only I can do it, on the dashboard (access tokens, KYC, automatic
-  top-ups, top-ups). Tell me; do not look for a way around it.
-- `token_read_only` means the token is Read only. Tell me; do not retry.
+- `session_required` means only I can do it, on the dashboard (access tokens, the identity
+  check, automatic top-ups, top-ups). Tell me; do not look for a way around it.
+- `token_read_only` means the token is Read only and nothing was changed. Tell me, and I will
+  do it on the dashboard or give you a Full access token; do not retry with the same one.
 ```
 
 ## What the agent cannot do

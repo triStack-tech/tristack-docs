@@ -178,6 +178,9 @@ tristack account profile
 `--voice-speed 0.7-1.2` (0 restores the default) and `--notify-email <address>` (`""` sends
 reports to the account owner). There is no delete: archive a project instead.
 
+The project can also be given as `--project <id|name>` (`-p`), and the new project's name as
+`--name`. Give it once: an argument and a flag that disagree are refused, and nothing is sent.
+
 ```bash
 tristack projects update "My app" --sms on --otp on
 ```
@@ -245,7 +248,7 @@ tristack sms app-name set --project "My app" "Acme" --link https://acme.com
 
 | Command | What it does |
 |---|---|
-| `otp enable` / `otp disable --project <p>` | Switch OTP (Verify) on or off for a project |
+| `otp enable` / `otp disable --project <p>` | Switch OTP on or off for a project |
 | `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice]` | Send one real code to a phone number or email address (charged to the wallet) |
 | `otp test check --project <p> <verification id> <code>` | Check the code a test verification received |
 
@@ -288,7 +291,7 @@ is shared by every project.
 tristack domains verify acme.com
 ```
 
-### Wallet, billing and KYC
+### Wallet, billing and the identity check
 
 | Command | What it does |
 |---|---|
@@ -297,13 +300,13 @@ tristack domains verify acme.com
 | `wallet ledger [--page <n>] [--page-size <n>] [--search <text>]` | The wallet ledger grouped the way the dashboard shows it |
 | `billing show` | Show the billing details |
 | `billing set -f key=value...` | Change billing details: the fields given replace the current ones |
-| `kyc status` | Show the account's KYC status |
+| `kyc status` | Show the state of the account's identity check for SMS |
 
 `billing set` takes `entityType`, `legalName`, `pan`, `gstin`, `addressLine1`,
 `addressLine2`, `city`, `stateCode`, `postalCode` and `phone`, with `-f` or `--data`. It reads
 the current details first, so only the fields you give change.
 
-Top-ups, automatic top-ups and submitting KYC are done by a person on the dashboard. See
+Top-ups, automatic top-ups and submitting the identity check are done by a person on the dashboard. See
 [what a token cannot do](/platform/access-tokens#what-a-token-cannot-do).
 
 ```bash
@@ -421,9 +424,10 @@ A dry run may still read: a command that names a project turns the name into an 
 `billing set` reads the current details it builds on. It never writes.
 
 `--debug` logs each request and response to stderr as JSON lines (method, URL, status, time
-taken and the bodies), with the access token or API key it sends masked. The JSON on stdout
-is unchanged, so a script can keep reading it. A response that carries a new secret, such as
-the key `keys create` prints once, shows it in the debug log too, so do not share that log.
+taken and the bodies), with every credential masked: the access token or API key it sends,
+and any new key, token or signing secret in a response, such as the key `keys create` prints
+once. The JSON on stdout is unchanged, so a script can keep reading it, and it is the one
+place a new key is shown in full.
 
 ## Global flags
 
