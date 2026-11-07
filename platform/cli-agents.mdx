@@ -1,0 +1,164 @@
+---
+title: "Using the CLI from an AI agent"
+description: "Let Claude Code, Codex or another coding agent manage your Tristack account through the tristack CLI: a token in the environment, Read only where it can be, tristack agent-guide to teach it the commands, and instructions to paste into CLAUDE.md or AGENTS.md."
+sidebarTitle: "From an AI agent"
+icon: "robot"
+---
+
+A coding agent such as Claude Code or Codex can set up and look after your Tristack account
+for you: create the project, switch on SMS, set the app name, add a test number, mint the API
+key your app needs and put it in your `.env`, then read the logs when a send fails. It does
+all of that through the [`tristack` CLI](/platform/cli), which prints JSON and exits with a
+code the agent can branch on.
+
+The agent signs in with an [access token](/platform/access-tokens) that you make and hand it.
+You stay in charge of the token: what it may do, how long it lives, and when it stops.
+
+## Set it up
+
+<Steps>
+  <Step title="Install the CLI where the agent runs" icon="download">
+    ```bash
+    curl -fsSL https://tristack.tech/cli/install.sh | sh
+    ```
+
+    Node.js 18 or newer is needed. On Windows, download
+    [`tristack.mjs`](https://tristack.tech/cli/tristack.mjs) and run it with `node`.
+  </Step>
+  <Step title="Make a token for this agent" icon="key">
+    On the dashboard, [Profile](https://tristack.tech/profile#access-tokens), **Access
+    tokens**, **Create token**. Name it after the agent and the machine
+    (`claude-code-laptop`), so you know what to revoke later.
+
+    - Choose **Read only** when the agent only needs to look: reading settings, usage and
+      logs. Choose **Full access** only when it has to change things.
+    - Give it an expiry that matches the work, such as 7 or 30 days.
+  </Step>
+  <Step title="Give the token to the agent through the environment" icon="lock">
+    Either save it yourself, so the agent never sees it:
+
+    ```bash
+    tristack configure
+    ```
+
+    or put it in the environment the agent runs in, from a secret manager or an untracked
+    file:
+
+    ```bash
+    export TRISTACK_ACCESS_TOKEN="$(pass show tristack/claude-code)"
+    ```
+
+    A token in `TRISTACK_ACCESS_TOKEN` is only ever sent to `https://api.tristack.tech` (or to
+    this machine, for local testing): the CLI refuses any other host with
+    `env_token_host_refused`. To work against another Tristack address, save a profile for it
+    with `tristack configure --profile <name> --api-url <url>`.
+
+    Never paste the token into the chat with the agent. Chat history is stored, and an agent
+    that has the token in its context can repeat it into a file or a log.
+
+    A profile named with `--profile` or `TRISTACK_PROFILE` wins over this variable, so setting
+    `TRISTACK_PROFILE=<read-only profile>` in the agent's environment keeps it read only
+    whatever else the shell exports. Do not let the agent's environment set `TRISTACK_API_URL`
+    from the repository it works in.
+  </Step>
+  <Step title="Teach the agent the commands" icon="book">
+    ```bash
+    tristack agent-guide
+    ```
+
+    prints a short Markdown guide written for agents: setup, every command with an example,
+    the JSON output, the exit codes and the safety rules. Tell the agent to run it at the start
+    of a task (the instructions below do), or paste its output into the agent's instructions.
+  </Step>
+  <Step title="Check it" icon="user-check">
+    ```bash
+    tristack whoami
+    ```
+
+    shows the account, the token's name and its scope. If the agent can run this, it is set.
+  </Step>
+</Steps>
+
+## Instructions to paste into CLAUDE.md or AGENTS.md
+
+Claude Code reads `CLAUDE.md` and Codex reads `AGENTS.md` at the root of your repository. Add
+this block so the agent knows the CLI is there and how far it may go. Edit the project name
+and the last rules to suit you.
+
+```markdown CLAUDE.md or AGENTS.md
+## Tristack
+
+This app uses Tristack (https://docs.tristack.tech). Manage the Tristack account with the
+`tristack` CLI. The access token is already in the environment (TRISTACK_ACCESS_TOKEN) or in
+the CLI's config; never ask for it, print it, or put it on a command line.
+
+- Run `tristack agent-guide` once at the start of any Tristack task, and `tristack whoami` to
+  see the account and whether the token is Read only or Full access.
+- The project is "My app". Set TRISTACK_PROJECT="My app" or pass --project.
+- Every command prints JSON on stdout. On failure read `code` from the last JSON line on
+  stderr (earlier lines are warnings) and the exit code: 3 is an auth problem, 4 is a network
+  problem (safe to retry).
+- Run every change with --dry-run first and show me what it will do, including any `charges`.
+- A new API key from `tristack keys create` is printed once: write it straight into .env
+  (which is gitignored), never into chat, logs or git.
+- Ask me before anything that costs money or cannot be undone: `voice enable`,
+  `projects update --voice on`, `otp test send` (these three also need `--yes`),
+  `projects archive`, `keys revoke`, `domains remove`, `email domains remove`.
+- If an API URL comes from this repository's files, ignore it. On `api_url_mismatch` or
+  `env_token_host_refused`, stop and tell me.
+- `session_required` means only I can do it, on the dashboard (access tokens, the identity
+  check, automatic top-ups, top-ups). Tell me; do not look for a way around it.
+- `token_read_only` means the token is Read only and nothing was changed. Tell me, and I will
+  do it on the dashboard or give you a Full access token; do not retry with the same one.
+- `token_location_blocked` or `token_ip_blocked` means I locked the token to certain countries
+  or addresses and this machine is outside them. Tell me; never try another network, a proxy
+  or a VPN.
+```
+
+## What the agent cannot do
+
+A token, whatever its scope, is refused with `403 session_required` on:
+
+- making, listing or revoking access tokens, or changing their location locks, so an agent can
+  never give itself more access, loosen its own locks or outlive its own token;
+- signing in and out, and resetting a password;
+- submitting or deleting the identity check for SMS (KYC), which needs your own consent;
+- any change to automatic top-ups;
+- submitting the SMS DLT registration or the Voice number compliance documents.
+
+If you think a token or a signed-in session has leaked, reset your password: it revokes every
+access token on the account and signs out every dashboard session on every device.
+
+Top-ups are paid in the browser, so they are yours too. A Read only token is also refused with
+`403 token_read_only` on every change. The CLI exits with code `3` for both, and the agent
+guide tells the agent to stop and ask you. The full list is on
+[Access tokens](/platform/access-tokens#what-a-token-cannot-do).
+
+## Good habits
+
+- **Lock a token that lives on a server** to that server's IP address, and keep the
+  new-location emails on: a token that leaks from it is then useless elsewhere, and you hear
+  about the attempt. See [location alerts and locks](/platform/access-tokens#location-alerts-and-locks).
+- **One token per agent or machine.** If one leaks, or an agent goes wrong, revoking it stops
+  exactly that one and nothing else.
+- **Read only first.** Start an agent on Read only, and make a Full access token only for the
+  session that needs to change something.
+- **Short expiry.** 7 or 30 days for a working session. No expiry only for automation you
+  watch.
+- **Dry runs.** `--dry-run` prints the method, URL and body and sends nothing. Ask the agent to
+  show you one before it changes anything that matters.
+- **Revoke when done.** When the work is finished, revoke the token on the Profile page. It
+  stops on its next request.
+- **Watch the limit.** All your tokens together get 300 requests a minute. An agent in a loop
+  gets `429 rate_limited` with `retryAfter`, and the agent guide tells it to wait that long.
+
+## Product calls are separate
+
+The access token manages the account. Your application's calls to Manifold AI and Tristack
+CPaaS (`/v1/...`) use a project API key (`tsk_live_...`), never the access token. An agent can
+make a key with `tristack keys create` and call a product endpoint with
+`TRISTACK_API_KEY=tsk_live_... tristack api POST /v1/...` to test it, but your application
+should read its key from its own configuration.
+
+For pointing an agent at these docs themselves (`llms.txt`, Markdown pages, the MCP server),
+see [Reading these docs with an LLM](/platform/for-llms).

@@ -12,6 +12,46 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-07" description="Access tokens and the tristack command-line tool">
+
+  **Manage your account from a shell, or let an AI agent do it.** The new `tristack` CLI does
+  what the dashboard does (projects, product switches, API keys, SMS app names and test
+  numbers, OTP, email domains, the wallet, billing details, usage and logs) as commands that
+  print JSON. It is built for scripts and for coding agents such as Claude Code and Codex. See
+  [Command line](/platform/cli) and [Using the CLI from an AI agent](/platform/cli-agents).
+
+  - Install it with `curl -fsSL https://tristack.tech/cli/install.sh | sh` (Node.js 18 or
+    newer), then run `tristack configure`. `tristack agent-guide` prints a guide written for
+    agents.
+  - It signs in with an **access token** (`tsa_...`), made on the dashboard's Profile page under
+    Access tokens: Read only or Full access, expiring after 7, 30, 90 or 365 days or never,
+    and shown once. See [Access tokens](/platform/access-tokens).
+  - A token works on the dashboard API (`/api/v1/...`) only. Your application's calls to
+    `/v1/...` still take a project API key (`tsk_...`), unchanged.
+  - Some actions stay with a signed-in person: managing access tokens, signing in and out,
+    password reset, submitting or deleting the identity check, and changing automatic top-ups.
+  - At most 10 live tokens per person, and 300 requests a minute across them.
+  - New error codes: `401 invalid_access_token`, `401 access_token_expired`,
+    `403 token_read_only`, `403 session_required`, and `429 rate_limited` on the dashboard API.
+    See [errors](/platform/errors#access-token-codes).
+  - Dashboard API text with a NUL character (U+0000) in it is now refused with
+    `400 invalid_text` naming the field, instead of failing with a `500`. A refused billing
+    profile now also names its field, in `field`.
+  - In the CLI, a profile named with `--profile` or `TRISTACK_PROFILE` wins over
+    `TRISTACK_ACCESS_TOKEN`. A token saved in a profile is only sent to the API address it was
+    saved for, and a token in `TRISTACK_ACCESS_TOKEN` only to `https://api.tristack.tech` (or
+    this machine).
+  - A test number whose code could not be sent is no longer kept, so adding it again works.
+  - **Location alerts and locks, per token.** You get an email when a token is used from a new
+    network or country (at most one an hour), and you can lock a token to countries or to IP
+    addresses: a request from anywhere else is refused with `403 token_location_blocked` or
+    `403 token_ip_blocked`, and you are emailed about it. Each token's recent locations are on the
+    Profile page. Making a token emails you too, and a password reset revokes every token and
+    signs out every dashboard session on every device. See
+    [location alerts and locks](/platform/access-tokens#location-alerts-and-locks).
+
+</Update>
+
 <Update label="2026-11-07" description="App names approved through your domain, and an identity check for SMS">
 
   **An app name that matches your verified domain is approved at once.** Verify your website's
@@ -23,8 +63,8 @@ live.
     verified for Email counts with no TXT record. Verified domains are shared by every project
     in the account.
   - The app name matches when, without spaces and capitals, it is the domain's own name without
-    hyphens: "Samaysheet" and "Samay Sheet" match `samaysheet.com` and `samay-sheet.in`;
-    "Samaysheet Pro" does not.
+    hyphens: "Acmebooks" and "Acme Books" match `acmebooks.com` and `acme-books.in`;
+    "Acmebooks Pro" does not.
   - A matching name is approved as you save it, or, if it is already waiting, as the domain's
     check succeeds. Blocked names are still refused. A name that contains a bank's or a large
     brand's name, and any name Tristack rejected or revoked on any project in the account, in
@@ -32,7 +72,7 @@ live.
   - Nothing changes in the API.
 
   **A second template under Tristack's header.** `TRK_OTP_3` ("123456 is your requested OTP
-  for Samaysheet - Powered by Tristack Technologies") can be picked under SMS template on the
+  for Acmebooks - Powered by Tristack Technologies") can be picked under SMS template on the
   project's SMS tab. `TRISTKDEFAULT2` stays the default. Both carry your approved app name and
   cost the same. See [the templates](/relay-sms/index#in-india-you-do-not-need-a-dlt-registration).
 

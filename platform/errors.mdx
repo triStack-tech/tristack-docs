@@ -34,14 +34,14 @@ Two fields ride along on specific failures:
 | `200` | Done. Manifold returns the completion; the dashboard API returns the resource |
 | `202` | Accepted, not finished: a Voice job whose calls have not been dialed yet, an Email send or batch the provider has accepted, or a Manifold embedding job still running |
 | `400` | The request is wrong. Nothing was charged. Retrying it unchanged fails the same way |
-| `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, a dashboard session that has expired or whose account has been disabled, or a top-up session permit that is none of ours |
+| `401` | The credential is not usable: an API key that is missing, unknown, revoked or on an archived project, a dashboard session that has expired or whose account has been disabled, an [access token](/platform/access-tokens) that is unknown, revoked or expired, or a top-up session permit that is none of ours |
 | `402` | The wallet cannot cover the estimate. Checked before any provider is called |
-| `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, an SMS app name still waiting for review, or a gate a payment has to clear first |
+| `403` | The credential is fine, but this is not permitted: an account Tristack has disabled, a product switch, a key's scopes, an allowlist, an SMS app name still waiting for review, a Read only access token asked to change something, an action only a signed-in person may take, or a gate a payment has to clear first |
 | `404` | Not yours or not there. Another account's resource answers exactly like a missing one |
 | `410` | It existed and is gone: a Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `409` | A conflict with the current state: an `Idempotency-Key` whose earlier request is still running, a change to an archived project, or a resource that already exists or is taken |
 | `422` | The request was understood but could not be completed as asked: an `Idempotency-Key` reused for a different body, or output truncated before it satisfied a format contract |
-| `429` | Throttled. From the model provider, from a CPaaS channel's own send limits, or from the rate limiter on the dashboard API's sign-in routes |
+| `429` | Throttled. From the model provider, from a CPaaS channel's own send limits, from the rate limiter on the dashboard API's sign-in routes, or from the access token limit |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
 | `503` | A product, a channel or a payment feature is switched off or half-configured on the deployment. Not your request |
 
@@ -55,6 +55,7 @@ Two fields ride along on specific failures:
 
 | `code` | Status | Product | What happened | What to do |
 |---|:---:|---|---|---|
+| `invalid_text` | 400 | Dashboard API | A text field held a NUL character (U+0000), which cannot be stored. `field` names it. Nothing was saved | Remove the character. It usually comes from text read out of a binary file |
 | `invalid_api_key` | 401 | All | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
 | `account_disabled` | 403 | All | Tristack has disabled the account that owns the key. Every key the account owns is refused, before the project and product checks, so this is the answer even on an archived project. The dashboard refuses the account's sign-in the same way | Write to hello@tristack.tech. A new key will not help: it belongs to the same account |
 | `insufficient_scope` | 403 | All | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
@@ -116,7 +117,7 @@ Two fields ride along on specific failures:
 | `attachment_type_not_allowed` | 400 | Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar` | Host the file and send a link. Most mail providers reject executable attachments anyway |
 | `invalid_header` | 400 | Email | A `headers` key is not `X-` prefixed, or a name or value carried a line break. Anything else would let a caller forge `From`, `Received`, `Return-Path` or `DKIM-Signature` on a domain we sign | Prefix your own headers with `X-` |
 | `invalid_tag` | 400 | Email | A `tags` key or value used something outside letters, digits, underscores and dashes, or was empty. Refused rather than dropped, because the provider rejects the whole send over one bad tag | Use `campaign` / `receipts_2026-08` style tokens |
-| `rate_limited` | 429 | Email, SMS, WhatsApp | Too many sends from this project. On Email that is over 5 per second for the project, or the platform ceiling. Refused before the hold | Wait the `Retry-After` interval, then retry |
+| `rate_limited` | 429 | Email, SMS, WhatsApp, access tokens | Too many sends from this project. On Email that is over 5 per second for the project, or the platform ceiling. Refused before the hold. On the dashboard API with an access token: over 300 requests a minute across the person's tokens, or over 30 failed token attempts a minute from one IP address | Wait the `Retry-After` interval, then retry |
 | `invalid_template_name` | 400 | Email | A template name that is not letters, digits, `-` and `_`, up to 64, starting with a letter or digit | Rename it |
 | `invalid_template` | 400 | Email | A template with no subject, no body at all, a subject or body past its ceiling, or a line break in the subject | Fix what `error` names |
 | `invalid_placeholder` | 400 | Email | A `{{…}}` in a template that is not a plain name | Fix the placeholder the message quotes |
@@ -170,7 +171,7 @@ Two fields ride along on specific failures:
 
 <Accordion title="Codes from the dashboard API" icon="gauge">
   These come from the account and wallet routes under `/api/v1`, which use your session token
-  rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`, though
+  or an [access token](/platform/access-tokens) rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`, though
   `below_minimum_topup` and `razorpay_disabled` also answer on `/v1/wallet`, where the same
   two rules apply to an embedded top-up.
 
@@ -184,7 +185,7 @@ Two fields ride along on specific failures:
   - `invalid_request` (400): a validation failure, with `fields` naming what to fix.
   - `archive_with_changes` (400): one `PATCH` both archived a project and changed something
     else. Archive in a request of its own.
-  - `account_disabled` (403 at sign-in, 401 on a session): Tristack has disabled the account.
+  - `account_disabled` (403 at sign-in, 401 on a session or an access token): Tristack has disabled the account.
     Signing in with the right password or with Google answers `403`, a password reset link
     answers `403` when it is used, and a session token issued before the disable answers `401`
     with this code on its next request. Write to hello@tristack.tech.
@@ -225,6 +226,34 @@ own page.
   a new one.
   [Top up from your own app →](/platform/embedded-topup)
 </Note>
+
+## Access token codes
+
+These come from the dashboard API under `/api/v1` when it is called with an
+[access token](/platform/access-tokens) (`tsa_...`), the credential the
+[`tristack` CLI](/platform/cli) and AI agents use. They never appear on `/v1/manifold` or
+`/v1/relay`, where an access token is refused as `401 invalid_api_key`. The `tristack` CLI
+exits with code `3` on the first seven.
+
+| `code` | Status | Surface | What happened | What to do |
+|---|:---:|---|---|---|
+| `invalid_access_token` | 401 | Any token call | The token is unknown, malformed or revoked. All three answer identically, so a guessed token cannot be confirmed as real | Check the value. If it was revoked, make a new one on the dashboard's Profile page |
+| `access_token_expired` | 401 | Any token call | The token's expiry has passed | Make a new one on the Profile page |
+| `account_disabled` | 401 | Any token call | Tristack has disabled the account. The token's owner is refused exactly as a session would be | Write to hello@tristack.tech. A new token will not help |
+| `token_read_only` | 403 | Any token call | A Read only token sent something other than `GET`. Nothing was changed | Use a Full access token for changes |
+| `session_required` | 403 | Session-only actions | Only a signed-in person can do this: managing access tokens, signing in and out, password reset, submitting or deleting KYC, changing automatic top-ups, submitting the SMS DLT registration or the Voice compliance documents. [The list](/platform/access-tokens#what-a-token-cannot-do) | Do it on the dashboard. There is no token that can |
+| `token_location_blocked` | 403 | Any token call | The token is [locked to certain countries](/platform/access-tokens#location-alerts-and-locks) and the request came from another one, an unknown country or Tor. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the country on the Profile page. If not, revoke the token |
+| `token_ip_blocked` | 403 | Any token call | The token is [locked to certain IP addresses](/platform/access-tokens#location-alerts-and-locks) and the request came from outside them. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the address on the Profile page. If not, revoke the token |
+| `rate_limited` | 429 | Any token call | Over 300 requests a minute across all of the person's tokens, or over 30 failed tokens a minute from one IP address. Carries `retryAfter` and a `Retry-After` header, in seconds | Wait that long, then retry |
+| `too_many_tokens` | 409 | Creating a token | The person already has 10 live tokens (neither revoked nor expired) | Revoke one first |
+| `email_unverified` | 403 | Creating a token | The account's email address is not verified | Verify it from the link in the email, or resend the link from the dashboard |
+| `invalid_name` | 400 | Creating a token | The name is empty or longer than 64 characters | Send 1 to 64 characters |
+| `invalid_scope` | 400 | Creating a token | `scope` is not `read` or `full` | Send one of the two |
+| `invalid_expiry` | 400 | Creating a token | `expiresInDays` is not 7, 30, 90, 365 or `null` (never) | Send one of those |
+| `invalid_countries` | 400 | Creating or changing a token | A country lock names something that is not a two-letter country code | Use codes such as `IN` or `US`, or `XX` and `T1` |
+| `invalid_ips` | 400 | Creating or changing a token | An IP lock entry is not an address or a CIDR range, or there are more than 20 | Fix the entry the message names |
+| `not_found` | 404 | Revoking or changing a token | Unknown, already revoked, or someone else's token. All answer identically | Nothing to revoke |
+| `not_a_token` | 404 | `GET /api/v1/account/access-tokens/current` | Called from a dashboard session. It describes the token making the call, so only a token can call it | Call it with an access token |
 
 ## What an error costs
 
@@ -270,6 +299,7 @@ Almost nothing, by design. The order of checks is deliberate:
 | `/v1/relay/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | Sign-in and account recovery: `/api/v1/account/register`, `/login`, `/google-login`, `/forgot-password`, `/reset-password`, `/verify-email` and `/resend-verification` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
+| `/api/v1/*` called with an [access token](/platform/access-tokens) | 300 per minute per person, across all their tokens; and 30 failed token attempts per minute per IP address, after which that address is refused for the rest of the minute, valid tokens included | `429` with `rate_limited`, `retryAfter` and a `Retry-After` header |
 
 <Note>
   Manifold and Voice are not throttled on purpose: your wallet is the limit. Email is the
@@ -278,7 +308,8 @@ Almost nothing, by design. The order of checks is deliberate:
   `recipient_rate_limited`).
 
   The rest of the dashboard API, including the signed-in account routes such as the profile,
-  is not rate limited.
+  is not rate limited when called from a signed-in session. Called with an access token, it
+  is held to 300 requests a minute per person.
 
   Either way, a retry loop against a `402` or a `403` will spin as fast as you can send,
   writing nothing but rejections. Back off on your side.
