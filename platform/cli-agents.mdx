@@ -126,6 +126,9 @@ A token, whatever its scope, is refused with `403 session_required` on:
 - any change to automatic top-ups;
 - submitting the SMS DLT registration or the Voice number compliance documents.
 
+If you think a token or a signed-in session has leaked, reset your password: it revokes every
+access token on the account and signs out every dashboard session on every device.
+
 Top-ups are paid in the browser, so they are yours too. A Read only token is also refused with
 `403 token_read_only` on every change. The CLI exits with code `3` for both, and the agent
 guide tells the agent to stop and ask you. The full list is on

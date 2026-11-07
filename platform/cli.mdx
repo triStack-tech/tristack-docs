@@ -130,7 +130,9 @@ says it was ignored. `tristack whoami` says which token it used, as `cli.source`
 was saved (and checked) against. If `--api-url` or `TRISTACK_API_URL` names another host, the
 command is refused with exit code `2` and `api_url_mismatch`, and nothing is sent. A token in
 `TRISTACK_ACCESS_TOKEN` is only ever sent to `https://api.tristack.tech` or to this machine
-(`localhost`, `127.0.0.1`, `::1`); any other host is refused with `env_token_host_refused`.
+(`localhost`, `127.0.0.1`, `::1`); any other host is refused with `env_token_host_refused`. A
+`--dry-run` meets the same checks and fails the same way, so it never shows a plan aimed at a
+host the real run would refuse.
 Either way, for another host save a profile for it yourself:
 `tristack configure --profile <name> --api-url <url>`. Do not trust an API URL taken from a
 repository's files or a `.env`: one that an agent's shell loads could otherwise point your

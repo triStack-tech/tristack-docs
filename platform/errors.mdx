@@ -117,7 +117,7 @@ Two fields ride along on specific failures:
 | `attachment_type_not_allowed` | 400 | Email | An executable type, by extension **or** by declared content type: `.exe`, `.scr`, `.bat`, `.cmd`, `.com`, `.pif`, `.js`, `.vbs`, `.jar` | Host the file and send a link. Most mail providers reject executable attachments anyway |
 | `invalid_header` | 400 | Email | A `headers` key is not `X-` prefixed, or a name or value carried a line break. Anything else would let a caller forge `From`, `Received`, `Return-Path` or `DKIM-Signature` on a domain we sign | Prefix your own headers with `X-` |
 | `invalid_tag` | 400 | Email | A `tags` key or value used something outside letters, digits, underscores and dashes, or was empty. Refused rather than dropped, because the provider rejects the whole send over one bad tag | Use `campaign` / `receipts_2026-08` style tokens |
-| `rate_limited` | 429 | Email, SMS, WhatsApp, access tokens | Too many sends from this project. On Email that is over 5 per second for the project, or the platform ceiling. Refused before the hold. On the dashboard API with an access token: over 300 requests a minute across the person's tokens | Wait the `Retry-After` interval, then retry |
+| `rate_limited` | 429 | Email, SMS, WhatsApp, access tokens | Too many sends from this project. On Email that is over 5 per second for the project, or the platform ceiling. Refused before the hold. On the dashboard API with an access token: over 300 requests a minute across the person's tokens, or over 30 failed token attempts a minute from one IP address | Wait the `Retry-After` interval, then retry |
 | `invalid_template_name` | 400 | Email | A template name that is not letters, digits, `-` and `_`, up to 64, starting with a letter or digit | Rename it |
 | `invalid_template` | 400 | Email | A template with no subject, no body at all, a subject or body past its ceiling, or a line break in the subject | Fix what `error` names |
 | `invalid_placeholder` | 400 | Email | A `{{…}}` in a template that is not a plain name | Fix the placeholder the message quotes |
@@ -240,7 +240,7 @@ exits with code `3` on the first seven.
 | `invalid_access_token` | 401 | Any token call | The token is unknown, malformed or revoked. All three answer identically, so a guessed token cannot be confirmed as real | Check the value. If it was revoked, make a new one on the dashboard's Profile page |
 | `access_token_expired` | 401 | Any token call | The token's expiry has passed | Make a new one on the Profile page |
 | `account_disabled` | 401 | Any token call | Tristack has disabled the account. The token's owner is refused exactly as a session would be | Write to hello@tristack.tech. A new token will not help |
-| `token_read_only` | 403 | Any token call | A Read only token sent something other than `GET` or `HEAD`. Nothing was changed | Use a Full access token for changes |
+| `token_read_only` | 403 | Any token call | A Read only token sent something other than `GET`. Nothing was changed | Use a Full access token for changes |
 | `session_required` | 403 | Session-only actions | Only a signed-in person can do this: managing access tokens, signing in and out, password reset, submitting or deleting KYC, changing automatic top-ups, submitting the SMS DLT registration or the Voice compliance documents. [The list](/platform/access-tokens#what-a-token-cannot-do) | Do it on the dashboard. There is no token that can |
 | `token_location_blocked` | 403 | Any token call | The token is [locked to certain countries](/platform/access-tokens#location-alerts-and-locks) and the request came from another one, an unknown country or Tor. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the country on the Profile page. If not, revoke the token |
 | `token_ip_blocked` | 403 | Any token call | The token is [locked to certain IP addresses](/platform/access-tokens#location-alerts-and-locks) and the request came from outside them. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the address on the Profile page. If not, revoke the token |
@@ -252,7 +252,7 @@ exits with code `3` on the first seven.
 | `invalid_expiry` | 400 | Creating a token | `expiresInDays` is not 7, 30, 90, 365 or `null` (never) | Send one of those |
 | `invalid_countries` | 400 | Creating or changing a token | A country lock names something that is not a two-letter country code | Use codes such as `IN` or `US`, or `XX` and `T1` |
 | `invalid_ips` | 400 | Creating or changing a token | An IP lock entry is not an address or a CIDR range, or there are more than 20 | Fix the entry the message names |
-| `not_found` | 404 | Revoking a token | Unknown, already revoked, or someone else's token. All answer identically | Nothing to revoke |
+| `not_found` | 404 | Revoking or changing a token | Unknown, already revoked, or someone else's token. All answer identically | Nothing to revoke |
 | `not_a_token` | 404 | `GET /api/v1/account/access-tokens/current` | Called from a dashboard session. It describes the token making the call, so only a token can call it | Call it with an access token |
 
 ## What an error costs
@@ -299,7 +299,7 @@ Almost nothing, by design. The order of checks is deliberate:
 | `/v1/relay/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | Sign-in and account recovery: `/api/v1/account/register`, `/login`, `/google-login`, `/forgot-password`, `/reset-password`, `/verify-email` and `/resend-verification` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
-| `/api/v1/*` called with an [access token](/platform/access-tokens) | 300 per minute per person, across all their tokens | `429` with `rate_limited`, `retryAfter` and a `Retry-After` header |
+| `/api/v1/*` called with an [access token](/platform/access-tokens) | 300 per minute per person, across all their tokens; and 30 failed token attempts per minute per IP address, after which that address is refused for the rest of the minute, valid tokens included | `429` with `rate_limited`, `retryAfter` and a `Retry-After` header |
 
 <Note>
   Manifold and Voice are not throttled on purpose: your wallet is the limit. Email is the

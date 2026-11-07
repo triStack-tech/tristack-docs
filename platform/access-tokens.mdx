@@ -63,7 +63,7 @@ No other header is needed. The CLI does this for you.
 
 | Access | Can do | Refused with |
 |---|---|---|
-| **Read only** (`read`) | `GET` and `HEAD` only: read projects, keys (as hints), settings, the wallet, usage, logs | `403 token_read_only` on anything that changes something |
+| **Read only** (`read`) | `GET` only: read projects, keys (as hints), settings, the wallet, usage, logs | `403 token_read_only` on anything that changes something |
 | **Full access** (`full`) | Everything you can do on the dashboard, except the session-only actions below | `403 session_required` on those |
 
 Pick Read only whenever the job is to look: reporting, checking settings, reading logs for a
@@ -103,8 +103,9 @@ Revoking cannot be undone. Revoking from a token is not possible, by design: tha
 session-only action.
 
 Resetting your password revokes **every** access token on the account, and the "password
-changed" email says how many. Whoever had the old password, or a session they took over, may
-have made a token, and a reset is how you take the account back. Make new tokens afterwards for
+changed" email says how many. It also signs out every dashboard session on every device.
+Whoever had the old password, or a session they took over, may have made a token, and a reset
+is how you take the account back. Make new tokens afterwards for
 the machines and agents that need them.
 
 ## Location alerts and locks
@@ -154,7 +155,9 @@ Changes apply from the token's next request. Only a signed-in person can change 
 
 **Where it was used.** **Locations** under each token lists every network it was used from in
 the last 90 days: the country, the last address, when it was first and last seen, and how many
-requests came from it. Tristack keeps each one until 90 days after the token was last used from
+requests came from it. A row is one network, shown with the latest country seen for it. The
+request count and "last seen" are written every few minutes, so they can trail the true figures
+by up to 5 minutes. Tristack keeps each row until 90 days after the token was last used from
 it. `tristack whoami` shows the token's locks and the address and country the API sees you at.
 
 ## Limits
@@ -182,7 +185,7 @@ dashboard's bare `401` with no body, which is why the CLI checks for the `tsa_` 
 | `invalid_access_token` | 401 | The token is unknown, malformed or revoked. All three answer the same, so a guessed token cannot be confirmed as real | Check the value. If it was revoked, make a new one |
 | `access_token_expired` | 401 | The token's expiry has passed | Make a new one on the Profile page |
 | `account_disabled` | 401 | Tristack has disabled the account. Every token and session of the account is refused | Write to hello@tristack.tech. A new token will not help |
-| `token_read_only` | 403 | A Read only token sent something other than `GET` or `HEAD` | Use a Full access token for changes |
+| `token_read_only` | 403 | A Read only token sent something other than `GET` | Use a Full access token for changes |
 | `session_required` | 403 | The action is one only a signed-in person can take. See [what a token cannot do](#what-a-token-cannot-do) | Do it on the dashboard yourself |
 | `token_location_blocked` | 403 | The token is locked to certain countries and this request came from another one, or from an unknown country or Tor. Nothing was done. The body has the request's `ip` and `country` | If it was you, add the country on the Profile page. If not, revoke the token |
 | `token_ip_blocked` | 403 | The token is locked to certain IP addresses and this request came from outside them. Nothing was done. The body has the request's `ip` and `country` | If it was you, add the address on the Profile page. If not, revoke the token |
@@ -228,6 +231,13 @@ the call. It is what `tristack whoami` and `tristack configure` use:
 `expiresAt` and `lastUsedAt` are `null` when the token never expires or was never used.
 `allowedCountries` and `allowedIps` are empty when there is no lock. `caller` is where this very
 request came from, as the locks see it.
+
+Two cases look alike and are not. `XX` ("Unknown country") is a country Cloudflare could not
+tell; a lock admits it only when "Unknown country" is on the list. A request with no country at
+all (`"country": null`, which `tristack whoami` shows as "not provided") reached the API without
+Cloudflare's country header; a token with a country lock refuses it, whatever the list says.
+Requests to `api.tristack.tech` always pass through Cloudflare, so you should only see that
+when testing locally.
 
 ## Keeping tokens safe
 
