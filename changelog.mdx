@@ -12,6 +12,20 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-08" description="Edit your names, automatic app names, clearer auto top-up failures">
+
+  - **Change your name and your account's name** on the dashboard's Profile page, with
+    `PATCH /api/v1/account/profile` (`displayName`, `accountName`; a Full access token may) or
+    `tristack account update`. Names are at most 128 characters, with no control or invisible
+    characters.
+  - **Switching SMS or OTP on asks for an app name for you**, made from the project name, when the
+    project has none. It is reviewed like a name you type. See
+    [Setting your app name](/cpaas/sms/index#setting-your-app-name).
+  - **Auto top-up setup that could not save your card** now says so plainly and emails you once.
+    The refill already paid stays in your wallet, and the mandate is never charged.
+
+</Update>
+
 <Update label="2026-11-08" description="CPaaS paths">
 
   **The API now answers at `/v1/cpaas/...`.** Every Tristack CPaaS path under `/v1/relay/...`
