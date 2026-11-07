@@ -115,6 +115,7 @@ silently would mean being charged for a message different from the one you asked
 | 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
 | 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or offer another route |
 | 429 | `project_volume_capped` | The project is over its hourly or daily message ceiling, or over 300 messages outside India in 24 hours | Ask for it to be raised |
+| 429 | `kyc_daily_limit` | The account is past its 30 days without a verified identity check, and has sent 200 codes under Tristack's header or abroad in the last 24 hours. Honour `Retry-After` | Complete the identity check on the dashboard's Profile page. [How](/relay-sms/index#identity-check-kyc). Nothing was charged |
 | 502 | `dlt_sender_not_approved` | The sender header was refused | Check spelling, letter case and the telemarketer binding. [Guide](/relay-sms/dlt-setup) |
 | 502 | `dlt_template_not_approved` | The content template was refused | The text must match your registration exactly |
 | 502 | `dlt_blacklisted` | The header or template is blacklisted on DLT | Settle it with your operator |

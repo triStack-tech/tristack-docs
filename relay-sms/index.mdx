@@ -160,6 +160,31 @@ Tristack still sees every name approved this way and can revoke it. Removing a d
 does not undo a name it approved. Nothing changes in the API: once the name is approved,
 sends simply stop answering `403 app_name_pending`.
 
+### Identity check (KYC)
+
+The app name tells the person receiving a code which business it is for. Tristack also needs to
+know who is behind each account sending under its header, so every account that uses it goes
+through a short identity check.
+
+- **You have 30 days.** They start when the first app name in your account is approved. Until
+  then, and during them, nothing is limited.
+- **After that, 200 codes a day until the check is verified.** Codes under Tristack's header and
+  codes abroad are limited to 200 in any 24 hours, across all projects in the account. Codes
+  under your own DLT header are never limited by this. Once the check is verified, the limit is
+  gone.
+- **How to do it.** On the dashboard's **Profile** page, under Verification, open **Identity
+  check for SMS**. Enter your legal name, your PAN and, if you have one, your GSTIN. Without a
+  GSTIN, also enter the date printed on your PAN card. A person at Tristack checks these on the
+  GST or Income Tax portal. If something does not match, the reason is shown on the same page
+  and you can correct it and submit again.
+- **What is kept.** No document images and no Aadhaar number. The date on the PAN is deleted as
+  soon as the check is decided. You can delete your details on the same page at any time; the
+  daily limit then applies again. The [privacy policy](https://tristack.tech/privacy) says how
+  long the rest is kept.
+
+Over the limit, a send answers `429 kyc_daily_limit` with a `Retry-After` header saying when the
+next code can go. Nothing is charged.
+
 ## Sending a code
 
 ```bash
@@ -321,6 +346,10 @@ Numbers abroad count towards all of these, and have one more ceiling of their ow
 messages outside India per project in any 24 hours**. A message to the dearest country costs
 about two hundred times an Indian one, so a run of pumped codes is stopped while it is still
 small. Going over it also answers `429 project_volume_capped`.
+
+An account past its 30 days without a verified identity check has one more ceiling: 200 codes
+under Tristack's header and abroad in any 24 hours, across the account, answered with
+`429 kyc_daily_limit`. See [Identity check (KYC)](#identity-check-kyc).
 
 If a ceiling is wrong for your traffic, ask and it will be raised. It is not a pricing tier.
 

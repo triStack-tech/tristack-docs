@@ -12,6 +12,43 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-07" description="App names approved through your domain, and an identity check for SMS">
+
+  **An app name that matches your verified domain is approved at once.** Verify your website's
+  domain in the dashboard, and an app name that matches it skips the review. See
+  [Instant approval through your domain](/relay-sms/index#instant-approval-through-your-domain).
+
+  - To verify a domain, add it on the project's SMS tab, publish one TXT record at the domain
+    itself (host `@`, value `tristack-verification=...`) and click Check now. A domain already
+    verified for Email counts with no TXT record. Verified domains are shared by every project
+    in the account.
+  - The app name matches when, without spaces and capitals, it is the domain's own name without
+    hyphens: "Samaysheet" and "Samay Sheet" match `samaysheet.com` and `samay-sheet.in`;
+    "Samaysheet Pro" does not.
+  - A matching name is approved as you save it, or, if it is already waiting, as the domain's
+    check succeeds. Blocked names are still refused. A name that contains a bank's or a large
+    brand's name, and any name Tristack rejected or revoked on any project in the account, in
+    any spelling, still goes to review.
+  - Nothing changes in the API.
+
+  **A second template under Tristack's header.** `TRK_OTP_3` ("123456 is your requested OTP
+  for Samaysheet - Powered by Tristack Technologies") can be picked under SMS template on the
+  project's SMS tab. `TRISTKDEFAULT2` stays the default. Both carry your approved app name and
+  cost the same. See [the templates](/relay-sms/index#in-india-you-do-not-need-a-dlt-registration).
+
+  **Accounts that send under Tristack's header now go through an identity check.** The first
+  approved app name in an account starts 30 days. After them, until the check is verified, codes
+  under Tristack's header and abroad are limited to 200 in any 24 hours across the account. Codes
+  under your own DLT header are not affected. See
+  [Identity check (KYC)](/relay-sms/index#identity-check-kyc).
+
+  - The check is on the dashboard's Profile page: your legal name, PAN and, if you have one,
+    GSTIN, checked by a person at Tristack. No documents to upload.
+  - Accounts with an app name approved before today have their 30 days from today.
+  - New error code: `429 kyc_daily_limit`, with a `Retry-After` header. Nothing is charged.
+
+</Update>
+
 <Update label="2026-11-06" description="SMS reaches any country, on the same endpoint">
 
   **SMS codes to numbers outside India.** `POST /v1/relay/sms/otp` now takes a mobile number in
@@ -62,28 +99,6 @@ live.
   - Projects already sending were given their project name as app name where it fits the
     rules, and app names already in use were kept as approved. A project with its own DLT
     registration is not affected.
-
-  **An app name that matches your verified domain is approved at once.** Verify your website's
-  domain in the dashboard, and an app name that matches it skips the review. See
-  [Instant approval through your domain](/relay-sms/index#instant-approval-through-your-domain).
-
-  - To verify a domain, add it on the project's SMS tab, publish one TXT record at the domain
-    itself (host `@`, value `tristack-verification=...`) and click Check now. A domain already
-    verified for Email counts with no TXT record. Verified domains are shared by every project
-    in the account.
-  - The app name matches when, without spaces and capitals, it is the domain's own name without
-    hyphens: "Samaysheet" and "Samay Sheet" match `samaysheet.com` and `samay-sheet.in`;
-    "Samaysheet Pro" does not.
-  - A matching name is approved as you save it, or, if it is already waiting, as the domain's
-    check succeeds. Blocked names are still refused. A name that contains a bank's or a large
-    brand's name, and any name Tristack rejected or revoked on any project in the account, in
-    any spelling, still goes to review.
-  - Nothing changes in the API.
-
-  **A second template under Tristack's header.** `TRK_OTP_3` ("123456 is your requested OTP
-  for Samaysheet - Powered by Tristack Technologies") can be picked under SMS template on the
-  project's SMS tab. `TRISTKDEFAULT2` stays the default. Both carry your approved app name and
-  cost the same. See [the templates](/relay-sms/index#in-india-you-do-not-need-a-dlt-registration).
 
 </Update>
 
