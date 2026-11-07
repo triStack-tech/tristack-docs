@@ -118,6 +118,7 @@ dashboard's bare `401` with no body, which is why the CLI checks for the `tsa_` 
 | `session_required` | 403 | The action is one only a signed-in person can take. See [what a token cannot do](#what-a-token-cannot-do) | Do it on the dashboard yourself |
 | `rate_limited` | 429 | Over 300 requests in a minute across your tokens | Wait `Retry-After` seconds, then retry |
 | `too_many_tokens` | 409 | You already have 10 live tokens | Revoke one, then create again |
+| `email_unverified` | 403 | Creating a token from an account whose email address is not verified | Verify it from the link in the email, or resend the link from the dashboard |
 | `invalid_name` | 400 | The name is empty or longer than 64 characters | Send 1 to 64 characters |
 | `invalid_scope` | 400 | `scope` is not `read` or `full` | Send one of the two |
 | `invalid_expiry` | 400 | `expiresInDays` is not 7, 30, 90, 365 or `null` | Send one of those |

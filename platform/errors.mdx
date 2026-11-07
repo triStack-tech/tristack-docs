@@ -244,6 +244,7 @@ exits with code `3` on the first five.
 | `session_required` | 403 | Session-only actions | Only a signed-in person can do this: managing access tokens, signing in and out, password reset, submitting or deleting KYC, changing automatic top-ups. [The list](/platform/access-tokens#what-a-token-cannot-do) | Do it on the dashboard. There is no token that can |
 | `rate_limited` | 429 | Any token call | Over 300 requests a minute across all of the person's tokens. Carries `retryAfter` and a `Retry-After` header, in seconds | Wait that long, then retry |
 | `too_many_tokens` | 409 | Creating a token | The person already has 10 live tokens (neither revoked nor expired) | Revoke one first |
+| `email_unverified` | 403 | Creating a token | The account's email address is not verified | Verify it from the link in the email, or resend the link from the dashboard |
 | `invalid_name` | 400 | Creating a token | The name is empty or longer than 64 characters | Send 1 to 64 characters |
 | `invalid_scope` | 400 | Creating a token | `scope` is not `read` or `full` | Send one of the two |
 | `invalid_expiry` | 400 | Creating a token | `expiresInDays` is not 7, 30, 90, 365 or `null` (never) | Send one of those |

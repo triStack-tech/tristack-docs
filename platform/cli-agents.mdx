@@ -50,6 +50,10 @@ You stay in charge of the token: what it may do, how long it lives, and when it 
 
     Never paste the token into the chat with the agent. Chat history is stored, and an agent
     that has the token in its context can repeat it into a file or a log.
+
+    A `--profile` on a command wins over this variable, so a task you want kept read only can
+    run with `--profile <read-only profile>` whatever the shell exports. Do not let the
+    agent's environment set `TRISTACK_API_URL` from the repository it works in.
   </Step>
   <Step title="Teach the agent the commands" icon="book">
     ```bash

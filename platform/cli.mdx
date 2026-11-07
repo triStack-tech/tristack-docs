@@ -108,11 +108,23 @@ tristack --version
 
 The CLI looks for a token in this order and uses the first it finds:
 
-1. The environment variable `TRISTACK_ACCESS_TOKEN`. A value there that does not start with
+1. The profile named by `--profile` on the command line. It wins over the environment, so
+   `--profile <read-only profile>` really is read only; when `TRISTACK_ACCESS_TOKEN` is also
+   set, one warning line on stderr says it was ignored.
+2. The environment variable `TRISTACK_ACCESS_TOKEN`. A value there that does not start with
    `tsa_` (a `tsk_` project key, say) is refused with exit code `3` and `invalid_token_format`
    before anything is sent.
-2. The profile named by `--profile`, then `TRISTACK_PROFILE`, then the profile called
-   `default`, in the config file.
+3. The profile named by `TRISTACK_PROFILE`, then the profile called `default`, in the config
+   file.
+
+`tristack whoami` says which it used, as `cli.source`: `env` or `profile:<name>`.
+
+A token saved in a profile is only ever sent to the API address it was saved (and checked)
+against. If `--api-url` or `TRISTACK_API_URL` names another host, the command is refused with
+exit code `2` and `api_url_mismatch`, and nothing is sent: save a profile for that host with
+`tristack configure --profile <name> --api-url <url>`, or set `TRISTACK_ACCESS_TOKEN` together
+with `TRISTACK_API_URL`. Never set either from a repository's files: an `.envrc` or `.env`
+that an agent's shell loads could otherwise point your token at someone else's server.
 
 The config file is `~/.config/tristack/config.json` (under `$XDG_CONFIG_HOME` when that is
 set), or `%APPDATA%\tristack\config.json` on Windows. It is written with mode `0600`, readable
@@ -139,9 +151,9 @@ Profile page too when it should stop working everywhere.
 
 | Variable | What it does |
 |---|---|
-| `TRISTACK_ACCESS_TOKEN` | Access token to use. Wins over the config file |
+| `TRISTACK_ACCESS_TOKEN` | Access token to use. Wins over the config file, but not over `--profile` |
 | `TRISTACK_PROFILE` | Profile to use when `--profile` is not given (default `default`) |
-| `TRISTACK_API_URL` | API base URL. `--api-url` wins over it; it wins over the profile's own, then `https://api.tristack.tech` |
+| `TRISTACK_API_URL` | API base URL. `--api-url` wins over it; it wins over the profile's own, then `https://api.tristack.tech`. A profile's token is still only sent to the host it was saved for |
 | `TRISTACK_PROJECT` | Default for `--project`, so a session about one project need not repeat it |
 | `TRISTACK_API_KEY` | A project API key (`tsk_...`), used only by `tristack api` on `/v1/` paths |
 
@@ -349,10 +361,12 @@ tristack numbers available --prefix 9180
 | `usage rates` | Every rate currently charged |
 | `logs` | Request log: every billable event, newest first (same as `usage events`) |
 
-`usage summary`, `usage events` and `logs` filter with `--project`, `--product` (for example
-`manifold`), `--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from` and
+`usage summary`, `usage events` and `logs` filter with `--project`, `--product` (`all`,
+`manifold`, `manifold_embeddings`, `relay_sms`, `verify`, `relay_email` or `relay_voice`),
+`--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from` and
 `--to` (`yyyy-mm-dd`). `usage events` and `logs` also page with `--page`, `--page-size` and
-`--search`.
+`--search`. An unknown `--product` or `--window` is refused (exit code `2`, `invalid_value`)
+rather than quietly read as all products or 7 days.
 
 ```bash
 tristack logs --project "My app" --status failed --page-size 20
@@ -391,7 +405,11 @@ Every command prints JSON on stdout, so it pipes straight into `jq`:
 tristack projects list | jq -r '.[] | select(.status == "Active") | .name'
 ```
 
-A call with no response body prints `{"ok": true, "status": 204}`.
+A call with no response body prints `{"ok": true, "status": 204}`. An answer from an API path
+that is not JSON (most often the website's page, because the API URL is wrong) is an error,
+`unexpected_response` with exit code `1`, so stdout never carries anything but JSON; audio
+files are the one exception. `tristack configure` saves a profile only after the API's own
+answer about the token.
 
 A few lists are a bare array (`projects list`, `keys list`, `wallet transactions`); the rest
 sit under a named key beside their counts, for example `domains` in `domains list`, `numbers`
@@ -442,6 +460,10 @@ tristack projects create "My app" --dry-run
 
 A dry run may still read: a command that names a project turns the name into an id first, and
 `billing set` reads the current details it builds on. It never writes.
+
+A dry run of a command that costs money says so: `voice enable` and `projects update --voice
+on` add `"charges"` (the one-time activation fee, unless already paid) and `"needsYes": true`;
+`otp test send` adds `"charges"` for the code it would send.
 
 `--debug` logs each request and response to stderr as JSON lines (method, URL, status, time
 taken and the bodies), with every credential masked: the access token or API key it sends,

@@ -37,6 +37,8 @@ live.
   - Dashboard API text with a NUL character (U+0000) in it is now refused with
     `400 invalid_text` naming the field, instead of failing with a `500`. A refused billing
     profile now also names its field, in `field`.
+  - On the command line, `--profile` wins over `TRISTACK_ACCESS_TOKEN`, and a token saved in a
+    profile is only sent to the API address it was saved for.
 
 </Update>
 
