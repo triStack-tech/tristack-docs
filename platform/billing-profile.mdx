@@ -288,8 +288,8 @@ normalised form: PAN and GSTIN uppercased, the phone number in E.164, whitespace
 rules are applied to that normalised record, so what you read back is exactly what a later
 payment is judged against.
 
-A refused save is `400` with `code` `invalid_billing_profile` and an `error` sentence naming
-the field and what is wrong with it. Only the first problem is reported, and the plainly
+A refused save is `400` with `code` `invalid_billing_profile`, an `error` sentence saying what
+is wrong, and `field`, the request field it is about (`phone`, `stateCode`, `gstin` and so on). Only the first problem is reported, and the plainly
 missing fields are reported before the cross-field disagreements: you are told that the city
 is blank before you are told that the GSTIN disagrees with the state.
 

@@ -18,9 +18,11 @@ It is not an API key. The two never stand in for each other:
 | Accepted on | The dashboard API, `/api/v1/...` | The product endpoints, `/v1/...` |
 | For | Managing the account: projects, keys, settings, the wallet, usage | Calling Manifold AI and Tristack CPaaS from your application |
 
-An access token sent to a `/v1` product endpoint is refused with `401 invalid_api_key`, and an
-API key is never accepted on `/api/v1`. Tokens are also never accepted by Tristack's operator
-console.
+An access token sent to a `/v1` product endpoint is refused with `401 invalid_api_key`. An API
+key is not a way into the dashboard API: sent to `/api/v1`, it gets a bare `401` with no body.
+The one exception is the Voice number endpoints (`/relay/voice/numbers` and
+`/relay/voice/compliance`), which answer on both prefixes and take either credential. Tokens
+are never accepted by Tristack's operator console.
 
 ## Making one
 
@@ -103,7 +105,9 @@ up to a minute.
 ## Errors
 
 The envelope is the same as everywhere else on the API, `{ "error": "...", "code": "..." }`:
-branch on `code`. A `401` also carries `WWW-Authenticate: Bearer error="invalid_token"`.
+branch on `code`. A `401` also carries `WWW-Authenticate: Bearer error="invalid_token"`. A
+value that is not an access token at all (a `tsk_` key, a typo) is not read as one: it gets the
+dashboard's bare `401` with no body, which is why the CLI checks for the `tsa_` prefix first.
 
 | `code` | Status | What happened | What to do |
 |---|:---:|---|---|

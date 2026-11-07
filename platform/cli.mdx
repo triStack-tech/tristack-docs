@@ -32,7 +32,8 @@ credential you make on the dashboard. It is not the API key your application sen
     `~/.local/bin/tristack`, with no `sudo`, and tells you the line to add to your shell
     profile if that folder is not on your `PATH`. Run it again to update.
 
-    Set `TRISTACK_INSTALL_DIR` before running it to install somewhere else.
+    Set `TRISTACK_INSTALL_DIR` before running it to install somewhere else. The script runs
+    only once it has downloaded in full, so a dropped connection installs nothing.
   </Tab>
   <Tab title="Windows">
     Install [Node.js](https://nodejs.org) 18 or newer, download
@@ -107,7 +108,9 @@ tristack --version
 
 The CLI looks for a token in this order and uses the first it finds:
 
-1. The environment variable `TRISTACK_ACCESS_TOKEN`.
+1. The environment variable `TRISTACK_ACCESS_TOKEN`. A value there that does not start with
+   `tsa_` (a `tsk_` project key, say) is refused with exit code `3` and `invalid_token_format`
+   before anything is sent.
 2. The profile named by `--profile`, then `TRISTACK_PROFILE`, then the profile called
    `default`, in the config file.
 
@@ -128,7 +131,9 @@ tristack profiles
 ```
 
 `tristack profiles` lists the saved profiles, the API address of each and which one is
-active, with the tokens masked.
+active, with the tokens masked. `tristack logout --profile work` forgets a profile and its
+token, sending nothing. The token keeps working until it is revoked, so revoke it on the
+Profile page too when it should stop working everywhere.
 
 ### Environment variables
 
@@ -144,7 +149,10 @@ active, with the tokens masked.
 
 Run `tristack --help`, `tristack <command> --help` or `tristack <command> <subcommand> --help`
 for the full usage of any command. Wherever a command takes a project, `--project` (or `-p`)
-accepts the project's id or its exact name, and falls back to `TRISTACK_PROJECT`.
+accepts the project's id or its name, and falls back to `TRISTACK_PROJECT`. A name is matched
+exactly first, then ignoring case; when more than one project has it, the one that is not
+archived is used, and if several are active the command asks for the id.
+`projects create` is not idempotent: after a timeout, list the projects before trying again.
 
 ### Account and setup
 
@@ -153,6 +161,7 @@ accepts the project's id or its exact name, and falls back to `TRISTACK_PROJECT`
 | `tristack configure` | Save an access token to a profile (reads it from stdin or a hidden prompt) |
 | `tristack whoami` | Show the account, user and access token in use |
 | `tristack profiles` | List the saved profiles (tokens shown masked) |
+| `tristack logout [--profile <name>]` | Forget a profile and its saved token (revoke the token on the dashboard to stop it working) |
 | `tristack account profile` | Show your profile (email, account, display currency) |
 | `tristack agent-guide` | Print a Markdown guide for AI agents (setup, commands, output, safety) |
 | `tristack version` | Print the version |
@@ -213,7 +222,7 @@ tristack keys create --project "My app" backend --mode live
 | `models allow-all --project <p>` | Clear the list, so the project may call every enabled model |
 
 ```bash
-tristack models set --project "My app" nova-lite claude-haiku
+tristack models set --project "My app" nova-lite haiku-4-5
 ```
 
 ### SMS
@@ -302,9 +311,13 @@ tristack domains verify acme.com
 | `billing set -f key=value...` | Change billing details: the fields given replace the current ones |
 | `kyc status` | Show the state of the account's identity check for SMS |
 
-`billing set` takes `entityType`, `legalName`, `pan`, `gstin`, `addressLine1`,
-`addressLine2`, `city`, `stateCode`, `postalCode` and `phone`, with `-f` or `--data`. It reads
-the current details first, so only the fields you give change.
+`billing set` takes `entityType` (`Business` or `Individual`), `legalName`, `pan`, `gstin`,
+`addressLine1`, `addressLine2`, `city`, `stateCode` (the two-digit GST state code, `29` for
+Karnataka; `billing show` lists them under `states`), `postalCode` and `phone`, with `-f` or
+`--data`. Any other field name is refused before anything is sent. It reads the current
+details first, so only the fields you give change; the first save needs `legalName`,
+`addressLine1`, `city`, `stateCode`, `postalCode` and `phone` together. A refusal names the
+field in `details.field`.
 
 Top-ups, automatic top-ups and submitting the identity check are done by a person on the dashboard. See
 [what a token cannot do](/platform/access-tokens#what-a-token-cannot-do).
@@ -379,6 +392,13 @@ tristack projects list | jq -r '.[] | select(.status == "Active") | .name'
 ```
 
 A call with no response body prints `{"ok": true, "status": 204}`.
+
+A few lists are a bare array (`projects list`, `keys list`, `wallet transactions`); the rest
+sit under a named key beside their counts, for example `domains` in `domains list`, `numbers`
+in `sms test-numbers list`, and `events` (with `page`, `pageSize`, `total` and `totalPages`)
+in `usage events`. Amounts are in paise in fields ending in `Paise`; model prices are rupees
+per million tokens (`inrPerMTokIn`). Times are ISO 8601 in UTC. `tristack agent-guide` lists
+every shape.
 
 A failure prints one JSON line on stderr and exits non-zero. `code` is the API's own
 [error code](/platform/errors) where there is one; branch on it, not on `error`:

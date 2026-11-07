@@ -29,11 +29,14 @@ live.
   - A token works on the dashboard API (`/api/v1/...`) only. Your application's calls to
     `/v1/...` still take a project API key (`tsk_...`), unchanged.
   - Some actions stay with a signed-in person: managing access tokens, signing in and out,
-    password reset, submitting or deleting KYC, and changing automatic top-ups.
+    password reset, submitting or deleting the identity check, and changing automatic top-ups.
   - At most 10 live tokens per person, and 300 requests a minute across them.
   - New error codes: `401 invalid_access_token`, `401 access_token_expired`,
     `403 token_read_only`, `403 session_required`, and `429 rate_limited` on the dashboard API.
     See [errors](/platform/errors#access-token-codes).
+  - Dashboard API text with a NUL character (U+0000) in it is now refused with
+    `400 invalid_text` naming the field, instead of failing with a `500`. A refused billing
+    profile now also names its field, in `field`.
 
 </Update>
 
