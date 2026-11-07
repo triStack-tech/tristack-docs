@@ -1,0 +1,135 @@
+---
+title: "Send an OTP"
+api: "POST https://api.tristack.tech/v1/cpaas/sms/otp"
+description: "Generates a one-time code, sends it by SMS to a mobile in India or in another country, and returns the id you verify against."
+---
+
+Generates the code, sends it, and stores it hashed. An Indian number receives it in a
+DLT-approved template; a number in another country receives Tristack's fixed text. The code is
+**never returned**: the `id` is your only handle on it.
+
+Requires the `relay-sms:send` scope.
+
+## Request
+
+<ParamField body="to" type="string" required>
+  The recipient's mobile number, in any country. Its country code decides the route.
+
+  An Indian number can be written any common way: `+91 98765 43210`, `91-9876543210`,
+  `09876543210` and `9876543210` are all read as the same number. A bare ten-digit number
+  starting with 6, 7, 8 or 9 is always read as Indian.
+
+  Any other country needs its country code, starting `+` or `00`: `+49 xxxx xxxxxxx` or
+  `0049 xxxx xxxxxxx`. Spaces, hyphens, brackets and dots are ignored. A number abroad also
+  needs the project's International SMS switch on. See
+  [Numbers in India and abroad](/cpaas/sms/index#numbers-in-india-and-abroad).
+
+  Mobiles only. Landlines, and premium-rate, toll-free and shared-cost numbers, are refused
+  with `invalid_phone_number` before anything is charged.
+</ParamField>
+
+Any other field is **refused**, by name, rather than ignored. A misspelled field that bound
+silently would mean being charged for a message different from the one you asked for.
+
+## Response
+
+<ResponseField name="id" type="string">
+  `sms_` plus 24 hex characters. Pass it to
+  [`/otp/verify`](/api-reference/cpaas/sms/verify) and to
+  [`/otp/{id}`](/api-reference/cpaas/sms/status). It is also the reference the wallet ledger
+  records the charge against.
+</ResponseField>
+
+<ResponseField name="expiresAt" type="string">
+  When the code stops being valid, in UTC. Exact: verification after it answers `expired`.
+</ResponseField>
+
+<ResponseField name="costPaise" type="number">
+  What this call cost: `40` for an Indian number, the country's price for a number abroad
+  ([prices by country](/cpaas/sms/countries)). **Zero** when `reused` is true.
+</ResponseField>
+
+<ResponseField name="header" type="string | null">
+  The sender the recipient saw. Your own registered header if the project has one, otherwise
+  Tristack's. On Tristack's header the message text names your app (set on the project's SMS
+  tab), and the header and sign-off are Tristack's.
+
+  `null` for a number abroad. DLT headers exist only in India, and the sender a recipient
+  abroad sees depends on their country.
+</ResponseField>
+
+<ResponseField name="reused" type="boolean">
+  True when a code was already live for this number and the request fell inside the resend
+  window, so the existing code's id is returned and **nothing was sent**. False when a new
+  code went out.
+
+  Worth reading rather than ignoring: it is the difference between a charge and no charge.
+</ResponseField>
+
+<ResponseField name="country" type="string">
+  The recipient's country, as a two-letter ISO code: `IN` for India, or the country abroad,
+  such as `DE`.
+</ResponseField>
+
+```json 200 OK
+{
+  "id": "sms_9f3c21a0b5e74d82c1a7f0de",
+  "expiresAt": "2026-09-21T09:10:18Z",
+  "costPaise": 40,
+  "header": "TRISTK",
+  "reused": false,
+  "country": "IN"
+}
+```
+
+```json 200 OK, a number in Germany
+{
+  "id": "sms_4b8e07d2f16a93c5e0b2d781",
+  "expiresAt": "2026-11-06T09:10:18Z",
+  "costPaise": 1550,
+  "header": null,
+  "reused": false,
+  "country": "DE"
+}
+```
+
+## Errors
+
+| Status | `code` | Means | What to do |
+| --- | --- | --- | --- |
+| 400 | `invalid_phone_number` | `to` is not a mobile number: a typo, a landline, or a premium-rate, toll-free or shared-cost number | Fix the number. A number abroad needs its country code |
+| 400 | `sms_country_unavailable` | The number is in a country Tristack cannot send to yet, because it needs a sender registration | Reach the person another way. [The list](/cpaas/sms/countries#countries-not-available-yet) |
+| 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
+| 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the project's SMS tab, or contact support |
+| 400 | `app_name_required` | The project has no approved app name and none waiting for review, and every code under Tristack's header (and abroad) must name the business it is for | Set the app name and a link on the project's SMS tab. [How](/cpaas/sms/index#setting-your-app-name). Nothing was charged |
+| 400 | `template_variable_mismatch` | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
+| 400 | `template_variable_too_long` | A value exceeds DLT's 30-character ceiling | Shorten it |
+| 400 | `template_variable_empty` | A placeholder has no value | Fill it on the project's SMS tab |
+| 400 | `template_variable_invalid` | A value carries a `|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
+| 400 | `template_missing` | No approved template text is configured for this send | Paste it on the project's SMS tab |
+| 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
+| 403 | `relay_sms_disabled` | Not switched on for this project | Turn it on. No new key needed |
+| 403 | `international_sms_disabled` | A number outside India, and the project's International SMS switch is off | Turn on International SMS on the project's SMS tab in the dashboard. No new key needed |
+| 403 | `app_name_pending` | The project's app name is waiting for review, and this number is not one of the account's verified test numbers | Wait for the approval, or [verify a domain that matches the name](/cpaas/sms/index#instant-approval-through-your-domain) to have it approved at once. Test meanwhile with the account's test numbers, set on the SMS tab. [How](/cpaas/sms/index#setting-your-app-name). Nothing was charged |
+| 403 | `insufficient_scope` | The key was not granted this capability | Create a key with the scope named in `requiredScope`. [Scopes](/platform/projects-and-keys#what-a-key-may-do) |
+| 429 | `rate_limited` | Too many sends from this project. Honour `Retry-After` | Back off |
+| 429 | `recipient_rate_limited` | This number is over its hourly or daily cap | Wait, or offer another route |
+| 429 | `project_volume_capped` | The project is over its hourly or daily message ceiling, or over 300 messages outside India in 24 hours | Ask for it to be raised |
+| 429 | `kyc_daily_limit` | The account is past its 30 days without a verified identity check, and has sent 200 codes under Tristack's header or abroad in the last 24 hours. Honour `Retry-After` | Complete the identity check on the dashboard's Profile page. [How](/cpaas/sms/index#identity-check-kyc). Nothing was charged |
+| 502 | `dlt_sender_not_approved` | The sender header was refused | Check spelling, letter case and the telemarketer binding. [Guide](/cpaas/sms/dlt-setup) |
+| 502 | `dlt_template_not_approved` | The content template was refused | The text must match your registration exactly |
+| 502 | `dlt_blacklisted` | The header or template is blacklisted on DLT | Settle it with your operator |
+| 502 | `dlt_content_rejected` | The operator refused the content | Usually a link or an unexpected character |
+| 502 | `provider_rate_limited` | Refused as a repeat to the same number too quickly | Back off |
+| 502 | `recipient_opted_out` | The recipient abroad replied STOP to an earlier message | Do not retry. Reach the person another way |
+| 502 | `provider_error` | Not accepted, for a reason not in this table | Retry, then contact support |
+| 503 | `relay_sms_unavailable` | Off, or unable to send, on this deployment | Contact support. Nothing was charged |
+| 503 | `international_sms_unavailable` | Tristack is not sending SMS outside India yet. Every number abroad answers this until sending abroad opens, even with the switch on | Send Indian numbers as usual, and reach a number abroad another way, for example [WhatsApp](/cpaas/whatsapp/index). Nothing was charged |
+
+<Note>
+  **Every `502` and `503` is free.** A message that was not accepted for delivery is nobody's
+  to pay for, so the hold is released whole and the balance is untouched.
+
+  In particular, `relay_sms_unavailable` and `international_sms_unavailable` never mean your
+  wallet. If your balance were the problem you would get a `402` saying so.
+</Note>

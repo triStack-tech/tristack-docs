@@ -189,6 +189,7 @@ archived is used, and if several are active the command asks for the id.
 | `tristack profiles use <name>` | Make a saved profile the default one |
 | `tristack logout [--profile <name>]` | Forget a profile and its saved token (revoke the token on the dashboard to stop it working) |
 | `tristack account profile` | Show your profile (email, account, display currency) |
+| `tristack account update [--display-name <name>] [--account-name <name>]` | Change your own name, your account's name, or both |
 | `tristack agent-guide` | Print a Markdown guide for AI agents (setup, commands, output, safety) |
 | `tristack version` | Print the version |
 
@@ -280,7 +281,7 @@ tristack models set --project "My app" nova-lite haiku-4-5
 
 An app name is letters, numbers and single spaces, at most 30 characters. A new name needs
 `--link` (your website or app-store listing) unless it matches a domain the account has
-verified, see [Setting your app name](/relay-sms/index#setting-your-app-name).
+verified, see [Setting your app name](/cpaas/sms/index#setting-your-app-name).
 
 ```bash
 tristack sms app-name set --project "My app" "Acme" --link https://acme.com
@@ -294,7 +295,7 @@ tristack sms app-name set --project "My app" "Acme" --link https://acme.com
 | `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice] --yes` | Send one real code to a phone number or email address (charged to the wallet) |
 | `otp test check --project <p> <verification id> <code>` | Check the code a test verification received |
 
-`otp test send` goes through the same path as `POST /v1/relay/otp`, with the project's
+`otp test send` goes through the same path as `POST /v1/cpaas/otp`, with the project's
 switches, prices and limits, and is charged like any send.
 
 ```bash

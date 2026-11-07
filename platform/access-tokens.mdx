@@ -20,8 +20,8 @@ It is not an API key. The two never stand in for each other:
 
 An access token sent to a `/v1` product endpoint is refused with `401 invalid_api_key`. An API
 key is not a way into the dashboard API: sent to `/api/v1`, it gets a bare `401` with no body.
-The one exception is the Voice number endpoints (`/relay/voice/numbers` and
-`/relay/voice/compliance`), which answer on both prefixes and take either credential. Tokens
+The one exception is the Voice number endpoints (`/cpaas/voice/numbers` and
+`/cpaas/voice/compliance`), which answer on both prefixes and take either credential. Tokens
 are never accepted by Tristack's operator console.
 
 ## Making one
@@ -83,9 +83,9 @@ Some actions need you, signed in to the dashboard, whatever the token's scope. A
   your own. A token can read its status.
 - **Automatic top-ups**: every change to them, including saving a payment method.
 - **Legal declarations**: submitting the SMS DLT registration
-  (`POST /api/v1/relay/sms/dlt/submit`) and the Voice number compliance documents
-  (`POST /api/v1/relay/voice/compliance`). A project API key can still submit the Voice
-  documents on `/v1/relay/voice/compliance`.
+  (`POST /api/v1/cpaas/sms/dlt/submit`) and the Voice number compliance documents
+  (`POST /api/v1/cpaas/voice/compliance`). A project API key can still submit the Voice
+  documents on `/v1/cpaas/voice/compliance`.
 
 Billing details and the International SMS switch stay open to Full access tokens.
 

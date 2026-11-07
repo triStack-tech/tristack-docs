@@ -60,51 +60,51 @@
             "group": "Tristack CPaaS",
             "icon": "tower-broadcast",
             "pages": [
-              "relay/index",
+              "cpaas/index",
               {
                 "group": "Voice",
                 "icon": "phone",
                 "pages": [
-                  "relay-voice/quickstart",
-                  "relay-voice/index",
-                  "relay-voice/voices",
-                  "relay-voice/tempo",
-                  "relay-voice/numbers",
-                  "relay-voice/reusing-audio",
-                  "relay-voice/callbacks",
-                  "relay-voice/pricing"
+                  "cpaas/voice/quickstart",
+                  "cpaas/voice/index",
+                  "cpaas/voice/voices",
+                  "cpaas/voice/tempo",
+                  "cpaas/voice/numbers",
+                  "cpaas/voice/reusing-audio",
+                  "cpaas/voice/callbacks",
+                  "cpaas/voice/pricing"
                 ]
               },
               {
                 "group": "Email",
                 "icon": "envelope",
                 "pages": [
-                  "relay-email/quickstart",
-                  "relay-email/index",
-                  "relay-email/domains",
-                  "relay-email/templates",
-                  "relay-email/webhooks",
-                  "relay-email/testing",
-                  "relay-email/pricing"
+                  "cpaas/email/quickstart",
+                  "cpaas/email/index",
+                  "cpaas/email/domains",
+                  "cpaas/email/templates",
+                  "cpaas/email/webhooks",
+                  "cpaas/email/testing",
+                  "cpaas/email/pricing"
                 ]
               },
               {
                 "group": "WhatsApp",
                 "icon": "whatsapp",
                 "pages": [
-                  "relay-whatsapp/index",
-                  "relay-whatsapp/meta-setup",
-                  "relay-whatsapp/pricing"
+                  "cpaas/whatsapp/index",
+                  "cpaas/whatsapp/meta-setup",
+                  "cpaas/whatsapp/pricing"
                 ]
               },
               {
                 "group": "SMS",
                 "icon": "message-sms",
                 "pages": [
-                  "relay-sms/index",
-                  "relay-sms/dlt-setup",
-                  "relay-sms/pricing",
-                  "relay-sms/countries"
+                  "cpaas/sms/index",
+                  "cpaas/sms/dlt-setup",
+                  "cpaas/sms/pricing",
+                  "cpaas/sms/countries"
                 ]
               }
             ]
@@ -145,36 +145,36 @@
               {
                 "group": "Voice",
                 "pages": [
-                  "api-reference/relay-voice/send",
-                  "api-reference/relay-voice/job",
-                  "api-reference/relay-voice/voices",
-                  "api-reference/relay-voice/numbers"
+                  "api-reference/cpaas/voice/send",
+                  "api-reference/cpaas/voice/job",
+                  "api-reference/cpaas/voice/voices",
+                  "api-reference/cpaas/voice/numbers"
                 ]
               },
               {
                 "group": "Email",
                 "pages": [
-                  "api-reference/relay-email/send",
-                  "api-reference/relay-email/batch",
-                  "api-reference/relay-email/templates",
-                  "api-reference/relay-email/domains",
-                  "api-reference/relay-email/suppression"
+                  "api-reference/cpaas/email/send",
+                  "api-reference/cpaas/email/batch",
+                  "api-reference/cpaas/email/templates",
+                  "api-reference/cpaas/email/domains",
+                  "api-reference/cpaas/email/suppression"
                 ]
               },
               {
                 "group": "WhatsApp",
                 "pages": [
-                  "api-reference/relay-whatsapp/otp",
-                  "api-reference/relay-whatsapp/verify"
+                  "api-reference/cpaas/whatsapp/otp",
+                  "api-reference/cpaas/whatsapp/verify"
                 ]
               },
               {
                 "group": "SMS",
                 "pages": [
-                  "api-reference/relay-sms/otp",
-                  "api-reference/relay-sms/verify",
-                  "api-reference/relay-sms/status",
-                  "api-reference/relay-sms/countries"
+                  "api-reference/cpaas/sms/otp",
+                  "api-reference/cpaas/sms/verify",
+                  "api-reference/cpaas/sms/status",
+                  "api-reference/cpaas/sms/countries"
                 ]
               }
             ]
@@ -229,7 +229,7 @@
           },
           {
             "label": "Tristack CPaaS",
-            "href": "/relay/index"
+            "href": "/cpaas/index"
           }
         ]
       },
@@ -247,5 +247,63 @@
         ]
       }
     ]
-  }
+  },
+  "redirects": [
+    {
+      "source": "/relay",
+      "destination": "/cpaas/index"
+    },
+    {
+      "source": "/relay-voice",
+      "destination": "/cpaas/voice/index"
+    },
+    {
+      "source": "/relay-email",
+      "destination": "/cpaas/email/index"
+    },
+    {
+      "source": "/relay-whatsapp",
+      "destination": "/cpaas/whatsapp/index"
+    },
+    {
+      "source": "/relay-sms",
+      "destination": "/cpaas/sms/index"
+    },
+    {
+      "source": "/relay/:slug*",
+      "destination": "/cpaas/:slug*"
+    },
+    {
+      "source": "/relay-voice/:slug*",
+      "destination": "/cpaas/voice/:slug*"
+    },
+    {
+      "source": "/relay-email/:slug*",
+      "destination": "/cpaas/email/:slug*"
+    },
+    {
+      "source": "/relay-whatsapp/:slug*",
+      "destination": "/cpaas/whatsapp/:slug*"
+    },
+    {
+      "source": "/relay-sms/:slug*",
+      "destination": "/cpaas/sms/:slug*"
+    },
+    {
+      "source": "/api-reference/relay-voice/:slug*",
+      "destination": "/api-reference/cpaas/voice/:slug*"
+    },
+    {
+      "source": "/api-reference/relay-email/:slug*",
+      "destination": "/api-reference/cpaas/email/:slug*"
+    },
+    {
+      "source": "/api-reference/relay-whatsapp/:slug*",
+      "destination": "/api-reference/cpaas/whatsapp/:slug*"
+    },
+    {
+      "source": "/api-reference/relay-sms/:slug*",
+      "destination": "/api-reference/cpaas/sms/:slug*"
+    }
+  ]
 }
