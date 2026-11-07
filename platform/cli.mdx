@@ -433,7 +433,7 @@ The fields are `status` (the HTTP status, `null` when nothing reached the server
 | `0` | Success |
 | `1` | API error: validation, not found, conflict, limits |
 | `2` | Usage error: a bad command or flag. Nothing was sent |
-| `3` | Auth error: no token, a token refused or expired, `token_read_only`, `session_required` |
+| `3` | Auth error: no token, a token refused or expired, `token_read_only`, `session_required`, `token_location_blocked`, `token_ip_blocked` |
 | `4` | Network error: nothing reached the server, safe to retry |
 
 On a `429 rate_limited`, wait `retryAfter` seconds before trying again.

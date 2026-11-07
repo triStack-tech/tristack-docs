@@ -39,6 +39,12 @@ live.
     profile now also names its field, in `field`.
   - On the command line, `--profile` wins over `TRISTACK_ACCESS_TOKEN`, and a token saved in a
     profile is only sent to the API address it was saved for.
+  - **Location alerts and locks, per token.** You get an email when a token is used from a new
+    network or country (at most one an hour), and you can lock a token to countries or to IP
+    addresses: a request from anywhere else is refused with `403 token_location_blocked` or
+    `403 token_ip_blocked`, and you are emailed about it. Each token's recent locations are on the
+    Profile page. Making a token emails you too, and a password reset revokes every token. See
+    [location alerts and locks](/platform/access-tokens#location-alerts-and-locks).
 
 </Update>
 

@@ -1,6 +1,6 @@
 ---
 title: "Access tokens"
-description: "The tsa_ access token: a long-lived credential that manages your Tristack account from a shell or an AI agent. Format, Read only and Full access scopes, expiry, the 10-token and 300-a-minute limits, what it can never do, and every error it can get."
+description: "The tsa_ access token: a long-lived credential that manages your Tristack account from a shell or an AI agent. Format, Read only and Full access scopes, expiry, location alerts and country and IP locks, the limits, what it can never do, and every error it can get."
 icon: "key"
 ---
 
@@ -33,10 +33,15 @@ Sign in to the dashboard, open [Profile](https://tristack.tech/profile#access-to
   (`laptop`, `claude-code-ci`), so the list tells you what to revoke later.
 - **Access**: Read only or Full access. See [scopes](#scopes).
 - **Expiry**: 7 days, 30 days, 90 days, 1 year, or No expiry.
+- **Location**: whether to email you when it is used from a new place (on unless you turn it
+  off), and optionally the countries or IP addresses it may be used from. See
+  [location alerts and locks](#location-alerts-and-locks).
 
 Your email address must be verified first. The token is shown **once**, on the screen that
 follows; Tristack keeps only a hash of it and can never show it again. Lose it and you make a
-new one.
+new one. Tristack also emails you that a token was created, with its name, access, expiry and
+the IP address and country it was created from, so a token nobody meant to make does not go
+unnoticed.
 
 The list on the same page shows each token's name, access, a hint (`tsa_AbCd...wxyz`, its
 first and last four characters), when it was made, when it was last used and when it
@@ -69,13 +74,20 @@ failed send. A leaked Read only token can show your account to someone, but cann
 Some actions need you, signed in to the dashboard, whatever the token's scope. A token gets
 `403 session_required` on:
 
-- **Access tokens themselves**: making, listing and revoking them. A token cannot make another
-  token, so revoking one is always final.
+- **Access tokens themselves**: making, listing, revoking them and changing their location
+  settings. A token cannot make another token, so revoking one is always final, and it cannot
+  loosen its own locks.
 - **Signing in and out**: sign-out, Google sign-in, and the forgot-password and
   reset-password steps.
 - **The identity check for SMS (KYC)**: submitting it and deleting it. The consent has to be
   your own. A token can read its status.
 - **Automatic top-ups**: every change to them, including saving a payment method.
+- **Legal declarations**: submitting the SMS DLT registration
+  (`POST /api/v1/relay/sms/dlt/submit`) and the Voice number compliance documents
+  (`POST /api/v1/relay/voice/compliance`). A project API key can still submit the Voice
+  documents on `/v1/relay/voice/compliance`.
+
+Billing details and the International SMS switch stay open to Full access tokens.
 
 Top-ups themselves are paid in the browser, through Razorpay Checkout, so in practice they are
 done on the dashboard too.
@@ -90,12 +102,68 @@ request, with `401 invalid_access_token`, the same answer as a token that never 
 Revoking cannot be undone. Revoking from a token is not possible, by design: that is a
 session-only action.
 
+Resetting your password revokes **every** access token on the account, and the "password
+changed" email says how many. Whoever had the old password, or a session they took over, may
+have made a token, and a reset is how you take the account back. Make new tokens afterwards for
+the machines and agents that need them.
+
+## Location alerts and locks
+
+Each token has three settings, on the Profile page under **Access tokens**: open a token's
+**Edit** beside its location summary, or set them when you create it.
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Email me when this token is used from a new location** | On | Emails you when the token is used from a network or a country it has not been used from before, and when one of the locks below refuses a request |
+| **Only allow from these countries** | Off (any country) | Refuses requests from every other country, with `403 token_location_blocked` |
+| **Only allow from these IP addresses** | Off (any address) | Refuses requests from outside the listed addresses and ranges, with `403 token_ip_blocked` |
+
+**Alerts.** A "network" is the block an address belongs to: the first three parts of an IPv4
+address (a /24) or the first three groups of an IPv6 one (a /48), so a home connection or a
+phone that changes address within its provider does not set one off. The very first place a
+token is used from is its setup and sends nothing. You get at most one email an hour per token:
+anything that happens in between waits and comes in the next email, all together. Each email
+names the token, and for every new place or refused request, the IP address, the country, the
+time and the program that sent it (the CLI identifies itself as `tristack-cli/<version>`). If it
+was not you, revoke the token.
+
+**Country lock.** Pick countries from the list. A request whose country is not known
+(`XX`) or that comes through the Tor network (`T1`) is refused too, unless you add "Unknown
+country" or "Tor network" to the list. If you lock a token to countries, make sure your own
+country is in the list: the dashboard suggests it.
+
+**IP address lock.** Up to 20 entries, one per line: single addresses (`203.0.113.7`,
+`2001:db8::1`) or ranges in CIDR notation (`203.0.113.0/24`, `2001:db8::/32`). Use it for a
+server or an office with a fixed address.
+
+A refused request does nothing at all: it changes nothing, is not counted against the limits,
+and does not update `lastUsedAt`. The answer says where it came from, so you can tell whether
+it was you:
+
+```json
+{
+  "error": "This access token cannot be used from this country. Its owner limited it to certain countries on the Profile page at tristack.tech.",
+  "code": "token_location_blocked",
+  "ip": "198.51.100.4",
+  "country": "DE"
+}
+```
+
+Changes apply from the token's next request. Only a signed-in person can change them
+(`PATCH /api/v1/account/access-tokens/{id}`), never a token.
+
+**Where it was used.** **Locations** under each token lists every network it was used from in
+the last 90 days: the country, the last address, when it was first and last seen, and how many
+requests came from it. Tristack keeps each one until 90 days after the token was last used from
+it. `tristack whoami` shows the token's locks and the address and country the API sees you at.
+
 ## Limits
 
 | Limit | Value | When it is reached |
 |---|---|---|
 | Live tokens per person | 10, counting neither revoked nor expired ones | `409 too_many_tokens` on create. Revoke one you no longer use |
 | Requests | 300 a minute per person, across all their tokens | `429 rate_limited`, with a `Retry-After` header and `retryAfter` in the body, in seconds |
+| Failed tokens | 30 a minute from one IP address: unknown, revoked, expired or malformed tokens | `429 rate_limited` for every token from that address for the rest of the minute, without the token being checked. A valid token never counts towards it |
 
 Requests made from a signed-in dashboard session are not counted against the 300.
 
@@ -116,16 +184,20 @@ dashboard's bare `401` with no body, which is why the CLI checks for the `tsa_` 
 | `account_disabled` | 401 | Tristack has disabled the account. Every token and session of the account is refused | Write to hello@tristack.tech. A new token will not help |
 | `token_read_only` | 403 | A Read only token sent something other than `GET` or `HEAD` | Use a Full access token for changes |
 | `session_required` | 403 | The action is one only a signed-in person can take. See [what a token cannot do](#what-a-token-cannot-do) | Do it on the dashboard yourself |
-| `rate_limited` | 429 | Over 300 requests in a minute across your tokens | Wait `Retry-After` seconds, then retry |
+| `token_location_blocked` | 403 | The token is locked to certain countries and this request came from another one, or from an unknown country or Tor. Nothing was done. The body has the request's `ip` and `country` | If it was you, add the country on the Profile page. If not, revoke the token |
+| `token_ip_blocked` | 403 | The token is locked to certain IP addresses and this request came from outside them. Nothing was done. The body has the request's `ip` and `country` | If it was you, add the address on the Profile page. If not, revoke the token |
+| `rate_limited` | 429 | Over 300 requests in a minute across your tokens, or over 30 failed tokens in a minute from one IP address | Wait `Retry-After` seconds, then retry |
 | `too_many_tokens` | 409 | You already have 10 live tokens | Revoke one, then create again |
 | `email_unverified` | 403 | Creating a token from an account whose email address is not verified | Verify it from the link in the email, or resend the link from the dashboard |
 | `invalid_name` | 400 | The name is empty or longer than 64 characters | Send 1 to 64 characters |
 | `invalid_scope` | 400 | `scope` is not `read` or `full` | Send one of the two |
 | `invalid_expiry` | 400 | `expiresInDays` is not 7, 30, 90, 365 or `null` | Send one of those |
-| `not_found` | 404 | Revoking a token that is unknown, already revoked or someone else's | Nothing to revoke |
+| `invalid_countries` | 400 | A country lock names something that is not a two-letter country code | Use codes such as `IN` or `US`, or `XX` and `T1` |
+| `invalid_ips` | 400 | An IP lock entry is not an address or a CIDR range, or there are more than 20 | Fix the entry the message names |
+| `not_found` | 404 | Revoking or changing a token that is unknown, already revoked or someone else's | Nothing to change |
 | `not_a_token` | 404 | `GET /api/v1/account/access-tokens/current` was called from a session, not a token | Call it with a token |
 
-The last six come from managing tokens, which the dashboard does for you; you meet them only
+The last eight come from managing tokens, which the dashboard does for you; you meet them only
 if you call those endpoints from your own signed-in code. Every code is also on
 [Errors](/platform/errors#access-token-codes).
 
@@ -144,12 +216,18 @@ the call. It is what `tristack whoami` and `tristack configure` use:
   "expiresAt": "2027-02-05T09:30:00Z",
   "lastUsedAt": "2026-11-07T09:31:00Z",
   "expired": false,
+  "alertNewLocations": true,
+  "allowedCountries": ["IN"],
+  "allowedIps": [],
   "user": { "email": "you@example.com", "name": "Your Name" },
-  "accountName": "Acme"
+  "accountName": "Acme",
+  "caller": { "ip": "203.0.113.7", "country": "IN", "countryName": "India" }
 }
 ```
 
 `expiresAt` and `lastUsedAt` are `null` when the token never expires or was never used.
+`allowedCountries` and `allowedIps` are empty when there is no lock. `caller` is where this very
+request came from, as the locks see it.
 
 ## Keeping tokens safe
 
@@ -159,6 +237,7 @@ the call. It is what `tristack whoami` and `tristack configure` use:
   unattended for good.
 - Keep it in an environment variable or a secret manager, never in a repository, a chat or a
   command line.
+- Lock a token on a server to that server's address, and keep new-location alerts on.
 - Revoke a token when the work it was made for is done, and at once if it may have leaked.
 
 <CardGroup cols={2}>
