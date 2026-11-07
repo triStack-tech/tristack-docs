@@ -1,8 +1,10 @@
 # Tristack documentation
 
 Source for the public Tristack developer documentation. It covers Manifold AI and Tristack
-CPaaS (the Voice, Email, WhatsApp and SMS channels). The CPaaS folders and URLs keep their
-`relay-*` names, because the dashboard and the website link to them.
+CPaaS (the Voice, Email, WhatsApp and SMS channels). The CPaaS pages live under `cpaas/` and
+`api-reference/cpaas/`. Their old `relay-*` addresses, which the dashboard and the website
+link to, redirect to them through `redirects` in `docs.json`: keep those rules when you move
+or rename a CPaaS page.
 
 The site is written for [Mintlify](https://mintlify.com). Pages are `.mdx` files at the top
 level of the repo, and the navigation is `docs.json`. A page that is not listed in
@@ -45,14 +47,14 @@ python tools/verify_snippets.py  # the generated price tables, and the pages tha
 ## Layout
 
 ```text
-docs.json             The site: theme, navigation, navbar, footer
+docs.json             The site: theme, navigation, navbar, footer, redirects
 index.mdx             The landing page
 manifold/             Manifold AI pages
-relay/                The Tristack CPaaS overview
-relay-voice/          CPaaS Voice pages
-relay-email/          CPaaS Email pages
-relay-whatsapp/       CPaaS WhatsApp pages
-relay-sms/            CPaaS SMS pages
+cpaas/index.mdx       The Tristack CPaaS overview
+cpaas/voice/          CPaaS Voice pages
+cpaas/email/          CPaaS Email pages
+cpaas/whatsapp/       CPaaS WhatsApp pages
+cpaas/sms/            CPaaS SMS pages
 platform/             What they all share: projects, keys, wallet, errors, support
 api-reference/        Endpoint reference
 changelog.mdx         Changelog

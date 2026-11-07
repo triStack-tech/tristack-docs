@@ -1,0 +1,81 @@
+---
+title: "Tristack CPaaS"
+description: "Tristack CPaaS is the messaging platform: one API key and one wallet, reaching people by phone, email, WhatsApp or SMS."
+---
+
+Tristack CPaaS is how a Tristack project reaches a person. Every channel takes the same API key,
+settles against the same wallet, and is switched on per project, but each one has its own
+endpoint, its own request shape and its own price.
+
+<Note>
+  **Already calling `/v1/relay/...`? Nothing needs to change.** The product was called
+  Tristack Relay until 21 October 2026. Its API now answers at `/v1/cpaas/...`, and the
+  dashboard API at `/api/v1/cpaas/...`, as these pages show. The older `/v1/relay/...` and
+  `/api/v1/relay/...` paths still work, exactly as before, and will keep working. Either
+  prefix behaves identically, and a `Location` header in a response uses the prefix you
+  called.
+
+  Request fields, scopes, usage product ids and error codes still say `relay`
+  (`relayVoiceEnabled`, `relay-voice:send`, `relay_voice`, `relay_voice_disabled`) on both
+  prefixes, and they are not changing.
+</Note>
+
+## The channels
+
+<CardGroup cols={2}>
+  <Card title="Voice" icon="phone" href="/cpaas/voice/index">
+    **Available.** Turns a line of text into a phone call and dials a list of Indian mobile
+    numbers. Billed for the speech rather than the calls, so a phone that rings out, or a
+    thousand that answer, cost the same.
+  </Card>
+  <Card title="Email" icon="envelope" href="/cpaas/email/index">
+    **Available.** Transactional email from a domain you verify. Billed per recipient.
+  </Card>
+  <Card title="WhatsApp" icon="message-circle" href="/cpaas/whatsapp/index">
+    **Available.** One-time codes over WhatsApp, sent through your own Meta number. Billed per
+    code sent, and Meta bills you separately for WhatsApp messages.
+  </Card>
+  <Card title="SMS" icon="comment-sms" href="/cpaas/sms/index">
+    **Early access.** One-time codes by SMS to Indian mobiles, under Tristack's registered
+    header or your own DLT registration, and to mobiles in other countries once the project
+    turns on International SMS. Billed per code sent, priced by country. Ask us to switch it on
+    through the [contact form](https://tristack.tech/company#contact).
+  </Card>
+</CardGroup>
+
+## What they share
+
+**One key.** A project API key works across every CPaaS channel it has switched on, and across
+Manifold AI too. There is no per-channel credential.
+
+**One wallet.** A call, an email and a Manifold request all draw on the same balance. There is
+no per-channel or per-project balance to top up separately.
+
+**One switch each.** Every channel is enabled per project, independently. Turning Email on does
+nothing to Voice, and a key on a project with the channel off is refused with that channel's
+own `..._disabled` code.
+
+## What they do not share
+
+**Nothing passes between them automatically.** Voice will not read an email out loud, and
+Email will not send a transcript of a call. Text produced by one channel is just text to
+another, and passing it across is something your code does deliberately.
+
+**Prices are per channel and not comparable.** A voice call is priced by the characters it speaks, an
+email per recipient, a WhatsApp or SMS code per code sent. There is no shared unit, and a rupee
+buys a different amount of each.
+
+**WhatsApp has a second bill that the others do not.** You hold the Meta relationship, so
+Meta bills you separately for WhatsApp messages, on top of what Tristack charges. Voice, Email
+and SMS have one bill: ours.
+
+**Request shapes differ.** They all use `camelCase` on the wire, unlike Manifold's
+`snake_case`, but the fields themselves have nothing in common: Voice takes phone numbers and a
+voice alias, Email takes addresses and a verified sending domain, and WhatsApp and SMS take one
+number and return an id to verify against.
+
+## Tristack CPaaS and Manifold AI
+
+Manifold AI is the other platform, and it is not part of Tristack CPaaS. Manifold generates
+text; Tristack CPaaS delivers messages to people. They share an account, a wallet and a key
+scheme and nothing else. [The platforms page](/platform/products) draws that line in detail.

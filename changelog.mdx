@@ -12,6 +12,31 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-08" description="CPaaS paths">
+
+  **The API now answers at `/v1/cpaas/...`.** Every Tristack CPaaS path under `/v1/relay/...`
+  also answers at `/v1/cpaas/...`, and every dashboard API path under `/api/v1/relay/...` at
+  `/api/v1/cpaas/...`, with identical behaviour. These pages now use the `/v1/cpaas/...`
+  paths throughout.
+
+  Nothing existing changes. The `/v1/relay/...` and `/api/v1/relay/...` paths keep working,
+  exactly as before, and will keep working, so an integration written against them needs no
+  change. See [Tristack CPaaS](/cpaas/index).
+
+  - Request fields, scopes, usage product ids and error codes still say `relay`
+    (`relayVoiceEnabled`, `relay-voice:send`, `relay_voice`, `relay_voice_disabled`), on
+    either prefix.
+  - A `Location` header in a response uses the prefix you called: a Voice send to
+    `/v1/cpaas/voice` points at `/v1/cpaas/voice/{jobId}`, and one to `/v1/relay/voice` at
+    `/v1/relay/voice/{jobId}`.
+  - The CPaaS pages moved to `/cpaas/...` addresses. `/relay-voice/quickstart` is now
+    [`/cpaas/voice/quickstart`](/cpaas/voice/quickstart), `/api-reference/relay-voice/send` is
+    now [`/api-reference/cpaas/voice/send`](/api-reference/cpaas/voice/send), and the Email,
+    WhatsApp and SMS pages moved the same way. Every old address redirects to its new one, so
+    bookmarks and links keep working.
+
+</Update>
+
 <Update label="2026-11-07" description="Access tokens and the tristack command-line tool">
 
   **Manage your account from a shell, or let an AI agent do it.** The new `tristack` CLI does
@@ -56,7 +81,7 @@ live.
 
   **An app name that matches your verified domain is approved at once.** Verify your website's
   domain in the dashboard, and an app name that matches it skips the review. See
-  [Instant approval through your domain](/relay-sms/index#instant-approval-through-your-domain).
+  [Instant approval through your domain](/cpaas/sms/index#instant-approval-through-your-domain).
 
   - To verify a domain, add it on the project's SMS tab, publish one TXT record at the domain
     itself (host `@`, value `tristack-verification=...`) and click Check now. A domain already
@@ -74,13 +99,13 @@ live.
   **A second template under Tristack's header.** `TRK_OTP_3` ("123456 is your requested OTP
   for Acmebooks - Powered by Tristack Technologies") can be picked under SMS template on the
   project's SMS tab. `TRISTKDEFAULT2` stays the default. Both carry your approved app name and
-  cost the same. See [the templates](/relay-sms/index#in-india-you-do-not-need-a-dlt-registration).
+  cost the same. See [the templates](/cpaas/sms/index#in-india-you-do-not-need-a-dlt-registration).
 
   **Accounts that send under Tristack's header now go through an identity check.** The first
   approved app name in an account starts 30 days. After them, until the check is verified, codes
   under Tristack's header and abroad are limited to 200 in any 24 hours across the account. Codes
   under your own DLT header are not affected. See
-  [Identity check (KYC)](/relay-sms/index#identity-check-kyc).
+  [Identity check (KYC)](/cpaas/sms/index#identity-check-kyc).
 
   - The check is on the dashboard's Profile page: your legal name, PAN and, if you have one,
     GSTIN, checked by a person at Tristack. No documents to upload.
@@ -95,15 +120,15 @@ live.
   any country. Your integration does not change: the same request body, the same verify and
   status calls. Write the number with its country code and the country code decides the route.
   Indian numbers go out exactly as before, under DLT, at 40 paise. See
-  [Numbers in India and abroad](/relay-sms/index#numbers-in-india-and-abroad).
+  [Numbers in India and abroad](/cpaas/sms/index#numbers-in-india-and-abroad).
 
   - **One switch per project, International SMS**, on the project's SMS tab in the dashboard.
     It is off by default, because codes to numbers abroad are the usual target of SMS pumping.
     Indian numbers do not need it.
   - **Priced per country**, from the provider's price for that country in US dollars at the
     day's exchange rate, so prices abroad move with the rupee. The list is on
-    [SMS prices by country](/relay-sms/countries), and live at the new
-    [`GET /v1/relay/sms/countries`](/api-reference/relay-sms/countries) (scope
+    [SMS prices by country](/cpaas/sms/countries), and live at the new
+    [`GET /v1/relay/sms/countries`](/api-reference/cpaas/sms/countries) (scope
     `relay-sms:read`).
   - A number abroad receives Tristack's fixed text, not your DLT template, from a sender that
     depends on the country. `header` is `null` for it, and delivery reads `unknown`, because
@@ -124,7 +149,7 @@ live.
   template that carries your app name ("123456 is your requested OTP for YourApp. Best
   Regards, Tristack Technologies LLP Team."), and codes abroad name it too. Tristack reviews
   every app name before it reaches the public. See
-  [Setting your app name](/relay-sms/index#setting-your-app-name).
+  [Setting your app name](/cpaas/sms/index#setting-your-app-name).
 
   - Set the name on the project's SMS tab with a link to your website or your app's store
     listing. Names of banks, payment apps, government bodies, telecoms and large brands are
@@ -191,14 +216,14 @@ live.
     a project and changes something else in the same request answers
     `400 archive_with_changes`. [Archiving a project →](/platform/projects-and-keys#archiving-a-project)
 
-  See [errors](/platform/errors) and [job status](/api-reference/relay-voice/job).
+  See [errors](/platform/errors) and [job status](/api-reference/cpaas/voice/job).
 
   **Corrections and smaller changes**
 
   - A rented number is used as the caller id only once Tristack support has assigned it to a
     project, on request. Until then calls go out from the shared Tristack number. The pages
     that said renting alone changed the caller id are corrected.
-    [Phone numbers →](/relay-voice/numbers)
+    [Phone numbers →](/cpaas/voice/numbers)
   - The one-time Rs 200 Voice activation is not a phone number. A few pages still said it
     rented one, and no longer do.
   - Meta bills you separately for WhatsApp messages; the pages no longer say it bills per
@@ -231,7 +256,7 @@ live.
     that column no longer tells you anything about your bill; count statuses to measure reach.
   - Broadcasting got dramatically cheaper and personalizing did not. One 65-character message
     to 500 people is Rs 1.95, where it was Rs 201.95. Five hundred personalized messages are
-    unchanged at Rs 1,065. See [reusing a recording](/relay-voice/reusing-audio).
+    unchanged at Rs 1,065. See [reusing a recording](/cpaas/voice/reusing-audio).
   - The one-time Rs 200 activation per project is unchanged, but it never was a phone number
     and the docs no longer say it was.
 
@@ -255,7 +280,7 @@ live.
     ahead of the decision.
   - New error codes: `compliance_required`, `compliance_pending`, `compliance_exists`,
     `number_unavailable`, `document_too_large`, `unsupported_document_type`. See
-    [phone numbers](/relay-voice/numbers).
+    [phone numbers](/cpaas/voice/numbers).
 
 </Update>
 
@@ -331,7 +356,7 @@ live.
   - `GET /v1/relay/voice/voices` lists the voice aliases you may name in `voice`.
   - Pricing: ₹200 once per project the first time Relay Voice is switched on, then
     40 paise per answered call and 3 paise per character of newly synthesized speech.
-    A phone that rings out costs nothing. See [Relay Voice pricing](/relay-voice/pricing).
+    A phone that rings out costs nothing. See [Relay Voice pricing](/cpaas/voice/pricing).
 
   **Where the Manifold pages went**
 

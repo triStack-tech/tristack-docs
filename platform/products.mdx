@@ -7,15 +7,16 @@ Manifold AI and the Tristack CPaaS channels (Voice, Email, WhatsApp and SMS) are
 They share an account, a wallet and a key scheme, and nothing else. That shared plumbing is what
 makes them look like one product with several modes, so this page draws the line precisely.
 
-The CPaaS API still says `relay` in its paths, fields, scopes and error codes, from the
-product's earlier name. Those stay exactly as they are.
+The CPaaS API still says `relay` in its request fields, scopes, usage product ids and error
+codes, from the product's earlier name. Those stay exactly as they are, and so do the older
+`/v1/relay/...` paths: see [Tristack CPaaS](/cpaas/index).
 
 ## Side by side
 
 | | Manifold AI | CPaaS Voice | CPaaS Email | CPaaS WhatsApp |
 |---|---|---|---|---|
-| **Endpoint** | `POST /v1/manifold/messages` | `POST /v1/relay/voice` | `POST /v1/relay/email` | `POST /v1/relay/whatsapp/otp` |
-| **Catalog** | `GET /v1/manifold/models` | `GET /v1/relay/voice/voices` | `GET /v1/relay/email/domains` | None. Your own Meta number is the only sender |
+| **Endpoint** | `POST /v1/manifold/messages` | `POST /v1/cpaas/voice` | `POST /v1/cpaas/email` | `POST /v1/cpaas/whatsapp/otp` |
+| **Catalog** | `GET /v1/manifold/models` | `GET /v1/cpaas/voice/voices` | `GET /v1/cpaas/email/domains` | None. Your own Meta number is the only sender |
 | **You send** | Messages, a model alias, `max_tokens` | Indian mobile numbers, and `text` or an `audioId` | A `from` at a verified domain, recipients, a subject and a body | One number. The code is ours to generate |
 | **You get** | Generated text, in the response or as SSE | `202` with a `jobId`, then per-call status | `202` with an `id`, the provider `messageId`, and what it cost | An `otp_…` id and `expiresAt`. **Never the code** |
 | **Timing** | Synchronous. The answer is the response | Asynchronous. Calls are dialed in the background, 3 at a time process-wide | Synchronous. The provider has accepted it by the time you get the id | Synchronous. Meta has accepted it by the time you get the id |
@@ -62,7 +63,7 @@ TEXT=$(curl -s https://api.tristack.tech/v1/manifold/messages \
   | jq -r '.content[0].text')
 
 # 2. Phone it to somebody. jq -n builds the JSON so quotes in TEXT cannot break it.
-curl -s https://api.tristack.tech/v1/relay/voice \
+curl -s https://api.tristack.tech/v1/cpaas/voice \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$(jq -n --arg text "$TEXT" '{to:["+91XXXXXXXXXX"], text:$text}')"
@@ -132,7 +133,7 @@ because Voice will refuse text longer than that rather than truncate it.
   <Card title="Manifold AI" icon="brain" href="/manifold/quickstart">
     A model answers a prompt. Text or images in, generated text out, streaming optional.
   </Card>
-  <Card title="CPaaS Voice" icon="phone" href="/relay-voice/quickstart">
+  <Card title="CPaaS Voice" icon="phone" href="/cpaas/voice/quickstart">
     A phone rings and a voice reads your sentence aloud. Up to 500 numbers per request.
   </Card>
 </CardGroup>

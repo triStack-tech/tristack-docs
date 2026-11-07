@@ -15,26 +15,26 @@ delivers messages to people. You can use one without ever touching the other.
     `POST /v1/manifold/messages`
   </Card>
 
-  <Card title="Tristack CPaaS" icon="tower-broadcast" href="/relay/index" horizontal>
+  <Card title="Tristack CPaaS" icon="tower-broadcast" href="/cpaas/index" horizontal>
     **Reach a person.** A set of channels sharing one key and one wallet: voice calls,
     transactional email, and one-time codes by WhatsApp or SMS.
 
-    `POST /v1/relay/voice` · `POST /v1/relay/email`
+    `POST /v1/cpaas/voice` · `POST /v1/cpaas/email`
   </Card>
 </CardGroup>
 
 ## Tristack CPaaS is a set of channels, not a single endpoint
 
 Each CPaaS channel has its own endpoint, request shape and price. They share a key, a wallet
-and a project, and nothing else. The API paths still say `relay`, from the product's earlier
-name; they are unchanged.
+and a project, and nothing else. The older `/v1/relay/...` paths, from the product's earlier
+name, still work unchanged: see [Tristack CPaaS](/cpaas/index).
 
 | Channel | Status | Endpoint | Billed |
 | --- | --- | --- | --- |
-| [Voice](/relay-voice/quickstart) | Available | `POST /v1/relay/voice` | Per character of speech |
-| [Email](/relay-email/quickstart) | Available | `POST /v1/relay/email` | Per recipient |
-| [WhatsApp](/relay-whatsapp/index) | Available | `POST /v1/relay/whatsapp/otp` | Per code sent |
-| [SMS](/relay-sms/index) | Early access | `POST /v1/relay/sms/otp` | Per code sent |
+| [Voice](/cpaas/voice/quickstart) | Available | `POST /v1/cpaas/voice` | Per character of speech |
+| [Email](/cpaas/email/quickstart) | Available | `POST /v1/cpaas/email` | Per recipient |
+| [WhatsApp](/cpaas/whatsapp/index) | Available | `POST /v1/cpaas/whatsapp/otp` | Per code sent |
+| [SMS](/cpaas/sms/index) | Early access | `POST /v1/cpaas/sms/otp` | Per code sent |
 
 ## They are separate platforms, not halves of one
 
@@ -83,7 +83,7 @@ connected than they are.
     recording and not for the calls, so reaching five hundred people costs what reaching one
     does.
 
-    [Voice quickstart →](/relay-voice/quickstart)
+    [Voice quickstart →](/cpaas/voice/quickstart)
   </Accordion>
 
   <Accordion title="I want to send a receipt, a password reset or an alert by email" icon="envelope">
@@ -91,7 +91,7 @@ connected than they are.
     from any address at it. Billing is per recipient, so one email to fifty people costs
     fifty times one email to one person.
 
-    [Email quickstart →](/relay-email/quickstart)
+    [Email quickstart →](/cpaas/email/quickstart)
   </Accordion>
 
   <Accordion title="I want a model to write the message, then send it" icon="arrow-right-arrow-left">
@@ -143,13 +143,13 @@ curl https://api.tristack.tech/v1/manifold/messages \
        "messages":[{"role":"user","content":"Say hello from Tristack."}]}'
 
 # Voice: a phone rings
-curl https://api.tristack.tech/v1/relay/voice \
+curl https://api.tristack.tech/v1/cpaas/voice \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"to":["+91XXXXXXXXXX"],"text":"Your delivery arrives between 4 and 6 today."}'
 
 # Email: a message lands in an inbox
-curl https://api.tristack.tech/v1/relay/email \
+curl https://api.tristack.tech/v1/cpaas/email \
   -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"from":"no-reply@yourdomain.com","to":["REPLACE_WITH_YOUR_ADDRESS"],

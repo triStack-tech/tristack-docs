@@ -1,0 +1,146 @@
+---
+title: "Phone numbers"
+description: "Rent your own number for Voice calls: what India requires, how to search and buy, what it costs each month, how it gets assigned to a project, and how to give one back."
+sidebarTitle: "Phone numbers"
+icon: "phone"
+---
+
+By default, calls on Voice (the Tristack CPaaS calling channel) go out from a shared Tristack
+number. You can rent a number of your own for your account. Calls from a project show it once
+Tristack support has assigned it to that project, which is done on request for now: see
+[assigning a number to a project](#assigning-a-number-to-a-project).
+
+<Warning>
+
+  **Indian numbers can only be rented by a registered business.** The regulator requires a
+  Certificate of Incorporation (Udyam Registration is accepted for MSMEs) and a GST
+  certificate. There is no path for an individual or an unregistered sole trader.
+
+</Warning>
+
+## What it costs
+
+**Rs 236 per number per month**, taken from your wallet: Rs 200 plus Rs 36 GST, shown split on
+your ledger rather than as one figure.
+
+This is the only recurring charge on the platform. Everything else is pay per use, so a wallet
+that runs empty simply refuses the next call. A number is different: it costs money every month
+whether you use it or not.
+
+## Getting verified
+
+Once per account, not per project. In the dashboard it is on your
+[profile](https://tristack.tech/profile), under **Business verification**, beside the
+billing identity it evidences: it is a fact about the account rather than about any one
+project, and the status there reads *Not verified*, *Under review*, *Verified* or *Rejected*.
+Renting stays on a project's Voice tab (under **CPaaS**), because the rental is billed to a project.
+
+Over the API:
+
+```bash
+curl https://api.tristack.tech/v1/cpaas/voice/compliance/requirements \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+```
+
+Then submit the business name and the documents together. The name must match the registration
+certificate **exactly**, or the application is refused.
+
+Each document also asks for whatever the regulator wants typed in beside it: the GSTIN with the
+GST certificate, the CIN with the incorporation certificate. The dashboard renders those from
+what the provider declares rather than from a fixed list, so they follow the regulator rather
+than a release of ours. Your **registered address** is sent too, taken from the billing identity
+on your profile, because the regulator is told who the number is for.
+
+Verification is reviewed by a person and normally takes a few days. `GET /v1/cpaas/voice/compliance`
+reports `submitted`, `accepted` or `rejected`, and a rejection carries the reason.
+
+Nothing arrives on its own while you wait. The dashboard's **Check status** button, and
+`POST /v1/cpaas/voice/compliance/refresh` behind it, ask the provider at the moment you want to
+know. There is no timer to wait for and nothing to poll: review takes days, so asking on a loop
+would only repeat the same answer.
+
+Your documents are passed straight to the number provider and are never stored by Tristack.
+
+## Renting one
+
+Searching is behind the same verification as renting, so get verified first.
+
+```bash
+# Search, optionally by prefix
+curl "https://api.tristack.tech/v1/cpaas/voice/numbers/available?prefix=11" \
+  -H "Authorization: Bearer $TRISTACK_API_KEY"
+
+# Rent it
+curl -X POST https://api.tristack.tech/v1/cpaas/voice/numbers \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "phoneNumber": "+911145XXXXXX" }'
+```
+
+The first month is charged immediately. A key needs the `relay-voice:numbers` scope, which is
+deliberately separate from `relay-voice:send`: a key that places calls should not also be able
+to commit you to a monthly bill.
+
+## Renewal, and giving a number back
+
+Auto-renew is on when you rent. Each month the rental is taken and the number continues.
+Renewal carries on even if Tristack disables your account, because a number that lapsed would
+go to somebody else.
+
+**Switch auto-renew off and the number is released at the end of the period you have already
+paid for.** Nothing is refunded, because that month is bought. You can switch it back on at any
+time before the period ends and keep the number.
+
+```bash
+curl -X PATCH https://api.tristack.tech/v1/cpaas/voice/numbers/$ID \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "autoRenew": false }'
+```
+
+<Warning>
+
+  **Releasing is permanent.** A released Indian number goes back to the carrier pool and cannot
+  be reclaimed, by you or by us. Anyone who saved it as your number will be calling a stranger.
+
+</Warning>
+
+## If your wallet is short
+
+**There is no grace period.** The renewal is decided the day before it falls due, and if the
+wallet cannot cover it the number is released rather than carried.
+
+You are warned by email **seven days, three days and two days** before the period ends. The
+last one lands the day before the decision is taken, which makes it the last moment a top-up
+can still save the number. Those three warnings are the whole of your notice, so keep enough
+balance to cover every number you hold.
+
+## Assigning a number to a project
+
+A number belongs to your account, and renting it does not change who your calls come from. A
+call goes out from your number only once the number is assigned to a project, and then every
+call from that project uses it as its caller id. Until then the project keeps calling from the
+shared Tristack number, and an unassigned number costs the same but nothing calls from it.
+
+Assignment is not available through the API or the dashboard yet. **Tristack support assigns a
+number to a project on request**: write to [support@tristack.tech](mailto:support@tristack.tech)
+with the number and the project it should call from.
+
+Separately from that, the rental itself is **billed** to the project you rented from: the API
+key's project, or the project whose settings page you bought it on in the dashboard. That never
+moves, even if the number is later assigned to a different project, so a number's cost stays with
+whoever took it on.
+
+## Errors
+
+| Code | Meaning |
+|---|---|
+| `compliance_required` | The account is not verified yet. Both searching and renting need it |
+| `compliance_pending` | Already submitted and under review |
+| `compliance_exists` | Already verified, so there is nothing to submit |
+| `insufficient_balance` | The wallet cannot cover the first month. Nothing is charged |
+| `number_unavailable` | Taken between your search and your purchase |
+| `document_too_large` | A document is over 5 MB |
+| `unsupported_document_type` | Documents must be PDF, JPEG or PNG |
+
+See [platform errors](/platform/errors) for the codes shared across the API.

@@ -63,16 +63,16 @@ own switch, and they are unrelated to each other.
 | Switch | Gates | Refusal when off |
 |---|---|---|
 | Manifold AI | `POST /v1/manifold/messages`, `GET /v1/manifold/models`, `/v1/manifold/embeddings` | `403 manifold_disabled` |
-| Voice | `POST /v1/relay/voice` and the other `/v1/relay/voice` routes | `403 relay_voice_disabled` |
-| Email | `/v1/relay/email` and its domain, template and suppression routes | `403 relay_email_disabled` |
-| WhatsApp | `/v1/relay/whatsapp/otp` and `/otp/verify` | `403 relay_whatsapp_disabled` |
-| SMS | `/v1/relay/sms/otp`, `/otp/verify`, `/otp/{id}` and `/countries` | `403 relay_sms_disabled` |
+| Voice | `POST /v1/cpaas/voice` and the other `/v1/cpaas/voice` routes | `403 relay_voice_disabled` |
+| Email | `/v1/cpaas/email` and its domain, template and suppression routes | `403 relay_email_disabled` |
+| WhatsApp | `/v1/cpaas/whatsapp/otp` and `/otp/verify` | `403 relay_whatsapp_disabled` |
+| SMS | `/v1/cpaas/sms/otp`, `/otp/verify`, `/otp/{id}` and `/countries` | `403 relay_sms_disabled` |
 
 SMS has one more switch of its own, **International SMS**, on the project's SMS tab. It is off
 when a project is created and decides only whether SMS may go to numbers outside India: a
 number abroad on a project with it off answers `403 international_sms_disabled`, and Indian
 numbers are never affected. See
-[Numbers in India and abroad](/relay-sms/index#numbers-in-india-and-abroad).
+[Numbers in India and abroad](/cpaas/sms/index#numbers-in-india-and-abroad).
 
 A switch takes effect on the next request. Existing keys keep working, and you never need to
 mint a new one after flipping one.

@@ -1,0 +1,375 @@
+---
+title: "SMS"
+description: "One-time codes by SMS to mobiles in India and in other countries, on one endpoint. No DLT registration of your own required: in India Tristack sends under its own registered header unless you bring yours."
+icon: "message-sms"
+---
+
+SMS is the Tristack CPaaS channel for one-time codes by SMS, to mobiles in India and in other
+countries. Two calls. `POST /v1/cpaas/sms/otp` sends a code, and
+`POST /v1/cpaas/sms/otp/verify` checks what the person typed. You write no expiry, no attempt
+cap, no resend throttle and no storage.
+
+The API still says `relay` in its fields, scopes and error codes, from the channel's earlier
+name. Those are unchanged, and so are the older paths under `/v1/relay/sms`, which work
+exactly like `/v1/cpaas/sms`. See [Tristack CPaaS](/cpaas/index).
+
+<Note>
+  SMS is in early access. Create an account and a project, then ask us to switch it on through the
+  contact form on the [company page](https://tristack.tech/company#contact). Until it is on, the endpoints answer
+  `503 relay_sms_unavailable` and nothing is charged.
+</Note>
+
+## Sending to other countries
+
+If you already send codes to Indian numbers, three things to know:
+
+1. **Your integration does not change.** The same `POST /v1/cpaas/sms/otp`, the same
+   `{ "to": "..." }` body, the same verify and status calls. Write the number in international
+   format, with its country code, and the country code decides where the message goes.
+   Indian numbers are sent exactly as before.
+2. **Turn on International SMS for the project.** It is one switch in the dashboard, on the
+   project's **SMS** tab under **CPaaS**, and it is off until you turn it on. Indian numbers
+   do not need it.
+3. **Each country has its own price.** India stays at 40 paise. Every other country has its own
+   price per message: see [SMS prices by country](/cpaas/sms/countries).
+
+<Warning>
+  **Tristack is not sending SMS outside India yet.** The route abroad is waiting for approval
+  from the provider that carries it. Until it opens, every number outside India answers
+  `503 international_sms_unavailable`, even with the switch on, and nothing is charged. You
+  can turn the switch on now. Indian numbers are not affected.
+</Warning>
+
+What changes for a number abroad, and why, is under
+[Numbers in India and abroad](#numbers-in-india-and-abroad).
+
+## In India you do not need a DLT registration
+
+This is the part that is different from the WhatsApp channel, and it is the reason most people
+use this one.
+
+Sending commercial SMS in India normally means registering as a Principal Entity on an
+operator's DLT portal, getting a sender header approved, registering the exact text of every
+message as a content template, and binding a telemarketer to your entity. It takes weeks and
+costs money before you have sent anything.
+
+Without a registration of your own, your codes go out under **Tristack's own registered
+header and content templates**, and every template names **your app**, so the person
+receiving the code can tell which business asked for it. There are two to choose from:
+
+| Template | Approved text | What your users see |
+| --- | --- | --- |
+| `TRISTKDEFAULT2` (the default) | `{#number#} is your requested OTP for {#alphanumeric#}. Best Regards, Tristack Technologies LLP Team.` | 123456 is your requested OTP for Acmebooks. Best Regards, Tristack Technologies LLP Team. |
+| `TRK_OTP_3` | `{#number#} is your requested OTP for {#alphanumeric#} - Powered by Tristack Technologies` | 123456 is your requested OTP for Acmebooks - Powered by Tristack Technologies |
+
+`{#number#}` is the code and `{#alphanumeric#}` is your app name. A project uses
+`TRISTKDEFAULT2` until you pick the other one under **SMS template** on the project's **SMS**
+tab. Both cost the same 40 paise, and both carry the same approved app name.
+
+The one thing to set is that app name, and Tristack reviews it before it reaches the public.
+See [Setting your app name](#setting-your-app-name), or skip the wait with
+[a verified domain](#instant-approval-through-your-domain).
+
+<Warning>
+  Every code names the business it is for because a code that names only Tristack is what a
+  fraudster sending through someone's account would hide behind.
+
+  The sender header itself stays Tristack's (`TRISTK`), and so does the sign-off. Under India's
+  DLT rules a sender header belongs to the entity whose brand it carries. If your recipients
+  need to see **your** header, you need your own registration. See
+  [Using your own header](/cpaas/sms/dlt-setup).
+</Warning>
+
+### Setting your app name
+
+A name anyone could type is no protection: a code "for your bank" sent under Tristack's header
+is exactly what a fraudster wants. So a person at Tristack checks every app name against the
+business it claims to be before any code carries it to the public.
+
+1. **Set the name and a link.** On the project's **SMS** tab, enter the name (letters, numbers
+   and single spaces, up to 30 characters) and a link to your website or your app's store
+   listing. The name goes to Tristack for review. Names of banks, payment apps, government
+   bodies, telecoms and large brands are refused on the spot and never reach review.
+2. **Test with your own numbers meanwhile.** Until the name is approved, codes go only to the
+   account's test numbers: up to three Indian mobiles, added on the same tab and confirmed
+   with a code we send them, free of charge. Those codes already carry the name waiting for
+   review. Any other number answers `403 app_name_pending`.
+3. **Once approved, it goes to everyone.** Every code from the project carries the name from
+   then on. A rejected name shows its reason on the tab; enter a different one to try again.
+
+A name that matches a domain you have verified skips the review and is approved at once. See
+[Instant approval through your domain](#instant-approval-through-your-domain).
+
+An approved name is fixed. A different name is a new request, and the approved one keeps
+going out until the new one is approved, so a rename never stops your codes.
+
+A project with no approved name and none waiting for review answers
+`400 app_name_required`. Nothing is charged for either refusal. App names already in use
+before review began were kept as approved. Indian codes sent under your own DLT header do
+not use the app name; codes abroad always do.
+
+### Instant approval through your domain
+
+Prove that you own your website's domain, and an app name that matches it needs no review. It
+is approved the moment you save it, and codes go to every number straight away.
+
+1. **Add your domain.** In the dashboard, on the project's **SMS** tab, add your website's
+   domain, for example `acmebooks.com`. Pasting a whole address works too:
+   `https://www.acmebooks.co.in/login` is kept as `acmebooks.co.in`.
+2. **Publish one TXT record at the domain itself.** At your DNS provider, add a TXT record
+   with the host `@` (the domain itself, in most DNS panels) and the value the dashboard shows,
+   which starts `tristack-verification=`. Records you already have can stay.
+3. **Click Check now.** If the record is not found yet, wait a while and check again. A new
+   DNS record can take up to an hour to be seen.
+
+A domain you already verified for [Email](/cpaas/email/domains) counts at once, with no TXT
+record. Verified domains belong to the account, like test numbers, so every project in the
+account can use them. An account can list up to 10. Hosting addresses such as
+`yourapp.vercel.app`, `yourapp.github.io` or `yourapp.netlify.app` are refused, because only
+the platform controls their DNS: use a domain of your own.
+
+**What counts as a match.** Take the app name without its spaces. Take the domain's own name,
+the part before `.com`, `.in`, `.co.in` and the like, without its hyphens. Capitals do not
+matter. The two must be the same. A subdomain changes nothing: `app.acmebooks.com` is read
+as `acmebooks.com`.
+
+| App name | Domain | Result |
+| --- | --- | --- |
+| Acmebooks | `acmebooks.com` | Approved at once |
+| Acme Books | `acmebooks.com` | Approved at once |
+| Acmebooks | `acme-books.in` | Approved at once |
+| Acmebooks Pro | `acmebooks.com` | Goes to review |
+
+It works in either order. Save a name when a matching domain is already verified, and it is
+approved as you save it. Verify a domain while a matching name waits for review, and the name
+is approved as the check succeeds. When the name matches, the link to your website is
+optional: it defaults to your domain.
+
+**What still goes to review, or is refused:**
+
+- A name that does not match a verified domain, such as Acmebooks Pro for
+  `acmebooks.com`. It goes to review as usual.
+- A name of a bank, a payment app, a government body, a telecom or a large brand. It is
+  refused on the spot, whatever domain you own.
+- A name that contains such a name, even in a longer word, for example Sbionline with
+  `sbionline.in`. Anyone can buy a domain like that, so a person at Tristack checks it.
+- A name Tristack rejected or revoked on any project in your account, in any spelling
+  (Acme Books after Acmebooks was rejected). A person at Tristack decided that one, so it
+  goes back to a person.
+
+Tristack still sees every name approved this way and can revoke it. Removing a domain later
+does not undo a name it approved. Nothing changes in the API: once the name is approved,
+sends simply stop answering `403 app_name_pending`.
+
+### Identity check (KYC)
+
+The app name tells the person receiving a code which business it is for. Tristack also needs to
+know who is behind each account sending under its header, so every account that uses it goes
+through a short identity check.
+
+- **You have 30 days.** They start when the first app name in your account is approved. Until
+  then, and during them, nothing is limited.
+- **After that, 200 codes a day until the check is verified.** Codes under Tristack's header and
+  codes abroad are limited to 200 in any 24 hours, across all projects in the account. Codes
+  under your own DLT header are never limited by this. Once the check is verified, the limit is
+  gone.
+- **How to do it.** On the dashboard's **Profile** page, under Verification, open **Identity
+  check for SMS**. Enter your legal name, your PAN and, if you have one, your GSTIN. Without a
+  GSTIN, also enter the date printed on your PAN card. A person at Tristack checks these on the
+  GST or Income Tax portal. If something does not match, the reason is shown on the same page
+  and you can correct it and submit again.
+- **What is kept.** No document images and no Aadhaar number. The date on the PAN is deleted as
+  soon as the check is decided. You can delete your details on the same page at any time; the
+  daily limit then applies again. The [privacy policy](https://tristack.tech/privacy) says how
+  long the rest is kept.
+
+Over the limit, a send answers `429 kyc_daily_limit` with a `Retry-After` header saying when the
+next code can go. Nothing is charged.
+
+## Sending a code
+
+```bash
+curl https://api.tristack.tech/v1/cpaas/sms/otp \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "to": "+91 xxxxxxxxxx" }'
+```
+
+```json 200 OK
+{
+  "id": "sms_9f3c21a0b5e74d82c1a7f0de",
+  "expiresAt": "2026-09-21T09:10:18Z",
+  "costPaise": 40,
+  "header": "TRISTK",
+  "reused": false,
+  "country": "IN"
+}
+```
+
+The code is **never returned**. The `id` is your only handle on it, `header` tells you
+which sender the recipient saw, and `country` which country the number belongs to.
+
+A number abroad is the same call with its country code, for example
+`{ "to": "+49 xxxx xxxxxxx" }` for Germany. The answer has the same shape, with that
+country's price and no DLT header:
+
+```json 200 OK, a number in Germany
+{
+  "id": "sms_4b8e07d2f16a93c5e0b2d781",
+  "expiresAt": "2026-11-06T09:10:18Z",
+  "costPaise": 1550,
+  "header": null,
+  "reused": false,
+  "country": "DE"
+}
+```
+
+## Verifying it
+
+```bash
+curl https://api.tristack.tech/v1/cpaas/sms/otp/verify \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "id": "sms_9f3c21a0b5e74d82c1a7f0de", "code": "483920" }'
+```
+
+```json 200 OK
+{ "verified": true }
+```
+
+A failure says which of four things went wrong, because they need four different things said
+to the person waiting:
+
+| `reason` | Means |
+| --- | --- |
+| `incorrect` | Wrong digits. `attemptsRemaining` says how many guesses are left. |
+| `expired` | Past `expiresAt`. Send a new one. |
+| `exhausted` | The attempt cap was reached and the code is dead, even for the right digits. |
+| `superseded` | A newer code was issued for this number, so this one stopped being valid. |
+| `already_verified` | It was used. A code verifies exactly once. |
+
+## Numbers in India and abroad
+
+`to` takes a mobile number in any country, and its country code decides the route.
+
+**`+91` goes through an Indian operator under DLT, as it always has.** Your own header if the
+project has one, otherwise Tristack's, at 40 paise. The International SMS switch has no effect
+on Indian numbers. `+91 98765 43210`, `91-9876543210`, `09876543210` and `9876543210` are all
+read as the same number.
+
+**Every other country code goes through Tristack's route abroad**, when the project's
+International SMS switch is on. Write the number with its country code, starting `+` or `00`:
+`+49 xxxx xxxxxxx` and `0049 xxxx xxxxxxx` are the same German number. Spaces, hyphens,
+brackets and dots are ignored. A bare ten-digit number starting with 6, 7, 8 or 9 is always
+read as Indian, so a number abroad written without its country code does not reach the person
+you meant.
+
+Only mobiles can receive a code. Landlines, and premium-rate, toll-free and shared-cost
+numbers, are refused with `invalid_phone_number` before anything is charged.
+
+### Why the switch is off by default
+
+Codes to numbers abroad are the usual target of SMS pumping: bots request codes to expensive
+numbers in other countries, and the sender pays for every one. A project that serves only India
+should not be exposed to that because SMS is on. So a number outside India on a project with
+the switch off answers `403 international_sms_disabled`, and costs nothing.
+
+### What is different abroad
+
+- **The text is fixed.** DLT is India's system, so your DLT template and header, and the
+  Tristack template you picked for India, are not used outside India. A number abroad receives
+  Tristack's own message, with your app name in it, which fits in a single SMS:
+
+  > 123456 is your YourApp verification code. It is valid for 10 minutes. Do not share it with anyone.
+
+  As in India, it is the approved name. A project with none is refused with
+  `400 app_name_required`, and while a name waits for review every number abroad answers
+  `403 app_name_pending`, because test numbers are Indian mobiles. See
+  [Setting your app name](#setting-your-app-name).
+- **The sender depends on the country.** The recipient sees a shared sender that the networks
+  in that country accept, not a header, so `header` in the response is `null`.
+- **The price depends on the country.** Each country has its own price per message, which
+  moves with the rupee. See [SMS prices by country](/cpaas/sms/countries).
+- **No delivery reports yet.** `delivery.status` for a number abroad reads `unknown`. The
+  code's own status (`pending`, `verified`, `expired`) works exactly as in India.
+- **A daily ceiling of its own.** 300 messages outside India per project in any 24 hours, on
+  top of the limits below.
+- **Some countries are not reachable yet.** A country that needs a sender registration
+  Tristack has not made answers `400 sms_country_unavailable`.
+  [The list](/cpaas/sms/countries#countries-not-available-yet).
+- **A reply of STOP is honoured.** A recipient abroad who replied STOP to an earlier message
+  is refused with `502 recipient_opted_out`, and nothing is charged.
+
+Everything else is the same: six digits, ten minutes, five attempts, one live code per number,
+the resend window, and the same verify call.
+
+A number abroad is checked in this order, and each refusal is decided before any money moves:
+the number itself (`invalid_phone_number`), the project's switch
+(`international_sms_disabled`), whether Tristack is sending outside India
+(`international_sms_unavailable`), the country (`sms_country_unavailable`), the limits
+(`project_volume_capped` and the others), and then the price against your balance
+(`insufficient_balance`).
+
+## What protects the code
+
+Not the fact that it is stored hashed, and it is worth being plain about that. Six digits is a
+million possibilities; a hash buys very little against anyone who has the table. What actually
+protects a code is:
+
+- **Five wrong guesses consume it.** Not "the attempt fails": the code dies, so an attacker
+  gets five tries at a million rather than unlimited.
+- **One live code per number.** Asking for a new one invalidates the previous, so nobody can
+  accumulate a pool of valid codes to guess against.
+- **Ten minutes**, exactly, matching what the message itself promises the recipient.
+- **A verified code is consumed immediately** and cannot be presented twice.
+
+## Asking again quickly does not send twice
+
+A second request for the same number inside a minute returns the **existing** code's id,
+sends nothing, and charges nothing. `reused` is `true`.
+
+This is deliberate rather than a refusal: refusing would teach every integration to build a
+retry loop, and the person is waiting for the code they already received. Because nothing is
+sent, it also does not consume any of the limits below.
+
+## Limits
+
+Per recipient, three codes an hour and ten a day. Per project, a burst limiter plus an hourly
+and a daily ceiling on total messages.
+
+The per-project ceilings exist because a flood of codes is not only a cost. Under DLT rules,
+messages sent abusively under a header are the registered entity's problem to answer for, and
+that is worth stopping early rather than explaining afterwards. A refusal answers `429` with
+`rate_limited`, `recipient_rate_limited` or `project_volume_capped`, and the first carries a
+`Retry-After`.
+
+Numbers abroad count towards all of these, and have one more ceiling of their own: **300
+messages outside India per project in any 24 hours**. A message to the dearest country costs
+about two hundred times an Indian one, so a run of pumped codes is stopped while it is still
+small. Going over it also answers `429 project_volume_capped`.
+
+An account past its 30 days without a verified identity check has one more ceiling: 200 codes
+under Tristack's header and abroad in any 24 hours, across the account, answered with
+`429 kyc_daily_limit`. See [Identity check (KYC)](#identity-check-kyc).
+
+If a ceiling is wrong for your traffic, ask and it will be raised. It is not a pricing tier.
+
+## Did it arrive?
+
+`GET /v1/cpaas/sms/otp/{id}` reports delivery separately from the code's own status, because
+they answer different questions. A code can be `verified` while delivery still reads `pending`:
+people type a code in faster than operators report on it.
+
+`delivery.status` is one of `pending`, `delivered`, `failed`, `blocked` or `unknown`.
+`blocked` means an operator refused it outright, most often DLT scrubbing against the content
+template. `unknown` means the report was no longer available by the time we asked, which is a
+gap in what we can tell you rather than a lost message.
+
+For a number abroad, `delivery.status` is always `unknown`, with the detail "Delivery reports
+are not available for SMS outside India yet." The code's own status is reported as usual.
+
+## What is not in this yet
+
+Bulk and transactional SMS, your own message text per request (in India or abroad), more than
+one template per project, scheduled sends, delivery webhooks, delivery reports outside India,
+and regional-language templates.

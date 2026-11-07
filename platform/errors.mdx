@@ -53,6 +53,13 @@ Two fields ride along on specific failures:
 
 ## Every documented code
 
+<Note>
+  The CPaaS codes still say `relay` (`relay_voice_disabled`, `relay_sms_unavailable`), from
+  the product's earlier name, and so do its scopes and usage product ids. They are the same
+  whether you call `/v1/cpaas/...` or the older `/v1/relay/...`, which still works unchanged
+  and will keep working. An integration written against `/v1/relay/...` needs no change.
+</Note>
+
 | `code` | Status | Product | What happened | What to do |
 |---|:---:|---|---|---|
 | `invalid_text` | 400 | Dashboard API | A text field held a NUL character (U+0000), which cannot be stored. `field` names it. Nothing was saved | Remove the character. It usually comes from text read out of a binary file |
@@ -90,22 +97,22 @@ Two fields ride along on specific failures:
 | `unsupported_document_type` | 400 | Voice | A verification document is not a PDF, JPEG or PNG | Convert it and submit again |
 | `number_unavailable` | 409 | Voice | The number was taken between your search and your purchase | Search again and pick another. The wallet hold is released, so nothing was charged |
 | `invalid_phone_number` | 400 | Voice, SMS, WhatsApp | A number in `to` is not one the channel can reach: a dialable Indian mobile for Voice, a mobile in any country for SMS (with its country code outside India), an international number for WhatsApp. On Voice, `error` names the index and the value you sent | Drop or correct it. Voice refuses landlines and foreign numbers. SMS refuses landlines and premium-rate, toll-free and shared-cost numbers |
-| `unknown_voice` | 400 | Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/relay/voice/voices`, or omit `voice` for the default |
+| `unknown_voice` | 400 | Voice | `voice` is not a selectable alias. A voice the operator switched off answers identically | Take an alias from `GET /v1/cpaas/voice/voices`, or omit `voice` for the default |
 | `invalid_audio_id` | 400 | Voice | `audioId` is not shaped like one (`aud_` plus 24 lowercase hex). Checked before any lookup | Send the exact `audioId` from an earlier response |
 | `audio_not_found` | 404 | Voice | No such recording on this account. Another account's id answers identically | Send `text` instead and keep the new `audioId` |
 | `invalid_speed` | 400 | Voice | `speed` is outside 0.7 to 1.2. Refused rather than clamped | Send a value in range, or omit it to use the project's tempo |
 | `job_not_found` | 404 | Voice | No job with that id on this account. Another account's job answers identically | Check the `jobId` came from one of your own sends |
 | `missing_data_field` | 400 | Voice | A business verification left out a `required` field. `documentType` and `field` name it | Add the field and submit again |
 | `relay_email_disabled` | 403 | Email | Email is not switched on for this project | Turn the switch on in the project's Email tab, under CPaaS. Enabling costs nothing |
-| `recipient_domain_undeliverable` | 400 | Email | A recipient domain publishes no mail exchanger and no address record, or is reserved for documentation (`example.com`, anything ending `.test` or `.invalid`). Refused before anything is charged, because it would certainly bounce | Use a real address. To test, send to a [simulator address](/relay-email/testing) |
+| `recipient_domain_undeliverable` | 400 | Email | A recipient domain publishes no mail exchanger and no address record, or is reserved for documentation (`example.com`, anything ending `.test` or `.invalid`). Refused before anything is charged, because it would certainly bounce | Use a real address. To test, send to a [simulator address](/cpaas/email/testing) |
 | `simulator_recipient_mixed` | 400 | Email | One message addressed to both a simulator address and a real one. Nothing is sent for a simulator address, so the message would be half sent and half invented | Send them as two requests |
-| `unknown_simulator_address` | 400 | Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/relay-email/testing) |
+| `unknown_simulator_address` | 400 | Email | A mailbox on the sandbox domain that is not one of ours, usually a typo. The response lists the real ones | Copy one from [the table](/cpaas/email/testing) |
 | `relay_email_unavailable` | 503 | Email | The product is misconfigured on our side, for example a price that cannot be charged. Refused rather than half-served | Nothing you can fix in the request. Contact support |
 | `from_domain_not_verified` | 400 | Email | The `from` domain is not verified, or it belongs to a different project. Refused before any hold | Verify it in the project's Email tab, and check the whole domain rather than the address |
 | `invalid_domain` | 400 | Email | Not a domain anyone can send from. Email addresses, bare TLDs, public suffixes and IP addresses are refused | Send `yourdomain.com` or a subdomain such as `mail.yourdomain.com` |
 | `domain_taken` | 409 | Email | Another project already holds this domain. Which one is deliberately not disclosed | Remove it from your other project, or contact support if you believe it is yours |
 | `domain_limit_reached` | 409 | Email | This project already holds 25 domains, counting unverified ones | Remove one you are not using. Unverified claims expire after seven days |
-| `domain_not_found` | 404 | Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/relay/email/domains` |
+| `domain_not_found` | 404 | Email | This project does not hold that domain. A domain held by someone else answers identically | Check the spelling against `GET /v1/cpaas/email/domains` |
 | `invalid_address` | 400 | Email | An address in `from`, `to`, `cc`, `bcc` or `replyTo` did not parse | Correct it. `error` names what failed |
 | `no_recipients` | 400 | Email | `to`, `cc` and `bcc` were all empty | Supply at least one recipient |
 | `empty_body` | 400 | Email | Neither `text` nor `html` was supplied | Send at least one of them |
@@ -140,8 +147,8 @@ Two fields ride along on specific failures:
 | `relay_sms_disabled` | 403 | SMS | SMS is not switched on for this project | Turn it on. No new key needed |
 | `relay_sms_unavailable` | 503 | SMS | SMS is off, or unable to send, on this deployment. Nothing was charged | Contact support. It never means your wallet: that would be a `402` |
 | `no_sender_identity` | 400 | SMS | Neither your own DLT header nor Tristack's shared header is available for this project | Register your own on the project's SMS tab, or ask support to enable the shared header |
-| `app_name_required` | 400 | SMS | The project has no approved app name and none waiting for review. Every code under Tristack's shared header, and every code abroad, names the business it is for | Set the app name and a link to your website or app listing on the project's SMS tab, for Tristack to review. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
-| `app_name_pending` | 403 | SMS | The project's app name is waiting for Tristack's review, and the number is not one of the account's verified test numbers. Until the name is approved, codes go only to those | Wait for the approval, or [verify a domain that matches the name](/relay-sms/index#instant-approval-through-your-domain) to have it approved at once. Test meanwhile with the account's test numbers, set on the SMS tab. [How](/relay-sms/index#setting-your-app-name). Nothing was charged |
+| `app_name_required` | 400 | SMS | The project has no approved app name and none waiting for review. Every code under Tristack's shared header, and every code abroad, names the business it is for | Set the app name and a link to your website or app listing on the project's SMS tab, for Tristack to review. [How](/cpaas/sms/index#setting-your-app-name). Nothing was charged |
+| `app_name_pending` | 403 | SMS | The project's app name is waiting for Tristack's review, and the number is not one of the account's verified test numbers. Until the name is approved, codes go only to those | Wait for the approval, or [verify a domain that matches the name](/cpaas/sms/index#instant-approval-through-your-domain) to have it approved at once. Test meanwhile with the account's test numbers, set on the SMS tab. [How](/cpaas/sms/index#setting-your-app-name). Nothing was charged |
 | `template_missing` | 400 | SMS | No approved template text is configured for this send | Paste it on the project's SMS tab |
 | `template_variable_mismatch` | 400 | SMS | Your registered template's placeholders do not match what is being filled in | Re-copy the approved text on the project's SMS tab |
 | `template_variable_too_long` | 400 | SMS | A value exceeds DLT's 30-character ceiling | Shorten it |
@@ -149,29 +156,29 @@ Two fields ride along on specific failures:
 | `template_variable_invalid` | 400 | SMS | A value carries a `\|`, a line break, stray spacing, or would produce a doubled space | Fix the value |
 | `recipient_rate_limited` | 429 | SMS, WhatsApp | This number is over its hourly or daily cap | Wait, or offer the person another route |
 | `project_volume_capped` | 429 | SMS | The project is over its hourly or daily message ceiling, or over its 300 messages outside India in 24 hours | Ask support for it to be raised |
-| `kyc_daily_limit` | 429 | SMS | The account is past its 30 days without a verified identity check, and has sent 200 codes under Tristack's header or abroad in the last 24 hours. `Retry-After` says when the next one can go | Complete the identity check on the dashboard's Profile page. [How](/relay-sms/index#identity-check-kyc). Nothing was charged |
-| `dlt_sender_not_approved` | 502 | SMS | The operator refused the sender header | Check spelling, letter case and the telemarketer binding. [DLT setup](/relay-sms/dlt-setup) |
+| `kyc_daily_limit` | 429 | SMS | The account is past its 30 days without a verified identity check, and has sent 200 codes under Tristack's header or abroad in the last 24 hours. `Retry-After` says when the next one can go | Complete the identity check on the dashboard's Profile page. [How](/cpaas/sms/index#identity-check-kyc). Nothing was charged |
+| `dlt_sender_not_approved` | 502 | SMS | The operator refused the sender header | Check spelling, letter case and the telemarketer binding. [DLT setup](/cpaas/sms/dlt-setup) |
 | `dlt_template_not_approved` | 502 | SMS | The operator refused the content template | The text must match your registration exactly |
 | `dlt_blacklisted` | 502 | SMS | The header or template is blacklisted on DLT | Settle it with your operator |
 | `dlt_content_rejected` | 502 | SMS | The operator refused the content | Usually a link or an unexpected character |
 | `provider_rate_limited` | 502 | SMS | Refused as a repeat to the same number too quickly | Back off |
 | `international_sms_disabled` | 403 | SMS | A number outside India, and the project's International SMS switch is off | Turn on International SMS on the project's SMS tab in the dashboard. No new key needed |
 | `international_sms_unavailable` | 503 | SMS | Tristack is not sending SMS outside India yet. Every number abroad answers this until sending abroad opens, even with the switch on. Nothing was charged | Send Indian numbers as usual. Reach a number abroad another way, for example WhatsApp |
-| `sms_country_unavailable` | 400 | SMS | The number is in a country Tristack cannot send to yet, because it needs a sender registration. Refused before the hold | Reach the person another way. [The list](/relay-sms/countries#countries-not-available-yet) |
+| `sms_country_unavailable` | 400 | SMS | The number is in a country Tristack cannot send to yet, because it needs a sender registration. Refused before the hold | Reach the person another way. [The list](/cpaas/sms/countries#countries-not-available-yet) |
 | `recipient_opted_out` | 502 | SMS | The recipient abroad replied STOP to an earlier message. The hold is released | Do not retry. Reach the person another way |
 | `otp_not_found` | 404 | SMS, WhatsApp | No code with that id for this project. Another project's id answers identically | Check the id came from this project's send |
 | `relay_whatsapp_disabled` | 403 | WhatsApp | WhatsApp is not switched on for this project | Turn it on. No new key needed |
 | `relay_whatsapp_unavailable` | 503 | WhatsApp | WhatsApp is off, or half-configured, on this deployment | Contact support |
 | `whatsapp_not_configured` | 400 | WhatsApp | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |
 | `credential_unreadable` | 409 | WhatsApp | The stored access token could not be decrypted | Enter it again on the project's WhatsApp tab |
-| `whatsapp_token_invalid` | 502 | WhatsApp | Meta refused the token, or the number is not ready | Paste a new token, or finish registering the number. [Meta setup](/relay-whatsapp/meta-setup) |
+| `whatsapp_token_invalid` | 502 | WhatsApp | Meta refused the token, or the number is not ready | Paste a new token, or finish registering the number. [Meta setup](/cpaas/whatsapp/meta-setup) |
 | `whatsapp_template_not_approved` | 502 | WhatsApp | The template name, language or parameter count does not match an approved template | Check it in WhatsApp Manager |
 | `whatsapp_recipient_unreachable` | 502 | WhatsApp | The number is not on WhatsApp, or will not accept messages from this business | Nothing to retry |
 | `whatsapp_throttled` | 502 | WhatsApp | Meta is throttling the number | Retry with backoff |
 
 <Accordion title="Codes from the dashboard API" icon="gauge">
   These come from the account and wallet routes under `/api/v1`, which use your session token
-  or an [access token](/platform/access-tokens) rather than an API key. They never appear on `/v1/manifold` or `/v1/relay`, though
+  or an [access token](/platform/access-tokens) rather than an API key. They never appear on `/v1/manifold` or `/v1/cpaas`, though
   `below_minimum_topup` and `razorpay_disabled` also answer on `/v1/wallet`, where the same
   two rules apply to an embedded top-up.
 
@@ -232,7 +239,7 @@ own page.
 These come from the dashboard API under `/api/v1` when it is called with an
 [access token](/platform/access-tokens) (`tsa_...`), the credential the
 [`tristack` CLI](/platform/cli) and AI agents use. They never appear on `/v1/manifold` or
-`/v1/relay`, where an access token is refused as `401 invalid_api_key`. The `tristack` CLI
+`/v1/cpaas`, where an access token is refused as `401 invalid_api_key`. The `tristack` CLI
 exits with code `3` on the first seven.
 
 | `code` | Status | Surface | What happened | What to do |
@@ -295,8 +302,8 @@ Almost nothing, by design. The order of checks is deliberate:
 
 | Surface | Limit | Answer |
 |---|---|---|
-| `/v1/manifold/*` and `/v1/relay/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
-| `/v1/relay/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
+| `/v1/manifold/*` and `/v1/cpaas/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/v1/cpaas/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | Sign-in and account recovery: `/api/v1/account/register`, `/login`, `/google-login`, `/forgot-password`, `/reset-password`, `/verify-email` and `/resend-verification` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
 | `/api/v1/*` called with an [access token](/platform/access-tokens) | 300 per minute per person, across all their tokens; and 30 failed token attempts per minute per IP address, after which that address is refused for the rest of the minute, valid tokens included | `429` with `rate_limited`, `retryAfter` and a `Retry-After` header |
@@ -333,7 +340,7 @@ later, so those failures are read from the job rather than from a status code.
   job ends `Failed` with that code. It settles like any other finish: the speech charge stands,
   because the recording was made, and the calls cost nothing. The key can no longer read the
   job back once that has happened, so a `callbackUrl` is how you learn of it.
-  [Job status →](/api-reference/relay-voice/job)
+  [Job status →](/api-reference/cpaas/voice/job)
 - **`error` on a call**: why that one number failed, alongside its status.
 - **Call statuses that are not errors at all**: `Busy`, `NoAnswer` and `Cancelled` are normal
   outcomes of telephoning people. None of them is billed. A job status of `Completed` means
@@ -381,7 +388,7 @@ else:
 
 ```javascript Node
 // Node 18 or newer, no dependencies. Save as .mjs, or set "type": "module".
-const response = await fetch("https://api.tristack.tech/v1/relay/voice", {
+const response = await fetch("https://api.tristack.tech/v1/cpaas/voice", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,

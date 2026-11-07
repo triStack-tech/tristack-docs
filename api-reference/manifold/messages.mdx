@@ -16,7 +16,7 @@ description: "POST /v1/manifold/messages: every request field, the response, the
   | Where | Casing | Examples |
   |---|---|---|
   | This endpoint's request and response | `snake_case` | `max_tokens`, `stop_reason`, `input_tokens` |
-  | `GET /v1/manifold/models`, the wallet, all of Tristack CPaaS (`/v1/relay/…`) | `camelCase` | `displayName`, `paisePer1KTokensIn` |
+  | `GET /v1/manifold/models`, the wallet, all of Tristack CPaaS (`/v1/cpaas/…`) | `camelCase` | `displayName`, `paisePer1KTokensIn` |
   | Error bodies, including this endpoint's | `camelCase` | `requiredPaise`, `requiredScope`, `heldPaise` |
 
   So a client for this endpoint needs one serializer for the messages shape and another for

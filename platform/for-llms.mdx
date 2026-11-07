@@ -21,7 +21,7 @@ Every page here is published in a form a model can read directly, without scrapi
 
 <ResponseField name="any page, with .md appended" type="text/markdown">
   Append `.md` to any documentation URL to get that page's markdown source instead of the
-  rendered page. `/relay-voice/quickstart` becomes `/relay-voice/quickstart.md`. This is
+  rendered page. `/cpaas/voice/quickstart` becomes `/cpaas/voice/quickstart.md`. This is
   the cheapest way to read one page precisely.
 </ResponseField>
 
@@ -42,7 +42,7 @@ thing by hand, along with shortcuts that open the current page in an assistant.
 ## Fetching a page from a script
 
 ```bash Read one page as markdown
-curl -sL https://docs.tristack.tech/relay-voice/quickstart.md
+curl -sL https://docs.tristack.tech/cpaas/voice/quickstart.md
 ```
 
 ```python Pull the index, then the pages you need
@@ -54,7 +54,7 @@ index = urllib.request.urlopen(f"{BASE}/llms.txt").read().decode()
 paths = re.findall(r"\((/[^)]+)\)", index)
 
 for path in paths:
-    if path.startswith("/relay-voice"):
+    if path.startswith("/cpaas/voice"):
         page = urllib.request.urlopen(f"{BASE}{path}.md").read().decode()
         print(path, len(page), "chars")
 ```
@@ -72,7 +72,7 @@ than the page.
   Manifold AI prices changed on 2026-08-21, which is exactly the kind of move a cached page
   would miss.
 
-  SMS prices outside India move with the rupee every day. `GET /v1/relay/sms/countries` is
+  SMS prices outside India move with the rupee every day. `GET /v1/cpaas/sms/countries` is
   the authority for them, not the table on the prices-by-country page.
 </Warning>
 
@@ -99,7 +99,7 @@ If you are summarising this site for a model, these are the load-bearing ones:
 | Base URL | `https://api.tristack.tech` |
 | Auth | `Authorization: Bearer tsk_live_…`, or `X-Api-Key` |
 | Money | every amount is an integer in **paise**; Rs 1.50 is `150`. No endpoint takes a rupee float |
-| Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out) and **Tristack CPaaS** (`/v1/relay/…`: Voice, Email, WhatsApp and SMS channels). The CPaaS paths, fields, scopes and codes still say `relay`; do not rename them in code |
+| Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out) and **Tristack CPaaS** (`/v1/cpaas/…`: Voice, Email, WhatsApp and SMS channels). The older `/v1/relay/…` paths answer identically and keep working. The CPaaS fields, scopes, usage product ids and codes still say `relay` on both; do not rename them in code |
 | Relationship | separate platforms, a separate switch per product and channel, separate pricing, one wallet and one key format. Nothing passes between them automatically |
 | Recipients | Voice: Indian mobiles only, in any common spelling; it normalizes its `to` list to E.164 and deduplicates it. SMS: a mobile in any country, on the same endpoint. An Indian number in any common spelling, any other country with its country code, and only when the project's International SMS switch is on. WhatsApp takes an international number |
 | A refused account | `403 account_disabled` on every key means Tristack has disabled the account. Retrying or minting a new key will not help; the owner writes to hello@tristack.tech |
