@@ -110,17 +110,21 @@ the CLI's config; never ask for it, print it, or put it on a command line.
   check, automatic top-ups, top-ups). Tell me; do not look for a way around it.
 - `token_read_only` means the token is Read only and nothing was changed. Tell me, and I will
   do it on the dashboard or give you a Full access token; do not retry with the same one.
+- `token_location_blocked` or `token_ip_blocked` means I locked the token to certain countries
+  or addresses and this machine is outside them. Tell me; never try another network, a proxy
+  or a VPN.
 ```
 
 ## What the agent cannot do
 
 A token, whatever its scope, is refused with `403 session_required` on:
 
-- making, listing or revoking access tokens, so an agent can never give itself more access or
-  outlive its own token;
+- making, listing or revoking access tokens, or changing their location locks, so an agent can
+  never give itself more access, loosen its own locks or outlive its own token;
 - signing in and out, and resetting a password;
 - submitting or deleting the identity check for SMS (KYC), which needs your own consent;
-- any change to automatic top-ups.
+- any change to automatic top-ups;
+- submitting the SMS DLT registration or the Voice number compliance documents.
 
 Top-ups are paid in the browser, so they are yours too. A Read only token is also refused with
 `403 token_read_only` on every change. The CLI exits with code `3` for both, and the agent
@@ -129,6 +133,9 @@ guide tells the agent to stop and ask you. The full list is on
 
 ## Good habits
 
+- **Lock a token that lives on a server** to that server's IP address, and keep the
+  new-location emails on: a token that leaks from it is then useless elsewhere, and you hear
+  about the attempt. See [location alerts and locks](/platform/access-tokens#location-alerts-and-locks).
 - **One token per agent or machine.** If one leaks, or an agent goes wrong, revoking it stops
   exactly that one and nothing else.
 - **Read only first.** Start an agent on Read only, and make a Full access token only for the

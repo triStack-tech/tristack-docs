@@ -233,7 +233,7 @@ These come from the dashboard API under `/api/v1` when it is called with an
 [access token](/platform/access-tokens) (`tsa_...`), the credential the
 [`tristack` CLI](/platform/cli) and AI agents use. They never appear on `/v1/manifold` or
 `/v1/relay`, where an access token is refused as `401 invalid_api_key`. The `tristack` CLI
-exits with code `3` on the first five.
+exits with code `3` on the first seven.
 
 | `code` | Status | Surface | What happened | What to do |
 |---|:---:|---|---|---|
@@ -241,13 +241,17 @@ exits with code `3` on the first five.
 | `access_token_expired` | 401 | Any token call | The token's expiry has passed | Make a new one on the Profile page |
 | `account_disabled` | 401 | Any token call | Tristack has disabled the account. The token's owner is refused exactly as a session would be | Write to hello@tristack.tech. A new token will not help |
 | `token_read_only` | 403 | Any token call | A Read only token sent something other than `GET` or `HEAD`. Nothing was changed | Use a Full access token for changes |
-| `session_required` | 403 | Session-only actions | Only a signed-in person can do this: managing access tokens, signing in and out, password reset, submitting or deleting KYC, changing automatic top-ups. [The list](/platform/access-tokens#what-a-token-cannot-do) | Do it on the dashboard. There is no token that can |
-| `rate_limited` | 429 | Any token call | Over 300 requests a minute across all of the person's tokens. Carries `retryAfter` and a `Retry-After` header, in seconds | Wait that long, then retry |
+| `session_required` | 403 | Session-only actions | Only a signed-in person can do this: managing access tokens, signing in and out, password reset, submitting or deleting KYC, changing automatic top-ups, submitting the SMS DLT registration or the Voice compliance documents. [The list](/platform/access-tokens#what-a-token-cannot-do) | Do it on the dashboard. There is no token that can |
+| `token_location_blocked` | 403 | Any token call | The token is [locked to certain countries](/platform/access-tokens#location-alerts-and-locks) and the request came from another one, an unknown country or Tor. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the country on the Profile page. If not, revoke the token |
+| `token_ip_blocked` | 403 | Any token call | The token is [locked to certain IP addresses](/platform/access-tokens#location-alerts-and-locks) and the request came from outside them. Nothing was done. The body carries the request's `ip` and `country` | If it was you, add the address on the Profile page. If not, revoke the token |
+| `rate_limited` | 429 | Any token call | Over 300 requests a minute across all of the person's tokens, or over 30 failed tokens a minute from one IP address. Carries `retryAfter` and a `Retry-After` header, in seconds | Wait that long, then retry |
 | `too_many_tokens` | 409 | Creating a token | The person already has 10 live tokens (neither revoked nor expired) | Revoke one first |
 | `email_unverified` | 403 | Creating a token | The account's email address is not verified | Verify it from the link in the email, or resend the link from the dashboard |
 | `invalid_name` | 400 | Creating a token | The name is empty or longer than 64 characters | Send 1 to 64 characters |
 | `invalid_scope` | 400 | Creating a token | `scope` is not `read` or `full` | Send one of the two |
 | `invalid_expiry` | 400 | Creating a token | `expiresInDays` is not 7, 30, 90, 365 or `null` (never) | Send one of those |
+| `invalid_countries` | 400 | Creating or changing a token | A country lock names something that is not a two-letter country code | Use codes such as `IN` or `US`, or `XX` and `T1` |
+| `invalid_ips` | 400 | Creating or changing a token | An IP lock entry is not an address or a CIDR range, or there are more than 20 | Fix the entry the message names |
 | `not_found` | 404 | Revoking a token | Unknown, already revoked, or someone else's token. All answer identically | Nothing to revoke |
 | `not_a_token` | 404 | `GET /api/v1/account/access-tokens/current` | Called from a dashboard session. It describes the token making the call, so only a token can call it | Call it with an access token |
 
