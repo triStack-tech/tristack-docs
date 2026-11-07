@@ -33,7 +33,8 @@ credential you make on the dashboard. It is not the API key your application sen
     profile if that folder is not on your `PATH`. Run it again to update.
 
     Set `TRISTACK_INSTALL_DIR` before running it to install somewhere else. The script runs
-    only once it has downloaded in full, so a dropped connection installs nothing.
+    only once it has downloaded in full, so a dropped connection installs nothing. It downloads
+    over https only, into a fresh temporary folder that it always removes.
   </Tab>
   <Tab title="Windows">
     Install [Node.js](https://nodejs.org) 18 or newer, download
@@ -88,6 +89,10 @@ tristack --version
     ```bash
     pass show tristack | tristack configure
     ```
+
+    Piped, it first prints the address it is about to check the token against on stderr. It
+    says where it saved the file (`savedTo`), and warns if that is inside a git working tree.
+    With `--dry-run` it checks the token and saves nothing.
   </Step>
   <Step title="Check who you are" icon="user-check">
     ```bash
@@ -108,27 +113,32 @@ tristack --version
 
 The CLI looks for a token in this order and uses the first it finds:
 
-1. The profile named by `--profile` on the command line. It wins over the environment, so
-   `--profile <read-only profile>` really is read only; when `TRISTACK_ACCESS_TOKEN` is also
-   set, one warning line on stderr says it was ignored.
-2. The environment variable `TRISTACK_ACCESS_TOKEN`. A value there that does not start with
+1. The profile named by `--profile` on the command line.
+2. The profile named by `TRISTACK_PROFILE`.
+3. The environment variable `TRISTACK_ACCESS_TOKEN`. A value there that does not start with
    `tsa_` (a `tsk_` project key, say) is refused with exit code `3` and `invalid_token_format`
    before anything is sent.
-3. The profile named by `TRISTACK_PROFILE`, then the profile called `default`, in the config
-   file.
+4. The default profile: the one `tristack profiles use <name>` chose, otherwise the one
+   called `default`.
 
-`tristack whoami` says which it used, as `cli.source`: `env` or `profile:<name>`.
+A named profile wins over the environment's token, so pointing an agent at a Read only profile
+really keeps it read only; when `TRISTACK_ACCESS_TOKEN` is also set, one warning line on stderr
+says it was ignored. `tristack whoami` says which token it used, as `cli.source`: `env` or
+`profile:<name>`.
 
-A token saved in a profile is only ever sent to the API address it was saved (and checked)
-against. If `--api-url` or `TRISTACK_API_URL` names another host, the command is refused with
-exit code `2` and `api_url_mismatch`, and nothing is sent: save a profile for that host with
-`tristack configure --profile <name> --api-url <url>`, or set `TRISTACK_ACCESS_TOKEN` together
-with `TRISTACK_API_URL`. Never set either from a repository's files: an `.envrc` or `.env`
-that an agent's shell loads could otherwise point your token at someone else's server.
+**Where a token may go.** A token saved in a profile is only ever sent to the API address it
+was saved (and checked) against. If `--api-url` or `TRISTACK_API_URL` names another host, the
+command is refused with exit code `2` and `api_url_mismatch`, and nothing is sent. A token in
+`TRISTACK_ACCESS_TOKEN` is only ever sent to `https://api.tristack.tech` or to this machine
+(`localhost`, `127.0.0.1`, `::1`); any other host is refused with `env_token_host_refused`.
+Either way, for another host save a profile for it yourself:
+`tristack configure --profile <name> --api-url <url>`. Do not trust an API URL taken from a
+repository's files or a `.env`: one that an agent's shell loads could otherwise point your
+token at someone else's server.
 
 The config file is `~/.config/tristack/config.json` (under `$XDG_CONFIG_HOME` when that is
 set), or `%APPDATA%\tristack\config.json` on Windows. It is written with mode `0600`, readable
-only by you.
+only by you, and never through a symbolic link.
 
 ### Profiles
 
@@ -140,6 +150,7 @@ tristack configure --profile work
 tristack --profile work projects list
 TRISTACK_PROFILE=work tristack projects list
 tristack profiles
+tristack profiles use work     # make it the default profile
 ```
 
 `tristack profiles` lists the saved profiles, the API address of each and which one is
@@ -151,8 +162,8 @@ Profile page too when it should stop working everywhere.
 
 | Variable | What it does |
 |---|---|
-| `TRISTACK_ACCESS_TOKEN` | Access token to use. Wins over the config file, but not over `--profile` |
-| `TRISTACK_PROFILE` | Profile to use when `--profile` is not given (default `default`) |
+| `TRISTACK_ACCESS_TOKEN` | Access token to use when neither `--profile` nor `TRISTACK_PROFILE` names a profile. Only sent to `https://api.tristack.tech` or this machine |
+| `TRISTACK_PROFILE` | Profile to use when `--profile` is not given. Wins over `TRISTACK_ACCESS_TOKEN` |
 | `TRISTACK_API_URL` | API base URL. `--api-url` wins over it; it wins over the profile's own, then `https://api.tristack.tech`. A profile's token is still only sent to the host it was saved for |
 | `TRISTACK_PROJECT` | Default for `--project`, so a session about one project need not repeat it |
 | `TRISTACK_API_KEY` | A project API key (`tsk_...`), used only by `tristack api` on `/v1/` paths |
@@ -173,6 +184,7 @@ archived is used, and if several are active the command asks for the id.
 | `tristack configure` | Save an access token to a profile (reads it from stdin or a hidden prompt) |
 | `tristack whoami` | Show the account, user and access token in use |
 | `tristack profiles` | List the saved profiles (tokens shown masked) |
+| `tristack profiles use <name>` | Make a saved profile the default one |
 | `tristack logout [--profile <name>]` | Forget a profile and its saved token (revoke the token on the dashboard to stop it working) |
 | `tristack account profile` | Show your profile (email, account, display currency) |
 | `tristack agent-guide` | Print a Markdown guide for AI agents (setup, commands, output, safety) |
@@ -219,7 +231,14 @@ tristack projects update "My app" --sms on --otp on
 | `keys create --project <p> <name> [--mode live\|test] [--scopes a,b]` | Create an API key; the full key is in the output once, store it at once |
 | `keys revoke --project <p> <key id\|key name>` | Revoke an API key by id or by name |
 
-Leave out `--scopes` for a key with full access. `--mode` defaults to `live`.
+Leave out `--scopes` for a key with full access. The scopes are `manifold:read`,
+`manifold:invoke`, `manifold:embed`, `relay-email:send`, `relay-email:templates`,
+`relay-email:domains`, `relay-email:suppression`, `relay-voice:send`, `relay-voice:read`,
+`relay-voice:numbers`, `relay-whatsapp:send`, `relay-whatsapp:verify`, `relay-sms:send`,
+`relay-sms:verify`, `relay-sms:read`, `verify:send`, `verify:check`, `verify:read`,
+`wallet:read` and `wallet:topup`. `--mode` defaults to `live`. The new key is the `token`
+field of the output; `tristack keys create --help` shows a one-liner that writes it straight
+into `.env`.
 
 ```bash
 tristack keys create --project "My app" backend --mode live
@@ -270,14 +289,14 @@ tristack sms app-name set --project "My app" "Acme" --link https://acme.com
 | Command | What it does |
 |---|---|
 | `otp enable` / `otp disable --project <p>` | Switch OTP on or off for a project |
-| `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice]` | Send one real code to a phone number or email address (charged to the wallet) |
+| `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice] --yes` | Send one real code to a phone number or email address (charged to the wallet) |
 | `otp test check --project <p> <verification id> <code>` | Check the code a test verification received |
 
 `otp test send` goes through the same path as `POST /v1/relay/otp`, with the project's
 switches, prices and limits, and is charged like any send.
 
 ```bash
-tristack otp test send --project "My app" --to +919876543210
+tristack otp test send --project "My app" --to +919876543210 --yes
 ```
 
 ### Email
@@ -361,12 +380,14 @@ tristack numbers available --prefix 9180
 | `usage rates` | Every rate currently charged |
 | `logs` | Request log: every billable event, newest first (same as `usage events`) |
 
-`usage summary`, `usage events` and `logs` filter with `--project`, `--product` (`all`,
-`manifold`, `manifold_embeddings`, `relay_sms`, `verify`, `relay_email` or `relay_voice`),
-`--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from` and
-`--to` (`yyyy-mm-dd`). `usage events` and `logs` also page with `--page`, `--page-size` and
-`--search`. An unknown `--product` or `--window` is refused (exit code `2`, `invalid_value`)
-rather than quietly read as all products or 7 days.
+`usage summary`, `usage events` and `logs` filter with `--project`, `--product` (`sms`,
+`otp`, `email`, `voice`, `manifold`, `embeddings` or `all`; the API's own ids such as
+`relay_sms` work too), `--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from`
+and `--to` (`yyyy-mm-dd`, both inclusive: `--to` counts that whole day, and the answer writes
+it as the start of that day). `usage events` and `logs` also page with `--page`, `--page-size`
+and `--search`. An unknown `--product`, `--status` or `--window` is refused (exit code `2`,
+`invalid_value`) rather than quietly read as a default. WhatsApp is not in the usage report;
+its charges are in `tristack wallet ledger`.
 
 ```bash
 tristack logs --project "My app" --status failed --page-size 20
@@ -418,8 +439,10 @@ in `usage events`. Amounts are in paise in fields ending in `Paise`; model price
 per million tokens (`inrPerMTokIn`). Times are ISO 8601 in UTC. `tristack agent-guide` lists
 every shape.
 
-A failure prints one JSON line on stderr and exits non-zero. `code` is the API's own
-[error code](/platform/errors) where there is one; branch on it, not on `error`:
+A failure exits non-zero, and the last line on stderr is the error. `code` is the API's own
+[error code](/platform/errors) where there is one; branch on it, not on `error`. Lines before
+it, which can also appear when a command succeeds, carry a `level` (`warning` or `info`), such
+as `{"level": "warning", "warning": "TRISTACK_ACCESS_TOKEN is set but ignored: ..."}`:
 
 ```json
 {"status":403,"code":"token_read_only","error":"This access token is read only. Create one with full access to make changes."}
@@ -459,11 +482,18 @@ tristack projects create "My app" --dry-run
 ```
 
 A dry run may still read: a command that names a project turns the name into an id first, and
-`billing set` reads the current details it builds on. It never writes.
+`billing set` reads the current details it builds on. It never writes, and that includes your
+own config file: `configure`, `logout` and `profiles use` with `--dry-run` say what they would
+do and change nothing.
 
-A dry run of a command that costs money says so: `voice enable` and `projects update --voice
-on` add `"charges"` (the one-time activation fee, unless already paid) and `"needsYes": true`;
-`otp test send` adds `"charges"` for the code it would send.
+A dry run of a command that costs money says so, with the price: `voice enable` and
+`projects update --voice on` add `"charges"` and `"chargesPaise"` (the one-time activation
+fee, or nothing if the project has paid it before) and `"needsYes": true`; `otp test send`
+adds the price of the code it would send. A dry run of a change made with a Read only token
+adds `"wouldBeRefused"`, because the real run would get `token_read_only`.
+
+`tristack agent-guide` lists every dashboard API path the commands use, with the commands
+that use it, for anything you want to call directly with `tristack api`.
 
 `--debug` logs each request and response to stderr as JSON lines (method, URL, status, time
 taken and the bodies), with every credential masked: the access token or API key it sends,
@@ -477,7 +507,7 @@ place a new key is shown in full.
 |---|---|
 | `-h`, `--help` | Show help |
 | `--version` | Print the version |
-| `--profile <name>` | Config profile (default: `TRISTACK_PROFILE`, then `default`) |
+| `--profile <name>` | Config profile (default: `TRISTACK_PROFILE`, then the default profile) |
 | `--api-url <url>` | API base URL (default: `TRISTACK_API_URL`, the profile's, then `https://api.tristack.tech`) |
 | `--dry-run` | Print the request (method, URL, body) and send nothing |
 | `--debug` | Log each request and response to stderr as JSON lines, with credentials redacted |
