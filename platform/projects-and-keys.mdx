@@ -62,7 +62,7 @@ own switch, and they are unrelated to each other.
 
 | Switch | Gates | Refusal when off |
 |---|---|---|
-| Manifold AI | `POST /v1/manifold/messages`, `GET /v1/manifold/models`, `/v1/manifold/embeddings` | `403 manifold_disabled` |
+| Manifold AI | `POST /v1/manifold/messages`, `GET /v1/manifold/models`, `/v1/manifold/embeddings`, `POST /v1/manifold/images`, and the OpenAI-compatible routes under `/v1` | `403 manifold_disabled` |
 | Voice | `POST /v1/cpaas/voice` and the other `/v1/cpaas/voice` routes | `403 relay_voice_disabled` |
 | Email | `/v1/cpaas/email` and its domain, template and suppression routes | `403 relay_email_disabled` |
 | WhatsApp | `/v1/cpaas/whatsapp/otp` and `/otp/verify` | `403 relay_whatsapp_disabled` |
@@ -232,6 +232,7 @@ project can do, and the scope decides which part of that this key may reach.
 | `manifold:read` | Read the model catalog and prices |
 | `manifold:invoke` | Send messages, which spends the wallet |
 | `manifold:embed` | Create embeddings and embedding jobs, which spends the wallet |
+| `manifold:image` | Generate images, natively or through the OpenAI-compatible route, which spends the wallet |
 | `relay-email:send` | Send email, single and batch |
 | `relay-email:templates` | Create, read, update and delete templates |
 | `relay-email:domains` | List, add and remove sending domains |

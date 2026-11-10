@@ -53,6 +53,7 @@
               "manifold/tools",
               "manifold/openai-compatible",
               "manifold/embeddings",
+              "manifold/images",
               "manifold/pricing"
             ]
           },
@@ -136,7 +137,8 @@
             "pages": [
               "api-reference/manifold/messages",
               "api-reference/manifold/models",
-              "api-reference/manifold/embeddings"
+              "api-reference/manifold/embeddings",
+              "api-reference/manifold/images"
             ]
           },
           {

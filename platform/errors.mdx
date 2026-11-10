@@ -26,6 +26,7 @@ Two fields ride along on specific failures:
 | `availablePaise`, `heldPaise` | `402 insufficient_balance`. `heldPaise` is what other in-flight requests have reserved, so you can tell an empty wallet from a fully reserved one |
 | `partial_output` fields | `422 output_truncated` carries `content`, `usage` and `cost` alongside the error |
 | `fields` | Validation failures, as an object keyed by field name with a sentence each |
+| `retry_after_seconds` | `429 model_busy`, holding the seconds until the image model's next slot, as the `Retry-After` header does |
 
 ## What each status means here
 
@@ -41,7 +42,7 @@ Two fields ride along on specific failures:
 | `410` | It existed and is gone: a Voice recording whose stored file is missing, or a top-up session permit that is spent or out of time |
 | `409` | A conflict with the current state: an `Idempotency-Key` whose earlier request is still running, a change to an archived project, or a resource that already exists or is taken |
 | `422` | The request was understood but could not be completed as asked: an `Idempotency-Key` reused for a different body, or output truncated before it satisfied a format contract |
-| `429` | Throttled. From the model provider, from a CPaaS channel's own send limits, from the rate limiter on the dashboard API's sign-in routes, or from the access token limit |
+| `429` | Throttled. From the model provider, from an image model's one-image-a-minute slot (`model_busy`), from a CPaaS channel's own send limits, from the rate limiter on the dashboard API's sign-in routes, or from the access token limit |
 | `502` | A provider failed. Any wallet hold is released in full, so it cost nothing |
 | `503` | A product, a channel or a payment feature is switched off or half-configured on the deployment. Not your request |
 
@@ -76,8 +77,10 @@ Two fields ride along on specific failures:
 | `provider_rejected` | 400 | Manifold | The model provider refused the request, for example an image sent to a model without vision | Fix the request. Check the model accepts what you sent |
 | `model_access_denied` | 403 | Manifold | The platform is not entitled to serve this model. The hold is released in full | Use another alias. Nothing was charged |
 | `provider_throttled` | 429 | Manifold | The model provider is throttling. Not a Tristack rate limit | Retry with exponential backoff and jitter |
+| `model_busy` | 429 | Manifold | An image model makes one image per minute for the whole platform, and this minute's image is taken, by you or by another customer. Carries a `Retry-After` header and `retry_after_seconds`. Refused before the hold, so nothing was charged | Wait that many seconds, then retry, in a loop with a limit. Or call another image model, which has its own slot. [Images →](/manifold/images#one-image-a-minute-per-model) |
+| `content_filtered` | 400 | Manifold | The image model's safety filter blocked the prompt or the image it made. The hold is released, so nothing was charged | Reword the prompt. The filter belongs to the model and cannot be switched off |
 | `provider_error` | 502 | All | Any other provider failure: the model provider, the mail provider, the SMS operator or the number provider. The hold is released, with one exception: a large embeddings batch that failed part-way settles for the vectors it did produce | Retry. If it persists, send support the id from the response (`mfr_…`, `emb_…`, `rle_…` or `sms_…`) |
-| `model_kind_mismatch` | 400 | Manifold | The alias is real but belongs to the other surface: an embedding model sent to `/v1/manifold/messages`, or a chat model sent to `/v1/manifold/embeddings` | Send it to the route that serves it. `GET /v1/manifold/models` reports each alias's `kind` |
+| `model_kind_mismatch` | 400 | Manifold | The alias is real but belongs to another surface: an embedding or image model sent to `/v1/manifold/messages`, a chat or image model sent to `/v1/manifold/embeddings`, or a chat or embedding model sent to `/v1/manifold/images`. The OpenAI-compatible routes answer the same way | Send it to the route that serves it. `GET /v1/manifold/models` reports each alias's `kind` |
 | `invalid_input` | 400 | Manifold | `input` on an embeddings request is missing, empty, or neither a string nor an array | Send a non-empty string, or an array of them |
 | `input_too_large` | 400 | Manifold | Beyond 2048 inputs, 8 MB in one request, or the model's own shorter input limit. Refused before the hold | Split the batch. Nothing was charged |
 | `unsupported_input_modality` | 400 | Manifold | Video or audio sent to `/v1/manifold/embeddings`, which is request-and-reply only | Submit it to `POST /v1/manifold/embeddings/jobs` instead |
@@ -279,14 +282,16 @@ Almost nothing, by design. The order of checks is deliberate:
     `sms_country_unavailable`, `unknown_voice`, `invalid_audio_id` and `invalid_callback_url`
     are all refused before the wallet hold. So are Email's `from_domain_not_verified`, `invalid_address`,
     `no_recipients`, `empty_body`, `header_injection`, `subject_too_long` and
-    `message_too_large`, and `rate_limited` is refused before the hold too.
+    `message_too_large`, and `rate_limited` is refused before the hold too. An image model's
+    `model_busy` comes after these and still before the hold.
   </Step>
   <Step title="The balance check">
     `insufficient_balance` is the hold itself failing. No provider has been contacted.
   </Step>
   <Step title="Provider failures">
     Everything that reaches a provider and fails (`provider_error`, `model_access_denied`,
-    every `speech_*` code, `text_rejected`, `voice_unavailable`) releases the hold in full.
+    `content_filtered`, every `speech_*` code, `text_rejected`, `voice_unavailable`) releases
+    the hold in full.
   </Step>
 </Steps>
 
@@ -302,15 +307,17 @@ Almost nothing, by design. The order of checks is deliberate:
 
 | Surface | Limit | Answer |
 |---|---|---|
-| `/v1/manifold/*` and `/v1/cpaas/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/v1/manifold/*` (except images) and `/v1/cpaas/voice` | None from Tristack | A `429` here is `provider_throttled` from the model provider |
+| `/v1/manifold/images` and `/v1/images/generations` | One image per minute per image model, for the whole platform rather than per key or account. It cannot be raised | `429` with `model_busy`, `retry_after_seconds` and a `Retry-After` header. Not charged |
 | `/v1/cpaas/email` | 5 per second per project, plus a platform ceiling | `429` with `rate_limited` and a `Retry-After` header |
 | Sign-in and account recovery: `/api/v1/account/register`, `/login`, `/google-login`, `/forgot-password`, `/reset-password`, `/verify-email` and `/resend-verification` | 10 per minute per IP, plus 120 per minute across the process | `429` with an empty body |
 | `/api/v1/contact` | 5 per minute per IP, plus 60 per minute across the process | `429` with an empty body |
 | `/api/v1/*` called with an [access token](/platform/access-tokens) | 300 per minute per person, across all their tokens; and 30 failed token attempts per minute per IP address, after which that address is refused for the rest of the minute, valid tokens included | `429` with `rate_limited`, `retryAfter` and a `Retry-After` header |
 
 <Note>
-  Manifold and Voice are not throttled on purpose: your wallet is the limit. Email is the
-  exception, because email sending is rate-limited to protect deliverability, and SMS and
+  Manifold and Voice are not throttled on purpose: your wallet is the limit. Manifold's image
+  models are the exception there, because each one makes only one image a minute for the whole
+  platform. Email is an exception too, because email sending is rate-limited to protect deliverability, and SMS and
   WhatsApp hold each project and each recipient to send limits of their own (`rate_limited`,
   `recipient_rate_limited`).
 

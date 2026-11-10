@@ -1,13 +1,16 @@
 ---
 title: "Manifold AI pricing"
-description: "How a Manifold AI call is priced end to end: the token estimate, the wallet hold, settlement at real usage, and the release, worked through in paise."
+description: "How a Manifold AI call is priced end to end: the token estimate, the wallet hold, settlement at real usage, and the release, worked through in paise. Images are priced per image."
 sidebarTitle: "Pricing"
 icon: "wallet"
 ---
 
+import ImageCatalog from '/snippets/image-catalog.mdx';
+
 A Manifold AI message is metered per token against a prepaid wallet. Nothing is invoiced monthly and
 nothing is charged by the request: you pay for the tokens a call actually used, at the
-model's own rate, and the response tells you what that came to.
+model's own rate, and the response tells you what that came to. Image generation is the one
+surface priced differently, per image: see [Images](#images).
 
 ## The short version
 
@@ -17,6 +20,7 @@ model's own rate, and the response tells you what that came to.
   rest of the hold comes back.
 - A failed call costs **nothing**, with exactly one exception: a stream you abort part-way.
 - `cost.paise` on every response is the settled amount, not the estimate.
+- An **image** is priced per image, not per token, and charged only when one comes back.
 
 ## What a token costs
 
@@ -41,7 +45,7 @@ hard-coding them.
 
 Rounding up to a whole paise happens once, at the very end, so any call that used tokens
 costs at least 1 paise. There is no per-request fee, no minimum billable token count, no
-surcharge for images and no price difference between streamed and non-streamed calls.
+surcharge for images you send and no price difference between streamed and non-streamed calls.
 
 ## Estimate, hold, settle, release
 
@@ -176,6 +180,8 @@ amount actually taken. On a funded wallet the two always agree.
 | Rejected before the hold: `invalid_api_key`, `account_disabled`, `project_archived`, `manifold_disabled`, `invalid_request`, `unknown_model`, `model_not_allowed` | 0. The wallet is never touched. |
 | `insufficient_balance` | 0. The hold could not be placed, so no model ran. |
 | `provider_throttled`, `provider_rejected`, `model_access_denied`, `provider_error` | 0. The hold is released in full. |
+| `model_busy`, from an image model whose one-a-minute slot is taken | 0. Refused before the hold. |
+| `content_filtered`, an image prompt or image the safety filter blocked | 0. The hold is released in full. |
 | A stream that fails mid-way with an `error` event | 0. The hold is released in full. |
 | You aborted before any output arrived | 0. The hold is released in full. |
 | You aborted after part of a stream arrived | Your whole input at 4 characters per token, plus the output that reached you, also at 4 characters per token and capped at `max_tokens`. |
@@ -187,7 +193,30 @@ that was generated and delivered does. [The detail is on the streaming
 page](/manifold/streaming#what-an-abort-costs).
 
 Retrying a failed call is therefore free apart from latency. Retry `429 provider_throttled`
-and `502 provider_error` with backoff, without worrying about paying twice.
+and `502 provider_error` with backoff, without worrying about paying twice. Retry
+`429 model_busy` after the seconds its `Retry-After` header gives.
+
+## Images
+
+An image model is not metered per token. It is priced **per generated image**, and every
+request makes exactly one.
+
+- The price is `paisePerImage` on [`GET /v1/manifold/models`](/api-reference/manifold/models).
+  One image costs that figure rounded up to a whole paise, which is what `cost.paise` reports.
+- Before the model runs, the price of one image is held. When an image comes back, that amount
+  is charged. When none does (a blocked prompt, a failure, a timeout) the hold is released in
+  full and nothing is charged.
+- A busy model, `429 model_busy`, is refused before the hold, so it touches nothing.
+- Nothing is added for the length of the prompt, the aspect ratio or the output format.
+
+Stable Image Core is the cheapest of the three image models and Stable Image Ultra the dearest,
+with Stable Diffusion 3.5 Large between them. Prices are set in rupees from the exchange rate and
+move with it, so read them from the endpoint rather than from this page.
+
+<ImageCatalog />
+
+Each image model makes one image per minute for the whole platform, so a busy answer is normal
+and waiting it out costs nothing. [Images](/manifold/images#one-image-a-minute-per-model).
 
 ## Reading what you spent
 
@@ -229,3 +258,5 @@ and `502 provider_error` with backoff, without worrying about paying twice.
    straight into the estimate that sets your hold.
 6. **Keep the balance to what the workload needs.** A prepaid wallet is a hard ceiling on
    what a leaked key can spend.
+7. **Start images on `stable-image-core`.** It is the cheapest image model and it gives the
+   largest image.

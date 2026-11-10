@@ -18,10 +18,10 @@ codes, from the product's earlier name. Those stay exactly as they are, and so d
 | **Endpoint** | `POST /v1/manifold/messages` | `POST /v1/cpaas/voice` | `POST /v1/cpaas/email` | `POST /v1/cpaas/whatsapp/otp` |
 | **Catalog** | `GET /v1/manifold/models` | `GET /v1/cpaas/voice/voices` | `GET /v1/cpaas/email/domains` | None. Your own Meta number is the only sender |
 | **You send** | Messages, a model alias, `max_tokens` | Indian mobile numbers, and `text` or an `audioId` | A `from` at a verified domain, recipients, a subject and a body | One number. The code is ours to generate |
-| **You get** | Generated text, in the response or as SSE | `202` with a `jobId`, then per-call status | `202` with an `id`, the provider `messageId`, and what it cost | An `otp_…` id and `expiresAt`. **Never the code** |
+| **You get** | Generated text, in the response or as SSE (or one image, as base64, from `POST /v1/manifold/images`) | `202` with a `jobId`, then per-call status | `202` with an `id`, the provider `messageId`, and what it cost | An `otp_…` id and `expiresAt`. **Never the code** |
 | **Timing** | Synchronous. The answer is the response | Asynchronous. Calls are dialed in the background, 3 at a time process-wide | Synchronous. The provider has accepted it by the time you get the id | Synchronous. Meta has accepted it by the time you get the id |
 | **JSON casing** | `snake_case` on the wire (`max_tokens`, `stop_sequences`) | `camelCase` on the wire (`audioId`, `callbackUrl`) | `camelCase` on the wire (`fromName`, `replyTo`) | `camelCase` on the wire (`to`, `id`, `code`) |
-| **Charged for** | Every token in and out, at the model's rate (embeddings at each embedding model's own rates: see [Embeddings](/manifold/embeddings)) | 3 paise per character of newly synthesized speech, charged once. The calls themselves are not metered | Every **recipient** (1.5 paise, rounded up), counting `to`, `cc` and `bcc` | Every code **sent** (20 paise). Verifying is free. Meta bills you separately |
+| **Charged for** | Every token in and out, at the model's rate (embeddings at each embedding model's own rates: see [Embeddings](/manifold/embeddings); images per image generated: see [Images](/manifold/images)) | 3 paise per character of newly synthesized speech, charged once. The calls themselves are not metered | Every **recipient** (1.5 paise, rounded up), counting `to`, `cc` and `bcc` | Every code **sent** (20 paise). Verifying is free. Meta bills you separately |
 | **Charged nothing for** | A request refused before the provider is called | Every call, in every outcome, and any send that replays a recording you already have | A message the provider refuses, and anything rejected before sending. A **bounce is not a refund**: the send happened | A resend inside the window, a send WhatsApp refuses, and every verification |
 | **One-time charge** | None | Rs 200 (20000 paise) the first time Voice is switched on for a project. It is not a phone number. A number of your own is separate and monthly: Rs 200 + Rs 36 GST | None. Enabling it and verifying domains are both free | None from us. Meta bills you separately for WhatsApp messages |
 | **Project switch** | Manifold AI | Voice | Email | WhatsApp |
@@ -107,7 +107,7 @@ because Voice will refuse text longer than that rather than truncate it.
     Wallet rows from both sit in the same ledger, told apart by the `reference` field:
     `mfr_…` for a Manifold request, `rvj_…` for a Voice job. `GET /api/v1/usage` reports
     both, with a `product=` filter that takes `manifold`, `manifold_embeddings`,
-    `relay_voice`, `relay_email`, `relay_sms`, `verify` or `all`.
+    `manifold_images`, `relay_voice`, `relay_email`, `relay_sms`, `verify` or `all`.
 
     A Voice row counts calls placed and a Manifold row counts requests, so the two are never
     added into one number.

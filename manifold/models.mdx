@@ -40,6 +40,9 @@ is stated per alias rather than left to be asked.
 | `nemotron-super-120b` | United States |
 | `qwen3-coder-next` | United States |
 | `palmyra-vision-7b` | United States |
+| `stable-image-core` | United States |
+| `sd-3-5-large` | United States |
+| `stable-image-ultra` | United States |
 
 **Served by a worldwide or regional route.** These are reached through a route that can be
 answered from more than one region, so a request may be processed outside India and we cannot
@@ -113,6 +116,7 @@ under you by whoever administers the project.
 | `alias` | The name you put in `model`. |
 | `displayName` | A human label for a picker. Never send it as `model`. |
 | `paisePer1KTokensIn` / `paisePer1KTokensOut` | **The billable rate**: paise per **1000** tokens. |
+| `paisePerImage` | On an image model (`kind` `image`), the price of one generated image, in paise. Its token rates are `0`. |
 
 Note the unit: these are per **thousand** tokens, not per million.
 
@@ -138,8 +142,11 @@ costPaise = ceil(
 
 The rounding up to a whole paise happens once, at the very end, so a call that used any
 tokens at all costs at least 1 paise. There is no per-request fee, no minimum billable token
-count, no surcharge for images, and no price difference between a streamed and a
+count, no surcharge for images you send, and no price difference between a streamed and a
 non-streamed call. [Pricing, worked end to end](/manifold/pricing).
+
+Image models are priced per image instead, one image per request: see
+[Images](/manifold/images#what-an-image-costs).
 
 ### The spread between models
 

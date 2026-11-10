@@ -12,6 +12,39 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-11" description="Manifold AI makes images">
+
+  **Turn a text prompt into an image.** `POST /v1/manifold/images` makes one image per request
+  and returns it in the response as base64, billed **per image** from the same wallet. Three
+  image models: `stable-image-core` (Stable Image Core, the cheapest, and the largest image at
+  1536 px square), `sd-3-5-large` (Stable Diffusion 3.5 Large) and `stable-image-ultra`
+  (Stable Image Ultra, the dearest), both 1024 px square. Choose from nine aspect ratios, PNG or
+  JPEG, a seed for repeatable results and a negative prompt. Prices are `paisePerImage` on
+  `GET /v1/manifold/models`. See [Images](/manifold/images).
+
+  - **Each image model makes one image per minute, for the whole platform.** A request that
+    finds the minute's image taken answers `429 model_busy` with a `Retry-After` header, and is
+    not charged. Wait and retry, or try another image model.
+  - **Images are processed outside India.** The image models report `residency`
+    `outside_india`.
+  - **Words inside images are not reliable.** Signs and logos with text usually come out
+    misspelt; add text afterwards yourself.
+  - **You pay only for an image you receive.** A prompt the safety filter blocks answers
+    `400 content_filtered` and is not charged, and neither is a busy model or a failed call.
+  - **No URLs and no storage.** The image is in the response only; Tristack does not keep it.
+  - **OpenAI-compatible:** `POST /v1/images/generations`, with `size` choosing the aspect ratio.
+    `n` must be 1 and `response_format: "url"` is refused. See
+    [OpenAI-compatible API](/manifold/openai-compatible#images).
+  - **A new scope, `manifold:image`**, grants both routes. `manifold:invoke` and `manifold:embed`
+    do not, so an existing scoped key cannot make images until you create one that may. A key
+    with no scopes can, as before.
+  - `GET /v1/manifold/models` lists the image models with `kind` `image`, and usage reports
+    them as their own product, `manifold_images` (`images` in the CLI).
+  - A project whose model allowlist is empty may call the image models straight away, as it may
+    any model. A narrowed allowlist has to have them added.
+
+</Update>
+
 <Update label="2026-11-08" description="Edit your names, automatic app names, clearer auto top-up failures">
 
   - **Change your name and your account's name** on the dashboard's Profile page, with

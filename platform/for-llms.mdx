@@ -67,7 +67,8 @@ than the page.
 
 <Warning>
   **Prices.** The tables here are a snapshot. `GET /v1/manifold/models` reports the live
-  per-1000-token paise for every model, and it answers **per key**, so it also tells you
+  per-1000-token paise for every model (and `paisePerImage` for an image model, which is
+  priced per image), and it answers **per key**, so it also tells you
   which models that key may actually call. It is the authority; these pages are not.
   Manifold AI prices changed on 2026-08-21, which is exactly the kind of move a cached page
   would miss.
@@ -99,10 +100,11 @@ If you are summarising this site for a model, these are the load-bearing ones:
 | Base URL | `https://api.tristack.tech` |
 | Auth | `Authorization: Bearer tsk_live_…`, or `X-Api-Key` |
 | Money | every amount is an integer in **paise**; Rs 1.50 is `150`. No endpoint takes a rupee float |
-| Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out) and **Tristack CPaaS** (`/v1/cpaas/…`: Voice, Email, WhatsApp and SMS channels). The older `/v1/relay/…` paths answer identically and keep working. The CPaaS fields, scopes, usage product ids and codes still say `relay` on both; do not rename them in code |
+| Platforms | **Manifold AI** (`/v1/manifold/…`, text in, text out; also embeddings, and images from a prompt) and **Tristack CPaaS** (`/v1/cpaas/…`: Voice, Email, WhatsApp and SMS channels). The older `/v1/relay/…` paths answer identically and keep working. The CPaaS fields, scopes, usage product ids and codes still say `relay` on both; do not rename them in code |
 | Relationship | separate platforms, a separate switch per product and channel, separate pricing, one wallet and one key format. Nothing passes between them automatically |
 | Recipients | Voice: Indian mobiles only, in any common spelling; it normalizes its `to` list to E.164 and deduplicates it. SMS: a mobile in any country, on the same endpoint. An Indian number in any common spelling, any other country with its country code, and only when the project's International SMS switch is on. WhatsApp takes an international number |
 | A refused account | `403 account_disabled` on every key means Tristack has disabled the account. Retrying or minting a new key will not help; the owner writes to hello@tristack.tech |
+| Images | `POST /v1/manifold/images` makes one image per request, as base64, billed per image. Each image model makes **one image per minute for the whole platform**: `429 model_busy` means wait the `Retry-After` seconds and retry, and costs nothing. Images are processed outside India, and words inside them are not reliable |
 
 <Note>
   The single most common mistake a model makes with this API is assuming Manifold's output

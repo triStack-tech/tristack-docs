@@ -160,7 +160,7 @@ scopes at all can do everything, as always.
 | `invalid_input` | `input` is missing, empty, or not a string or array |
 | `input_too_large` | Beyond the input count, size, or the model's own limit |
 | `unsupported_input_modality` | Video or audio sent to the synchronous route; use a job |
-| `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages`, or a chat model sent here |
+| `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages` or `/v1/manifold/images`, or a chat or image model sent here |
 | `embedding_job_not_found` | No such job, or it belongs to another project |
 
 See [platform errors](/platform/errors) for the codes shared across the API.

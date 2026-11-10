@@ -1,6 +1,6 @@
 ---
 title: "Manifold AI"
-description: "Manifold AI is one HTTP API for language models: send messages, name a model by alias, read generated text back, priced per token in paise."
+description: "Manifold AI is one HTTP API for language models: send messages, name a model by alias, read generated text back, priced per token in paise. It also makes embeddings, and images priced per image."
 sidebarTitle: "Overview"
 icon: "brain"
 ---
@@ -75,11 +75,18 @@ That is the whole surface for most integrations. Swap the alias to change model,
   </Card>
 </CardGroup>
 
-Manifold serves text completions and embeddings from the catalog. Completions can call your
-own functions and can answer as structured JSON: see [Tools and JSON mode](/manifold/tools).
-Vectors have their own endpoint, [Embeddings](/manifold/embeddings).
+Manifold serves text completions, embeddings and image generation from the catalog.
+Completions can call your own functions and can answer as structured JSON: see
+[Tools and JSON mode](/manifold/tools). Vectors have their own endpoint,
+[Embeddings](/manifold/embeddings).
 
-It is not the right tool for image generation, audio transcription or fine-tuning.
+[Images](/manifold/images) turns a text prompt into one image, billed **per image** rather than
+per token. Each image model makes **one image per minute for the whole platform**, so a busy
+model answers `429 model_busy` and your code waits and retries. Images are processed outside
+India, and words inside an image are not reliable.
+
+It is not the right tool for audio transcription, fine-tuning, editing an existing image, or
+making images in bulk.
 
 ## What a call needs
 
@@ -117,8 +124,9 @@ It is not the right tool for image generation, audio transcription or fine-tunin
 | Endpoint | Does |
 |---|---|
 | `POST /v1/manifold/messages` | Sends messages and returns generated text, streamed or whole. |
-| `GET /v1/manifold/models` | Lists the models this key may call, with their per-token prices. |
+| `GET /v1/manifold/models` | Lists the models this key may call, with their prices: per token, or per image for an image model. |
 | `POST /v1/manifold/embeddings` | Turns text or an image into vectors. Video and audio go through `POST /v1/manifold/embeddings/jobs`. |
+| `POST /v1/manifold/images` | Makes one image from a text prompt, returned as base64 and billed per image. |
 
 Base URL `https://api.tristack.tech`. Every Manifold error is JSON carrying a human
 sentence in `error` and a stable `code` in snake_case to branch on, whatever the status.
@@ -144,11 +152,20 @@ sentence in `error` and a stable `code` in snake_case to branch on, whatever the
     Estimate, hold, settle, release, worked through on one real call down to the paise.
   </Card>
 
+  <Card title="Images" icon="image" href="/manifold/images">
+    A picture from a prompt: choosing a model, aspect ratios, seeds, and the one image a minute
+    each model makes.
+  </Card>
+
   <Card title="API reference: messages" icon="code" href="/api-reference/manifold/messages">
     Every request parameter, every response field, every error code.
   </Card>
 
   <Card title="API reference: models" icon="code" href="/api-reference/manifold/models">
     The catalog endpoint, field by field.
+  </Card>
+
+  <Card title="API reference: images" icon="code" href="/api-reference/manifold/images">
+    Every image request field, its limits, and every error code.
   </Card>
 </CardGroup>
