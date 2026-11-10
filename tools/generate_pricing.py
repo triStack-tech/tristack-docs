@@ -4,6 +4,9 @@
 Input:  data/models.json  (the response body, saved verbatim)
 Output: snippets/*.mdx    (Mintlify snippets, imported by the pages that show the tables)
 
+Rows are split by `kind` first: text models fill the chat tables, embedding models and image
+models each get a table of their own, and a kind with no table fails the run.
+
 Every number on the model and pricing pages comes from here, so the published tables
 cannot drift from the catalog they were captured from.
 
@@ -17,7 +20,7 @@ request when anything moved. To do the same locally:
 from __future__ import annotations
 
 import json
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -211,6 +214,59 @@ def embedding_cell(model: dict, field: str) -> str:
 
 def servable(models: list[dict]) -> list[dict]:
     return [model for model in models if model["alias"] not in PENDING_ALIASES]
+
+
+# Every kind a catalog row can carry, each published in tables of its own. Split on this
+# explicitly and never as "not an embedding": a third kind arrived (image, 2026-11-11), and a
+# row of a kind nobody planned for would otherwise land in the chat tables at 0.00 in and
+# 0.00 out, which reads as no charge. An unknown kind fails the run instead.
+KINDS = ("text", "embedding", "image")
+
+
+def split_by_kind(models: list[dict]) -> dict[str, list[dict]]:
+    """The catalog split by `kind`, catalog order kept. Used by the generator AND the verifier,
+    so the two cannot disagree about which table a row belongs in."""
+    unknown = sorted({str(model.get("kind")) for model in models} - set(KINDS))
+    if unknown:
+        raise SystemExit(
+            f"Catalog rows of a kind with no table: {unknown}. Decide where that kind is "
+            "published, add it to KINDS, and give it a writer and a check."
+        )
+    return {kind: [model for model in models if model.get("kind") == kind] for kind in KINDS}
+
+
+def image_cell(model: dict) -> str:
+    """What one image costs, in whole paise, used by the generator AND the verifier.
+
+    An image model is priced on paisePerImage alone, and a request makes exactly one image,
+    so the price of a request is that rate rounded UP to a whole paise with the 1-paise floor:
+    the same rounding settlement applies. Rounding to the nearest paise, as the embeddings
+    table does, would publish a figure up to half a paise under the debit.
+
+    Refuses rather than guesses when the row does not look like an image row: a zero image
+    rate would publish as no charge, and a token or media rate on an image row is a charge this
+    table has no column for.
+    """
+    rate = model["paisePerImage"]
+    if rate <= 0:
+        raise SystemExit(f"{model['alias']} is an image model with no paisePerImage")
+    other = [
+        field
+        for field in (
+            "paisePer1KTokensIn",
+            "paisePer1KTokensOut",
+            "paisePerVideoSecond",
+            "paisePerAudioSecond",
+            "paisePerRequest",
+        )
+        if model.get(field, 0) != 0
+    ]
+    if other:
+        raise SystemExit(
+            f"{model['alias']} is an image model also priced on {other}, which the image "
+            "table does not publish"
+        )
+    return str(max(Decimal(1), rate.to_integral_value(rounding=ROUND_CEILING)))
 
 
 def load() -> list[dict]:
@@ -459,6 +515,38 @@ def write_embeddings(target, models: list[dict]) -> None:
     (target.directory / f"embedding-catalog{target.suffix}").write_text("\n".join(lines))
 
 
+IMAGE_HEADING = "Paise / image"
+
+
+def write_images(target, models: list[dict]) -> None:
+    """The image models and what one image costs on each.
+
+    Its own table, because an image model has no token rate at all: in the chat table it
+    would publish as 0.00 in and 0.00 out, which reads as no charge.
+
+    With no image rows the snippet renders NOTHING but the banner. The pages that import it
+    already send readers to GET /v1/manifold/models for the live price, so an empty capture
+    (for example one taken before image models were switched on) leaves those pages correct
+    rather than announcing that no image models exist.
+    """
+    lines = [target.banner, ""]
+    if models:
+        lines += [
+            f"| Alias | Model | {IMAGE_HEADING} |",
+            "|---|---|---:|",
+            *(
+                f"| `{model['alias']}` | {model['displayName']} | {image_cell(model)} |"
+                for model in models
+            ),
+            "",
+            "What one image is charged, in whole paise, from a capture of "
+            "`GET /v1/manifold/models`. Prices move with the rupee, so that endpoint, "
+            "not this table, is the authority.",
+            "",
+        ]
+    (target.directory / f"image-catalog{target.suffix}").write_text("\n".join(lines))
+
+
 def main() -> None:
     models = load()
     mdx_safe(models)
@@ -468,9 +556,10 @@ def main() -> None:
     # columns are all shaped for a surface that has an output price, and an embedding has no
     # output tokens at all. Ranking the two together sorted embeddings by a number that does
     # not exist for them, and the catalog table published a 0.00 output price beside a real
-    # input one, which reads as free rather than as inapplicable.
-    chat = [m for m in models if m.get("kind") != "embedding"]
-    embeddings = [m for m in models if m.get("kind") == "embedding"]
+    # input one, which reads as free rather than as inapplicable. An image model has no token
+    # rate of any kind, so it gets a table of its own too.
+    kinds = split_by_kind(models)
+    chat, embeddings, images = kinds["text"], kinds["embedding"], kinds["image"]
 
     families = group(chat)
     for target in targets():
@@ -480,8 +569,12 @@ def main() -> None:
         write_vision(target, chat)
         write_budget(target, chat)
         write_embeddings(target, embeddings)
+        write_images(target, images)
         print(f"wrote {target.directory.relative_to(ROOT)}/*{target.suffix}")
-    print(f"{len(chat)} chat models, {len(families)} families, {len(embeddings)} embedding models")
+    print(
+        f"{len(chat)} chat models, {len(families)} families, {len(embeddings)} embedding "
+        f"models, {len(images)} image models"
+    )
     for family, entries in families.items():
         print(f"  {family}: {len(entries)}")
 

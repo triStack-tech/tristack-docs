@@ -42,13 +42,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_pricing import (  # noqa: E402
     EMBEDDING_DIMENSIONS,
     FAMILIES,
+    IMAGE_HEADING,
     PENDING_ALIASES,
     SNIPPETS,
     VISION_ALIASES,
     Mintlify,
     embedding_cell,
+    image_cell,
     paise,
     servable,
+    split_by_kind,
     unit_paise,
 )
 
@@ -60,7 +63,8 @@ SUMMARY = SNIPPETS / "catalog-summary.mdx"
 VISION = SNIPPETS / "model-vision.mdx"
 BUDGET = SNIPPETS / "model-budget.mdx"
 EMBEDDINGS = SNIPPETS / "embedding-catalog.mdx"
-GENERATED = (CATALOG, SUMMARY, VISION, BUDGET, EMBEDDINGS)
+IMAGES = SNIPPETS / "image-catalog.mdx"
+GENERATED = (CATALOG, SUMMARY, VISION, BUDGET, EMBEDDINGS, IMAGES)
 
 # The tables carry the charged price and nothing else. A column the catalog does not
 # publish must not appear here either.
@@ -79,6 +83,7 @@ BUDGET_HEADER = [
     "Paise for 1K in + 1K out",
 ]
 VISION_HEADER = ["Alias", "Model", "Paise / 1K in", "Paise / 1K out"]
+IMAGE_HEADER = ["Alias", "Model", IMAGE_HEADING]
 
 # Directories that hold no published page: the MkDocs site that is still being served, its
 # build output, the generated snippets themselves, and the usual local clutter.
@@ -331,6 +336,46 @@ def check_embeddings(body: str, models: dict[str, dict], problems: list[str]) ->
         problems.append(f"embeddings: aliases missing from the snippet: {missing}")
 
 
+def check_images(body: str, models: dict[str, dict], problems: list[str]) -> None:
+    """
+    The image table: every image model, at what one image is charged.
+
+    The cell is rendered by the generator's own image_cell(), so the rounding (up, to a whole
+    paise, as settlement rounds) cannot drift between the two tools. With no image models in
+    the capture the snippet must carry no table at all, because the pages around it already
+    point at the live endpoint.
+    """
+    found = tables(body)
+    if not models:
+        if found:
+            problems.append("image-catalog.mdx: carries a table, but the capture has no image models")
+        return
+
+    seen: set[str] = set()
+    for table in found:
+        if [cell(value) for value in table[0]] != IMAGE_HEADER:
+            problems.append(f"image-catalog.mdx: unexpected table header {table[0]}")
+            continue
+        for row in table[1:]:
+            alias, name, price = [cell(value) for value in row]
+            model = models.get(alias)
+            if model is None:
+                problems.append(f"images: {alias} is not an image model in the source JSON")
+                continue
+            seen.add(alias)
+            if name != model["displayName"]:
+                problems.append(
+                    f"images: {alias}.displayName is {name!r}, expected {model['displayName']!r}"
+                )
+            want = image_cell(model)
+            if price != want:
+                problems.append(f"images: {alias} price is {price!r}, expected {want!r}")
+
+    missing = sorted(set(models) - seen)
+    if missing:
+        problems.append(f"images: aliases missing from the snippet: {missing}")
+
+
 def check_tables(problems: list[str]) -> None:
     if not SOURCE.exists():
         problems.append(f"{SOURCE.relative_to(ROOT)} is missing: run tools/fetch_catalog.py")
@@ -341,17 +386,13 @@ def check_tables(problems: list[str]) -> None:
     # The four original snippets describe CHAT models only. Every one of them is built around
     # a per-1K input and output rate, and an embedding has no output tokens at all, so an
     # embedding row checked against them reports as missing from a table it does not belong
-    # in. They get their own snippet and their own check.
-    models = {
-        model["alias"]: model
-        for model in catalog["models"]
-        if model.get("kind") != "embedding"
-    }
-    embeddings = {
-        model["alias"]: model
-        for model in catalog["models"]
-        if model.get("kind") == "embedding"
-    }
+    # in. Embedding and image models each get their own snippet and their own check. The
+    # split is the generator's own, so a kind with no table fails here exactly as it fails
+    # there.
+    kinds = split_by_kind(catalog["models"])
+    models = {model["alias"]: model for model in kinds["text"]}
+    embeddings = {model["alias"]: model for model in kinds["embedding"]}
+    images = {model["alias"]: model for model in kinds["image"]}
 
     text = check_mdx(problems)
     if len(text) != len(GENERATED):
@@ -362,10 +403,12 @@ def check_tables(problems: list[str]) -> None:
     rows = check_vision(text[VISION], models, problems)
     check_summary(text[SUMMARY], models, problems)
     check_embeddings(text[EMBEDDINGS], embeddings, problems)
+    check_images(text[IMAGES], images, problems)
     if not problems:
         print(
-            f"OK: {len(models)} chat rows, {len(embeddings)} embedding rows and {rows} vision "
-            f"rows in {SNIPPETS.relative_to(ROOT)}/ match {SOURCE.relative_to(ROOT)}"
+            f"OK: {len(models)} chat rows, {len(embeddings)} embedding rows, {len(images)} "
+            f"image rows and {rows} vision rows in {SNIPPETS.relative_to(ROOT)}/ match "
+            f"{SOURCE.relative_to(ROOT)}"
         )
 
 

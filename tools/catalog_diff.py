@@ -27,13 +27,29 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from generate_pricing import paise  # noqa: E402
+from generate_pricing import paise, unit_paise  # noqa: E402
 
 # Every rate on the pricing pages, with the column head and renderer each one uses.
+#
+# The per-unit rates are here as well as the token ones. An image model is priced on
+# paisePerImage alone, so with only the token rates listed a new image model was summarised
+# as 0.00 in and 0.00 out, and a change to its price moved the published table while this
+# summary said nothing had moved, which the refresh workflow treats as a failure. The same
+# held for an embedding model's per-image, per-second and per-request rates.
 RATES = (
     ("paisePer1KTokensIn", "Paise / 1K in", paise),
     ("paisePer1KTokensOut", "Paise / 1K out", paise),
+    ("paisePerImage", "Paise / image", unit_paise),
+    ("paisePerVideoSecond", "Paise / video sec", unit_paise),
+    ("paisePerAudioSecond", "Paise / audio sec", unit_paise),
+    ("paisePerRequest", "Paise / request", unit_paise),
 )
+ZERO = Decimal(0)
+
+
+def rate(model: dict, field: str) -> Decimal:
+    # A capture taken before the per-unit rates were carried across has no such fields.
+    return model.get(field, ZERO)
 
 
 def load(path: Path) -> dict[str, dict]:
@@ -41,17 +57,24 @@ def load(path: Path) -> dict[str, dict]:
     return {model["alias"]: model for model in payload["models"]}
 
 
-def rate_row(model: dict) -> str:
-    cells = " | ".join(render(model[field]) for field, _, render in RATES)
-    return f"| `{model['alias']}` | {model['displayName']} | {cells} |"
-
-
 def rate_table(models: list[dict]) -> list[str]:
-    heads = " | ".join(head for _, head, _ in RATES)
+    """The models with their rates, carrying only the columns some listed model prices, so
+    an added image model is not shown beside two token columns of zeros."""
+    used = [
+        (field, head, render)
+        for field, head, render in RATES
+        if any(rate(model, field) != 0 for model in models)
+    ]
+    heads = " | ".join(head for _, head, _ in used)
     return [
         f"| Alias | Model | {heads} |",
-        "|---|---|---:|---:|",
-        *(rate_row(model) for model in models),
+        "|---|---|" + "|".join("---:" for _ in used) + "|",
+        *(
+            f"| `{model['alias']}` | {model['displayName']} | "
+            + " | ".join(render(rate(model, field)) for field, _, render in used)
+            + " |"
+            for model in models
+        ),
     ]
 
 
@@ -59,9 +82,9 @@ def moved_rates(before: dict, after: dict) -> list[tuple[str, str, str]]:
     """The rates that differ, as (column head, before, after). Compared as numbers, so
     a catalog that starts writing 45.0 where it wrote 45.00 is not reported as a rise."""
     return [
-        (head, render(before[field]), render(after[field]))
+        (head, render(rate(before, field)), render(rate(after, field)))
         for field, head, render in RATES
-        if before[field] != after[field]
+        if rate(before, field) != rate(after, field)
     ]
 
 

@@ -94,9 +94,10 @@ jobs:
             echo "### The generator rejected the new catalog"
             echo
             echo "It carries something \`tools/generate_pricing.py\` does not map yet."
-            echo "A new alias needs a family in \`FAMILIES\`, and a decision on whether it"
-            echo "belongs in \`VISION_ALIASES\` or \`PENDING_ALIASES\`. Add it there, then"
-            echo "run this workflow again."
+            echo "A new text alias needs a family in \`FAMILIES\`, and a decision on whether"
+            echo "it belongs in \`VISION_ALIASES\` or \`PENDING_ALIASES\`. A row of a new"
+            echo "\`kind\` needs a table of its own before it can be published (\`KINDS\`)."
+            echo "Add it there, then run this workflow again."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Say what moved

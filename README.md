@@ -78,9 +78,17 @@ import ModelCatalog from '/snippets/model-catalog.mdx';
 <ModelCatalog />
 ```
 
-The four snippets are `model-catalog.mdx` (every alias with its rates), `model-vision.mdx`
-(the aliases that accept images), `model-budget.mdx` (the ten cheapest servable aliases) and
-`catalog-summary.mdx` (the one-line summary above the tables).
+The snippets are `model-catalog.mdx` (every text alias with its rates), `model-vision.mdx`
+(the aliases that accept images), `model-budget.mdx` (the ten cheapest servable aliases),
+`catalog-summary.mdx` (the one-line summary above the tables), `embedding-catalog.mdx` (the
+embedding models) and `image-catalog.mdx` (the image generation models, at what one image
+costs).
+
+Each row of the catalog carries a `kind` (`text`, `embedding` or `image`), and each kind has
+tables of its own. A row of any other kind stops the capture and the generator: a model with
+no token rates would otherwise publish in the chat tables at 0.00, which reads as no charge.
+`image-catalog.mdx` renders nothing at all when the capture holds no image models, because
+the pages that import it already send readers to the live price.
 
 `.github/workflows/catalog-refresh.yml` captures the catalog every Monday and opens a pull
 request listing what moved: models added, removed, renamed or reprised. If nothing moved it
@@ -109,7 +117,8 @@ script fails rather than guessing when they fall out of step with the catalog.
 | It says | It means |
 |---|---|
 | The catalog key is missing | Add the `TRISTACK_CATALOG_API_KEY` secret and run it again. |
-| The generator rejected the new catalog | A new alias needs a family in `FAMILIES`, and a decision about `VISION_ALIASES` and `PENDING_ALIASES`. |
+| The generator rejected the new catalog | A new text alias needs a family in `FAMILIES`, and a decision about `VISION_ALIASES` and `PENDING_ALIASES`. A row of a new `kind` needs its own table, added to `KINDS` in the generator and to `KINDS` in `tools/fetch_catalog.py`. |
+| An image model with no `paisePerImage`, or priced on something else too | The image table publishes one price per image. Find out what the model is billed on before widening the table. |
 | A rate does not survive rendering | The catalog carries a price at a precision the table cannot print. Widen the renderer rather than rounding the price. |
 | `imports X but never renders <X />` | A page imports a snippet and does not use it, so that table is missing from the published page. |
 | `No page imports ...` | A note, not a failure. The tables are generated and committed but no page shows them. Either import them, or delete the generator and let the pages send readers to `GET /v1/manifold/models` for live prices. |
