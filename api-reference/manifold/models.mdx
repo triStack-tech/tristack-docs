@@ -55,6 +55,18 @@ curl https://api.tristack.tech/v1/manifold/models \
       "modalities": { "input": ["text"], "output": ["vector"] },
       "dimensions": 1024,
       "residency": "india"
+    },
+    {
+      "alias": "stable-image-core",
+      "displayName": "Stable Image Core",
+      "kind": "image",
+      "paisePer1KTokensIn": 0,
+      "paisePer1KTokensOut": 0,
+      "paisePerImage": 419.716, "paisePerVideoSecond": 0,
+      "paisePerAudioSecond": 0, "paisePerRequest": 0,
+      "modalities": { "input": ["text"], "output": ["image"] },
+      "dimensions": 0,
+      "residency": "outside_india"
     }
   ]
 }
@@ -71,7 +83,7 @@ The real response lists every model the key may call, which is dozens of rows.
     <ResponseField name="alias" type="string">
       What you send as `model` in
       [`POST /v1/manifold/messages`](/api-reference/manifold/messages), for example
-      `nova-lite`. Matched case-insensitively.
+      `nova-lite`, or on the route its `kind` names. Matched case-insensitively.
     </ResponseField>
 
     <ResponseField name="displayName" type="string">
@@ -81,7 +93,7 @@ The real response lists every model the key may call, which is dozens of rows.
 
     <ResponseField name="paisePer1KTokensIn" type="number">
       **What you pay** for 1000 input tokens, in paise, rounded to two decimals for
-      reading.
+      reading. `0` on an image model, which is priced per image rather than per token.
     </ResponseField>
 
     <ResponseField name="paisePer1KTokensOut" type="number">
@@ -91,19 +103,34 @@ The real response lists every model the key may call, which is dozens of rows.
     </ResponseField>
 
     <ResponseField name="kind" type="string">
-      `text` or `embedding`: which route serves this alias. Sending one to the other's
-      endpoint is `400 model_kind_mismatch`, so branch on this rather than on the name.
+      Which route serves this alias:
+
+      - `text`: [`POST /v1/manifold/messages`](/api-reference/manifold/messages) and
+        `POST /v1/chat/completions`.
+      - `embedding`: [`POST /v1/manifold/embeddings`](/api-reference/manifold/embeddings) and
+        `POST /v1/embeddings`.
+      - `image`: [`POST /v1/manifold/images`](/api-reference/manifold/images) and
+        `POST /v1/images/generations`.
+
+      Sending an alias to another kind's route is `400 model_kind_mismatch`, so branch on this
+      rather than on the name. Treat a value you do not recognise as a model none of your code
+      can call: new kinds can be added.
     </ResponseField>
 
     <ResponseField name="paisePerImage" type="number">
       What you pay per image, for a model billed that way. Always present, `0` on a model
       that has no such charge, so a client never has to special-case a missing field. The
       same holds for `paisePerVideoSecond`, `paisePerAudioSecond` and `paisePerRequest`.
+
+      On an image model (`kind` `image`) this is the whole price of one generated image, and
+      the only rate it has. One image costs this figure rounded up to a whole paise, and each
+      request makes one. On an embedding model it is the charge for one image embedded.
     </ResponseField>
 
     <ResponseField name="modalities" type="object">
       What the model accepts and returns: `input` and `output`, each an array of `text`,
-      `image`, `video`, `audio` or `vector`.
+      `image`, `video`, `audio` or `vector`. An image model reads
+      `{ "input": ["text"], "output": ["image"] }`: a prompt in, a picture out.
 
       **Read this instead of hard-coding a list.** Whether a model accepts images is the
       thing clients most often copy into their own code, and that copy is wrong the first
@@ -115,7 +142,8 @@ The real response lists every model the key may call, which is dozens of rows.
       How many numbers an embedding vector carries, so you can size a fixed-width column
       without a throwaway call.
 
-      `0` on a text model, and `0` on an embedding model whose width we have not observed.
+      `0` on a text or image model, and `0` on an embedding model whose width we have not
+      observed.
       **Read `0` as "not published", never as a width.** Two embedding aliases are `0` today;
       ask support rather than assuming.
     </ResponseField>
@@ -126,7 +154,7 @@ The real response lists every model the key may call, which is dozens of rows.
       `varies` means the alias is reached through a route that can be answered from more than
       one region, so a request may be processed outside India and we cannot say in advance
       which region served it. Treat `varies` as "not India-resident" for any obligation you
-      have to meet. Every Claude alias is `varies`.
+      have to meet. Every Claude alias is `varies`, and every image model is `outside_india`.
 
       See [Where your input is processed](/manifold/models#where-your-input-is-processed) for
       the per-alias tables and what we can and cannot evidence.
@@ -136,7 +164,7 @@ The real response lists every model the key may call, which is dozens of rows.
 
 ## How to read the price fields
 
-Both price fields are quoted in **paise per 1000 tokens**, so a call costs:
+On a text model both price fields are quoted in **paise per 1000 tokens**, so a call costs:
 
 ```text
 costPaise = ceil(
@@ -163,6 +191,10 @@ Reading one row end to end, for `nova-lite`:
   The estimate, the settlement and this listing all come from the same calculation, so what
   you are quoted is what you pay.
 </Note>
+
+An image model has no token rates. One request makes one image and costs `paisePerImage`
+rounded up to a whole paise: at the `419.716` above, **420 paise**. That figure is only the
+example's; read the live one. [Images](/manifold/images#what-an-image-costs).
 
 The rounding happens once, at the end, on the total. Rates are held at full precision until
 then, so adding up rounded per-row numbers yourself can land a paise away from the

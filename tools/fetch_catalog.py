@@ -96,8 +96,8 @@ def validate(raw: bytes) -> int:
         if kind not in KINDS:
             raise SystemExit(
                 f"{alias}.kind is missing or unknown: {kind!r}. "
-                "The pages render embedding rows in their own table, so a row that cannot "
-                "say which it is cannot be published."
+                "The pages publish each kind in tables of its own, so a row that cannot say "
+                "which it is, or is of a kind with no table yet, cannot be published."
             )
 
         for field in REQUIRED_RATES:
@@ -106,7 +106,8 @@ def validate(raw: bytes) -> int:
                 raise SystemExit(f"{alias}.{field} is missing or not a rate: {rate!r}")
 
         # An embedding row legitimately carries paisePer1KTokensOut = 0, because an embedding
-        # has no output tokens. That is why the check above is `< 0` rather than `<= 0`.
+        # has no output tokens, and an image row carries 0 on both token rates, because it is
+        # priced per image. That is why the check above is `< 0` rather than `<= 0`.
         for field in UNIT_RATES:
             rate = model.get(field)
             if not isinstance(rate, Decimal) or rate < 0:
@@ -133,7 +134,8 @@ PUBLISHED_FIELDS = (
     "kind",
     "paisePer1KTokensIn",
     "paisePer1KTokensOut",
-    # Embedding rows are billed on these, so the pages have to be able to publish them.
+    # Embedding and image rows are billed on these, so the pages have to be able to publish
+    # them.
     # Before they were carried across, an embedding model's per-image and per-request
     # charges were debited from the wallet and appeared in no table anywhere, which is the
     # same fault as printing the wrong number.
@@ -144,9 +146,9 @@ PUBLISHED_FIELDS = (
 )
 TEXT_FIELDS = frozenset({"alias", "displayName", "kind"})
 
-# Rates that only an embedding row uses. Zero on a text row, and zero on an embedding row
-# that does not price that dimension, so they are validated as rates but never required to
-# be positive.
+# Rates that only an embedding or image row uses. Zero on a text row, and zero on a row that
+# does not price that dimension, so they are validated as rates but never required to be
+# positive. An image row is priced on paisePerImage alone.
 UNIT_RATES = (
     "paisePerImage",
     "paisePerVideoSecond",
@@ -154,7 +156,9 @@ UNIT_RATES = (
     "paisePerRequest",
 )
 
-KINDS = frozenset({"text", "embedding"})
+# Kept in step with KINDS in tools/generate_pricing.py, which decides the table each kind is
+# published in. A kind missing here stops the capture before anything is written.
+KINDS = frozenset({"text", "embedding", "image"})
 
 
 def publishable(raw: bytes) -> bytes:

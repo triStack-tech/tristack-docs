@@ -57,7 +57,7 @@ for item in reply.json()["embeddings"]:
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `model` | string | yes | A model alias whose kind is `embedding`. A chat alias is refused with `model_kind_mismatch`. |
+| `model` | string | yes | A model alias whose kind is `embedding`. A chat or image alias is refused with `model_kind_mismatch`. |
 | `input` | string or array | yes | A bare string, an array of strings, or an array of typed blocks. Max 2048 items, 8 MB total. |
 | `input_type` | string | no | `search_document` or `search_query`, for models that distinguish them. Ignored, visibly, by models that do not. |
 | `dimensions` | integer | no | Requested vector length, for models that support more than one. |
@@ -181,7 +181,7 @@ declared duration only sizes the hold, so understating it does not reduce the bi
 | 400 | `invalid_input` | `input` is missing, empty, or not a string or array |
 | 400 | `input_too_large` | Beyond 2048 inputs, 8 MB, or the model's own input limit |
 | 400 | `unsupported_input_modality` | Video or audio sent to the synchronous route |
-| 400 | `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages`, or a chat model sent here |
+| 400 | `model_kind_mismatch` | An embedding model sent to `/v1/manifold/messages` or `/v1/manifold/images`, or a chat or image model sent here |
 | 400 | `unknown_model` | No such alias, or one your key cannot call |
 | 402 | `insufficient_balance` | The wallet cannot cover the estimate |
 | 403 | `insufficient_scope` | The key lacks `manifold:embed` |

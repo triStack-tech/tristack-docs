@@ -1,6 +1,6 @@
 ---
 title: "OpenAI-compatible API"
-description: "Call Manifold with any OpenAI client: POST /v1/chat/completions and GET /v1/models, with tools and streaming, on the same pipeline and prices as /v1/manifold/messages."
+description: "Call Manifold with any OpenAI client: POST /v1/chat/completions with tools and streaming, GET /v1/models, and POST /v1/images/generations, on the same pipelines and prices as the native routes."
 sidebarTitle: "OpenAI-compatible"
 icon: "plug"
 ---
@@ -8,7 +8,8 @@ icon: "plug"
 Manifold speaks the OpenAI Chat Completions format, so any OpenAI client (the OpenAI SDKs,
 LiteLLM, agent frameworks) can use it by changing the base URL and the key. It runs the same
 pipeline as `POST /v1/manifold/messages`: the same models, project checks, model allowlist,
-wallet billing and usage records. The same tokens cost the same on both routes.
+wallet billing and usage records. The same tokens cost the same on both routes. It also takes
+OpenAI's image requests, on the same code as `POST /v1/manifold/images`: see [Images](#images).
 
 ## Base URL and auth
 
@@ -19,12 +20,15 @@ https://api.tristack.tech/v1
 | Method | Path | What it does |
 |---|---|---|
 | `POST` | `/v1/chat/completions` | A chat completion, whole or streamed |
+| `POST` | `/v1/embeddings` | Vectors. See [Embeddings](/manifold/embeddings#openai-compatible-alias) |
+| `POST` | `/v1/images/generations` | One image from a prompt. See [Images](#images) |
 | `GET` | `/v1/models` | The models this key can call |
 | `GET` | `/v1/models/{model}` | One model, or `404` if this key cannot call it |
 
 Send your Tristack key as `Authorization: Bearer tsk_live_...` (or `tsk_test_...`), or as
 `X-Api-Key`. Manifold must be enabled on the key's project. The key needs the
-`manifold:invoke` scope to call and `manifold:read` to list (a key with no scopes has both).
+`manifold:invoke` scope to call, `manifold:read` to list, `manifold:embed` for embeddings and
+`manifold:image` for images (a key with no scopes has all of them).
 
 ## Models
 
@@ -35,7 +39,10 @@ Send your Tristack key as `Authorization: Bearer tsk_live_...` (or `tsk_test_...
 {"object": "list", "data": [{"id": "nova-lite", "object": "model", "created": 1785542400, "owned_by": "tristack"}]}
 ```
 
-Only text models can be called here; embedding aliases belong to `POST /v1/embeddings`.
+Only text models can be called on `/v1/chat/completions`. Embedding aliases belong to
+`POST /v1/embeddings` and image aliases to `POST /v1/images/generations`; sending one to the
+wrong route is `400 model_kind_mismatch`. `GET /v1/models` lists every kind without saying which
+is which, so read `kind` from `GET /v1/manifold/models` when you need to tell them apart.
 
 ## Request fields
 
@@ -130,6 +137,103 @@ and the usage view use.
 
 Requests may carry an `Idempotency-Key` header, as on the native API: a retry with the same
 key and body replays the first answer instead of being charged again.
+
+## Images
+
+`POST /v1/images/generations` takes OpenAI's image request and answers in OpenAI's image shape,
+so `images.generate` in an OpenAI SDK works with only the base URL changed. It is a translation
+of [`POST /v1/manifold/images`](/api-reference/manifold/images) and runs the same code: the same
+image models, the same price per image, the same wallet billing, and the same limit of **one
+image per minute per model, for the whole platform**. The key needs `manifold:image`.
+
+| Field | Support |
+|---|---|
+| `model` | Required. An image alias such as `stable-image-core`. A text or embedding alias is `400 model_kind_mismatch` |
+| `prompt` | Required. 1 to 10,000 characters |
+| `n` | `1` only. Any other value is `400 invalid_request` |
+| `size` | Chooses the aspect ratio, not the pixel size: see the table below. Omitted, it is `1:1`. Any other value is `400 invalid_request` |
+| `response_format` | `b64_json`, the default. `url` is `400 invalid_request`: images come back in the response only, never as a link |
+| `output_format` | `png` (the default) or `jpeg` |
+| `quality`, `style`, `background`, `moderation`, `user` | Accepted and ignored |
+
+| `size` | Aspect ratio |
+|---|---|
+| `1024x1024`, `auto` | `1:1` |
+| `1536x1024` | `3:2` |
+| `1024x1536` | `2:3` |
+| `1792x1024` | `16:9` |
+| `1024x1792` | `9:16` |
+
+The image comes back at the model's own size for that shape, not the size you named:
+`1024x1024` on `stable-image-core` returns a 1536 × 1536 image. For a seed, a negative prompt,
+or the `21:9`, `9:21`, `4:5` and `5:4` ratios, use the native route.
+
+```json The reply
+{
+  "created": 1793700000,
+  "data": [{ "b64_json": "iVBORw0KGgoAAAANSUhEUgAA..." }],
+  "cost": { "paise": 420 }
+}
+```
+
+`data` always holds one image, as base64. There is no image URL and Tristack does not store the
+image. The extra `cost` field is what you were charged, and OpenAI clients ignore it.
+
+Refusals carry the same codes as the native route. A busy model is a `429` with the code
+`model_busy` and a `Retry-After` header; a blocked prompt is a `400` with `content_filtered`.
+Neither is charged. The OpenAI SDKs retry a `429` on their own (`max_retries`, 2 by default)
+before raising `RateLimitError`. With one image a minute per model, raise `max_retries`, or
+catch the error and try again later.
+
+Prompts and images are processed outside India, and words inside an image are not reliable.
+[Images](/manifold/images) has the detail.
+
+<CodeGroup>
+
+```python Python
+# pip install openai
+import base64
+import os
+
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.tristack.tech/v1",
+    api_key=os.environ["TRISTACK_API_KEY"],
+    max_retries=4,  # a busy model answers 429, which the SDK retries
+    timeout=120,
+)
+
+result = client.images.generate(
+    model="stable-image-core",
+    prompt="A steel water bottle on a wooden table, morning light",
+    size="1536x1024",
+)
+with open("bottle.png", "wb") as out:
+    out.write(base64.b64decode(result.data[0].b64_json))
+```
+
+```javascript Node
+// npm install openai. Save as .mjs, or set "type": "module".
+import { writeFile } from "node:fs/promises";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://api.tristack.tech/v1",
+  apiKey: process.env.TRISTACK_API_KEY,
+  maxRetries: 4, // a busy model answers 429, which the SDK retries
+  timeout: 120_000,
+});
+
+const result = await client.images.generate({
+  model: "stable-image-core",
+  prompt: "A steel water bottle on a wooden table, morning light",
+  size: "1536x1024",
+});
+await writeFile("bottle.png", Buffer.from(result.data[0].b64_json, "base64"));
+```
+
+</CodeGroup>
 
 ## OpenAI Python SDK
 

@@ -1,0 +1,284 @@
+---
+title: "Create an image"
+description: "POST /v1/manifold/images: every request field and its limits, the response, the one-image-a-minute limit and model_busy, what each outcome costs, the OpenAI-compatible alias, and every error code with its status."
+---
+
+<Info>
+  `POST https://api.tristack.tech/v1/manifold/images` · Auth: `Authorization: Bearer tsk_live_…`
+  or `X-Api-Key: tsk_live_…` · Scope: `manifold:image` · Request and response fields are
+  **snake_case** on the wire (`aspect_ratio`, `media_type`).
+</Info>
+
+Makes one image from a text prompt and returns it in the response as base64, billed to the
+wallet per image.
+
+The wallet is charged hold-then-settle: the price of one image is reserved before the model is
+called, charged when an image comes back, and released in full when none does. A request
+refused before the model runs costs nothing, and so does a blocked prompt, a busy model or a
+failed call.
+
+<Warning>
+  **Each image model makes one image per minute, for the whole platform**, shared by every
+  Tristack customer. A request that arrives while the model's slot is taken is refused with
+  `429 model_busy` and a `Retry-After` header, before the wallet is touched. Wait and retry:
+  see [Retrying a busy model](#retrying-a-busy-model).
+</Warning>
+
+Prompts and images are **processed outside India**. Words inside images (signs, banners, logos
+with text) are **not reliable** and usually come out misspelt. Tristack does **not store the
+images**, and there are no image URLs: the response is the only copy. The guide,
+[Images](/manifold/images), covers choosing a model, seeds and prompts.
+
+## Send a request
+
+<CodeGroup>
+
+```bash curl
+curl https://api.tristack.tech/v1/manifold/images \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "stable-image-core",
+    "prompt": "A steel water bottle on a wooden table, morning light",
+    "negative_prompt": "blurry",
+    "aspect_ratio": "1:1",
+    "output_format": "png",
+    "seed": 7
+  }' \
+  -o reply.json
+
+jq -r '.images[0].b64' reply.json | base64 --decode > bottle.png
+```
+
+```python Python
+# pip install requests
+import base64
+import os
+
+import requests
+
+reply = requests.post(
+    "https://api.tristack.tech/v1/manifold/images",
+    headers={"Authorization": f"Bearer {os.environ['TRISTACK_API_KEY']}"},
+    json={
+        "model": "stable-image-core",
+        "prompt": "A steel water bottle on a wooden table, morning light",
+        "aspect_ratio": "1:1",
+    },
+    timeout=120,
+)
+if not reply.ok:
+    failure = reply.json()  # raise_for_status() would throw away the code
+    raise SystemExit(f"{reply.status_code} {failure.get('code')}: {failure['error']}")
+
+image = reply.json()["images"][0]
+with open("bottle.png", "wb") as out:
+    out.write(base64.b64decode(image["b64"]))
+```
+
+</CodeGroup>
+
+An image usually takes 5 to 15 seconds. Set a client timeout of two minutes.
+
+## Request fields
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `model` | string | yes | An alias whose `kind` is `image`, from [`GET /v1/manifold/models`](/api-reference/manifold/models): `stable-image-core`, `sd-3-5-large` or `stable-image-ultra`. A text or embedding alias is refused with `model_kind_mismatch`. |
+| `prompt` | string | yes | What to draw. 1 to 10,000 characters. |
+| `negative_prompt` | string | no | What to keep out of the image. Up to 10,000 characters. |
+| `aspect_ratio` | string | no | `1:1` (the default), `16:9`, `21:9`, `3:2`, `2:3`, `4:5`, `5:4`, `9:16` or `9:21`. |
+| `output_format` | string | no | `png` (the default) or `jpeg`. |
+| `seed` | integer | no | 0 to 4294967294. The same seed, model, prompt, negative prompt and aspect ratio make the same picture. Absent or `0`, the model picks one at random, and the reply carries the one it used. |
+| `n` | integer | no | Images per request. `1` is the only accepted value; anything else is `400 invalid_request`. |
+
+Every field is checked before the model's slot and before the wallet, so a malformed request is
+refused with `400 invalid_request`, costs nothing and does not use up the minute.
+
+### Image sizes
+
+The pixel size is the model's own, not a request field. At `1:1`:
+
+| Model | Width × height |
+|---|---|
+| `stable-image-core` | 1536 × 1536 px |
+| `sd-3-5-large` | 1024 × 1024 px |
+| `stable-image-ultra` | 1024 × 1024 px |
+
+Another aspect ratio changes the shape and so the width and height. Read them from the file you
+receive rather than assuming them. A square PNG from `stable-image-core` is about 3 MB, and
+about 0.7 MB as JPEG; base64 makes the reply about a third larger than the file.
+
+## Response
+
+```json 200 OK
+{
+  "id": "img_5c1e...",
+  "model": "stable-image-core",
+  "images": [
+    { "index": 0, "b64": "iVBORw0KGgoAAAANSUhEUgAA...", "media_type": "image/png", "seed": 7 }
+  ],
+  "usage": { "images": 1 },
+  "cost": { "paise": 420 }
+}
+```
+
+| Field | Notes |
+|---|---|
+| `id` | The request id. Quote it to support about this image. |
+| `model` | The alias that made the image. |
+| `images` | Always exactly one entry. |
+| `images[].b64` | The image file, base64 encoded. Decode it and write the bytes to a file. |
+| `images[].media_type` | `image/png` or `image/jpeg`, matching `output_format`. |
+| `images[].seed` | The seed the image was made from: the one you sent, or the one the model picked. Send it back to make the same picture. |
+| `usage.images` | `1`. |
+| `cost.paise` | What you were charged: the price of one image, in paise. |
+
+There is no image URL, and Tristack keeps no copy of the image.
+
+## Retrying a busy model
+
+Each image model makes one image per minute for the whole platform. The slot is not per key or
+per account, and it cannot be raised. A request that finds it taken is refused at once:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 37
+Content-Type: application/json
+
+{ "error": "This model is busy. Try again in 37 seconds.", "code": "model_busy", "retry_after_seconds": 37 }
+```
+
+- `Retry-After` (header) and `retry_after_seconds` (body) both give the seconds until the
+  model's next slot.
+- Nothing is charged and no hold is placed.
+- Another customer may take the next slot before you, so retry in a loop with a limit.
+- Each image model has its own slot. If another model will do, try it instead of waiting.
+
+```javascript Node: wait for the slot, then retry
+// Node 18 or newer, no dependencies. Save as .mjs, or set "type": "module".
+import { writeFile } from "node:fs/promises";
+
+async function generate(body, attempts = 5) {
+  for (let attempt = 1; ; attempt++) {
+    const reply = await fetch("https://api.tristack.tech/v1/manifold/images", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.TRISTACK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const result = await reply.json();
+    if (reply.ok) return result;
+    if (result.code !== "model_busy" || attempt === attempts) {
+      throw new Error(`${reply.status} ${result.code}: ${result.error}`);
+    }
+    const wait = Number(reply.headers.get("Retry-After") ?? 60);
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000));
+  }
+}
+
+const result = await generate({
+  model: "stable-image-core",
+  prompt: "A steel water bottle on a wooden table, morning light",
+});
+await writeFile("bottle.png", Buffer.from(result.images[0].b64, "base64"));
+```
+
+The same loop in Python is on [Images](/manifold/images#one-image-a-minute-per-model).
+
+## Blocked prompts
+
+The model's safety filter checks the prompt and the image it makes. When it blocks either, the
+answer is `400 content_filtered`, the hold is released, and **nothing is charged**:
+
+```json 400
+{ "error": "The model's safety filter blocked this prompt. You were not charged.", "code": "content_filtered" }
+```
+
+The filter belongs to the model and cannot be switched off. A blocked attempt still used that
+model's slot for the minute, so an immediate retry with a reworded prompt may answer
+`model_busy` first.
+
+## What each outcome costs
+
+The price of one image is `paisePerImage` on
+[`GET /v1/manifold/models`](/api-reference/manifold/models), rounded up to a whole paise. Stable
+Image Core is the cheapest of the three image models and Stable Image Ultra the dearest. Prices
+move with the exchange rate, so read them from the endpoint.
+
+| Outcome | Charge |
+|---|---|
+| An image came back | The price of one image, reported as `cost.paise` |
+| `content_filtered` | Nothing. The hold is released |
+| `provider_error`, or the model timed out | Nothing. The hold is released |
+| `model_busy` | Nothing. Refused before any hold |
+| Any other refusal before the model runs | Nothing. The wallet is never touched |
+
+The checks run in this order: the key and its scope, the fields, the model's kind and the
+project's allowlist, the model's slot (`model_busy`), the wallet hold (`insufficient_balance`),
+and only then the model. Nothing before the model can cost anything.
+
+## OpenAI-compatible alias
+
+`POST https://api.tristack.tech/v1/images/generations` takes and returns OpenAI's image shape,
+so an existing OpenAI client works by changing only its base URL. It translates to this route
+and runs the same code, so the models, the price, the billing and the one-a-minute limit are
+identical. Scope: `manifold:image`.
+
+| Field | Support |
+|---|---|
+| `model` | Required. An image alias. |
+| `prompt` | Required. 1 to 10,000 characters. |
+| `n` | `1` only. Any other value is `400 invalid_request`. |
+| `size` | Chooses the aspect ratio, as in the table below. Omitted, it is `1:1`. Any other value is `400 invalid_request`. |
+| `response_format` | `b64_json`, the default. `url` is `400 invalid_request`: no image URLs are offered. |
+| `output_format` | `png` (the default) or `jpeg`. |
+| `quality`, `style`, `background`, `moderation`, `user` | Accepted and ignored. |
+
+| `size` | Aspect ratio |
+|---|---|
+| `1024x1024`, `auto` | `1:1` |
+| `1536x1024` | `3:2` |
+| `1024x1536` | `2:3` |
+| `1792x1024` | `16:9` |
+| `1024x1792` | `9:16` |
+
+`size` names a shape, not a pixel size: `1024x1024` on `stable-image-core` returns a 1536 × 1536
+image. Seeds, negative prompts and the `21:9`, `9:21`, `4:5` and `5:4` ratios are on the native
+route only.
+
+```json The reply
+{
+  "created": 1793700000,
+  "data": [{ "b64_json": "iVBORw0KGgoAAAANSUhEUgAA..." }],
+  "cost": { "paise": 420 }
+}
+```
+
+The extra `cost` field is ignored by OpenAI clients. Refusals carry the same codes as the native
+route, `model_busy` included. SDK examples are on
+[OpenAI-compatible API](/manifold/openai-compatible#images).
+
+## Errors
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | `invalid_request` | A field is missing or out of range: no `prompt`, or one over 10,000 characters; a `negative_prompt` over 10,000; an `aspect_ratio` not in the list; an `output_format` other than `png` or `jpeg`; a `seed` outside 0 to 4294967294; `n` other than 1. On the alias, also a `size` not in the table, or `response_format: "url"` |
+| 400 | `content_filtered` | The model's safety filter blocked the prompt or the image. Not charged |
+| 400 | `model_kind_mismatch` | A text or embedding alias sent here, or an image alias sent to `/v1/manifold/messages`, `/v1/chat/completions` or the embeddings routes |
+| 400 | `unknown_model` | No such alias, or one your key cannot call |
+| 400 | `provider_rejected` | The model refused the request as malformed. The hold is released. Not charged |
+| 401 | `invalid_api_key` | The key is missing, malformed, unknown or revoked |
+| 401 | `project_archived` | The key's project is archived |
+| 402 | `insufficient_balance` | The wallet cannot cover the price of one image. The model did not run |
+| 403 | `account_disabled` | Tristack has disabled the account that owns the key |
+| 403 | `manifold_disabled` | Manifold is switched off on the project |
+| 403 | `insufficient_scope` | The key lacks `manifold:image`. `manifold:invoke` and `manifold:embed` do not grant it |
+| 403 | `model_not_allowed` | The project's allowlist does not carry this alias |
+| 429 | `model_busy` | The model's one-a-minute slot is taken. `Retry-After` and `retry_after_seconds` say when to retry. Not charged |
+| 502 | `provider_error` | The model failed or timed out. The hold is released. Not charged |
+
+See [platform errors](/platform/errors) for the codes shared across the API.

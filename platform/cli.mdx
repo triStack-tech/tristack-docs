@@ -235,7 +235,7 @@ tristack projects update "My app" --sms on --otp on
 | `keys revoke --project <p> <key id\|key name>` | Revoke an API key by id or by name |
 
 Leave out `--scopes` for a key with full access. The scopes are `manifold:read`,
-`manifold:invoke`, `manifold:embed`, `relay-email:send`, `relay-email:templates`,
+`manifold:invoke`, `manifold:embed`, `manifold:image`, `relay-email:send`, `relay-email:templates`,
 `relay-email:domains`, `relay-email:suppression`, `relay-voice:send`, `relay-voice:read`,
 `relay-voice:numbers`, `relay-whatsapp:send`, `relay-whatsapp:verify`, `relay-sms:send`,
 `relay-sms:verify`, `relay-sms:read`, `verify:send`, `verify:check`, `verify:read`,
@@ -384,7 +384,7 @@ tristack numbers available --prefix 9180
 | `logs` | Request log: every billable event, newest first (same as `usage events`) |
 
 `usage summary`, `usage events` and `logs` filter with `--project`, `--product` (`sms`,
-`otp`, `email`, `voice`, `manifold`, `embeddings` or `all`; the API's own ids such as
+`otp`, `email`, `voice`, `manifold`, `embeddings`, `images` or `all`; the API's own ids such as
 `relay_sms` work too), `--status` (`all`, `succeeded`, `failed` or `provider_error`), `--from`
 and `--to` (`yyyy-mm-dd`, both inclusive: `--to` counts that whole day, and the answer writes
 it as the start of that day). `usage events` and `logs` also page with `--page`, `--page-size`
