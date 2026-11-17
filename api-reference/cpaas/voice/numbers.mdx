@@ -197,11 +197,10 @@ key issued for one project put a monthly charge on another. Rent from the key be
 project that should carry the cost.
 
 <Note>
-  Renting does not change your caller id by itself. Calls go out from a rented number only once
-  it is assigned to a project, and none of these endpoints does that: Tristack support assigns
-  it on request, at [support@tristack.tech](mailto:support@tristack.tech). Until then the
-  project keeps calling from the shared Tristack number.
-  [Assigning a number to a project](/cpaas/voice/numbers#assigning-a-number-to-a-project)
+  A number calls for the project it is rented on, which is the key's project. From the moment
+  the first month is paid, that project's calls use it as the caller id; other projects keep
+  calling from the shared Tristack number.
+  [Which number your calls come from](/cpaas/voice/numbers#which-number-your-calls-come-from)
 </Note>
 
 <ParamField path="GET /v1/cpaas/voice/numbers" type="endpoint">

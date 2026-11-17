@@ -1,14 +1,14 @@
 ---
 title: "Phone numbers"
-description: "Rent your own number for Voice calls: what India requires, how to search and buy, what it costs each month, how it gets assigned to a project, and how to give one back."
+description: "Rent your own number for Voice calls: what India requires, how to search and buy, what it costs each month, which project calls from it, and how to give one back."
 sidebarTitle: "Phone numbers"
 icon: "phone"
 ---
 
 By default, calls on Voice (the Tristack CPaaS calling channel) go out from a shared Tristack
-number. You can rent a number of your own for your account. Calls from a project show it once
-Tristack support has assigned it to that project, which is done on request for now: see
-[assigning a number to a project](#assigning-a-number-to-a-project).
+number. You can rent a number of your own for your account, and the project you rent it on
+calls from it as soon as the first month is paid: see
+[which number your calls come from](#which-number-your-calls-come-from).
 
 <Warning>
 
@@ -115,21 +115,23 @@ last one lands the day before the decision is taken, which makes it the last mom
 can still save the number. Those three warnings are the whole of your notice, so keep enough
 balance to cover every number you hold.
 
-## Assigning a number to a project
+## Which number your calls come from
 
-A number belongs to your account, and renting it does not change who your calls come from. A
-call goes out from your number only once the number is assigned to a project, and then every
-call from that project uses it as its caller id. Until then the project keeps calling from the
-shared Tristack number, and an unassigned number costs the same but nothing calls from it.
+A number calls for the project you rent it on: the API key's project, or the project whose Voice
+tab you bought it on in the dashboard. **From the moment the first month is paid, every call from
+that project uses it as the caller id.** Other projects on the account keep calling from the shared
+Tristack number until they rent one of their own.
 
-Assignment is not available through the API or the dashboard yet. **Tristack support assigns a
-number to a project on request**: write to [support@tristack.tech](mailto:support@tristack.tech)
-with the number and the project it should call from.
+- **More than one number on a project:** calls come from the most recently rented one.
+- **When a number is released**, the project goes back to its other rented number if it has one,
+  and otherwise to the shared Tristack number.
+- **To call from a number on a different project**, or to keep a project on one particular number,
+  write to [support@tristack.tech](mailto:support@tristack.tech). A number set by support takes
+  priority over the project's own rentals.
 
-Separately from that, the rental itself is **billed** to the project you rented from: the API
-key's project, or the project whose settings page you bought it on in the dashboard. That never
-moves, even if the number is later assigned to a different project, so a number's cost stays with
-whoever took it on.
+The rental itself stays **billed** to the project you rented from. That never moves, even if
+support later points a different project at the number, so a number's cost stays with whoever
+took it on.
 
 ## Errors
 
