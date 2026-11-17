@@ -14,7 +14,8 @@ curl https://api.tristack.tech/v1/cpaas/voice/voices \
 ```json 200 OK (the catalog as shipped)
 {
   "defaultVoice": "default",
-  "pricePerCallPaise": 0,
+  "pricePerCallPaise": 40,
+  "callStepSeconds": 30,
   "voices": [
     { "voice": "default", "name": "Default voice", "language": "en-IN" }
   ]
@@ -27,7 +28,8 @@ curl https://api.tristack.tech/v1/cpaas/voice/voices \
 | `name` | A human label for a picker. Do not parse it. |
 | `language` | What the voice was chosen for. A label, not a switch: see below. |
 | `defaultVoice` | What you get when you send no `voice` at all. |
-| `pricePerCallPaise` | `0`. Calls are not metered. Kept on the response because it is the operator's rate rather than a constant, and a client that reads it will see the day it changes. |
+| `pricePerCallPaise` | `40`: what an answered call costs, in paise, per started `callStepSeconds` of its length. A call nobody answers costs nothing. It is the operator's rate rather than a constant, so read it rather than hardcoding it. |
+| `callStepSeconds` | `30`: the step an answered call is charged in. 1 to 30 seconds is one step, 31 to 60 seconds two, and so on. |
 
 The example is the catalog as it ships, one voice under the alias `default`. Which voices
 are on offer is set by configuration, so your list may hold others: take aliases from this
@@ -119,9 +121,10 @@ The dashboard has two ways to audition a voice, and they answer different questi
     through a mobile network's codec is not the voice through laptop speakers, and the phone
     is where the judgement matters.
 
-    What it costs: **nothing**. The calls are not metered, and there is no synthesis charge
-    either, because the sample is our wording rather than yours and it was recorded once for
-    everybody. A real number rings and a real call is placed, and it is still free.
+    What it costs: **the call, and nothing else**. There is no synthesis charge, because the
+    sample is our wording rather than yours and it was recorded once for everybody. A real
+    number rings and a real call is placed, so an answered test call is charged like any
+    other: 40 paise per started 30 seconds. A test call you do not pick up costs nothing.
 
     It needs Voice already switched on for the project you pick, since that is the
     project whose wallet pays and whose usage records it. The call shows up in your job

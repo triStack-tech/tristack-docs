@@ -1,14 +1,16 @@
 ---
 title: "Reusing a recording"
-description: "audioId is the handle on a recording you have already paid for. Since speech is the only thing Voice meters, sending it instead of text makes the whole send free."
+description: "audioId is the handle on a recording you have already paid for. Sending it instead of text skips the recording charge, so the send costs only its answered calls."
 ---
 
-Calls cost nothing. Recording speech, at 3 paise per character, is the only charge the
-Voice channel has, which makes it the whole bill and makes how you write your code the only thing
-that decides whether a campaign costs Rs 1.95 or Rs 1,065.
+Voice charges for two things: recording speech, at 3 paise per character, once, and answered
+calls, at 40 paise per started 30 seconds. The calls cost the same however you write your code.
+The recordings do not: whether 500 people hear one recording or five hundred is what decides
+whether a campaign costs Rs 137.95 or Rs 1,201.
 
 `audioId` is the lever. It is the handle on a recording you have already paid for. Send it in
-place of `text` and there is no synthesis, no charge, and no wallet movement whatsoever.
+place of `text` and there is no synthesis and no recording charge: the send costs only its
+answered calls.
 
 ## Where the id comes from
 
@@ -23,8 +25,8 @@ lost recording:
   "voice": "default",
   "language": "en-IN",
   "recipients": 500,
-  "estimatedCostPaise": 195,
-  "costPaise": 195
+  "estimatedCostPaise": 20195,
+  "costPaise": 13795
 }
 ```
 
@@ -38,8 +40,11 @@ jingle, a voice no catalog has: upload the MP3 in the dashboard, on the project'
 **Your recordings**, and you get an `audioId` back for it.
 
 It is the same handle in every respect. Send it as `audioId` exactly as above, replay it as
-often as you like, and it costs nothing: uploading is free, and nothing is synthesized when
-it plays, so there is no per-character charge to avoid in the first place.
+often as you like, and it never carries a recording charge: uploading is free, and nothing is
+synthesized when it plays, so there is no per-character charge to avoid in the first place.
+Its answered calls are charged like any other, by their length, so a long recording makes
+long calls: an answered call that plays a 120-second upload to the end is at least four
+30-second steps, 160 paise.
 
 | | |
 |---|---|
@@ -86,7 +91,7 @@ curl https://api.tristack.tech/v1/cpaas/voice \
   "voice": "default",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 0,
+  "estimatedCostPaise": 80,
   "costPaise": 0,
   "reference": "diwali-notice-2026-wave-2",
   "error": null,
@@ -101,9 +106,11 @@ curl https://api.tristack.tech/v1/cpaas/voice \
 }
 ```
 
-`estimatedCostPaise` is 0, and so is the final `costPaise`. The recording was paid for once,
-by the job that made it, and the calls are not metered. This send took no hold and left no
-ledger row: it would have worked on an empty wallet.
+`estimatedCostPaise` is 80: no recording charge, because the recording was paid for once, by
+the job that made it, plus 40 paise for each of the two recipients at the recording's length.
+The final `costPaise` is 40 paise per started 30 seconds of each answered call, and the rest of
+the hold goes back to the wallet. The send needs a balance that covers the hold: on an empty
+wallet it is refused with `402 insufficient_balance`.
 
 Three rules go with it:
 
@@ -116,7 +123,7 @@ Three rules go with it:
 - **The text limit does not apply here.** Nothing is being synthesized, so there is nothing
   to limit.
 
-## Repeating the same words is already free
+## Repeating the same words is not recorded twice
 
 You do not have to hold onto the id to get the discount. The same wording, in the same voice,
 that your account has recorded before resolves to the same recording automatically, before
@@ -127,13 +134,13 @@ any money is held:
 curl https://api.tristack.tech/v1/cpaas/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"to":["+91XXXXXXXXXX"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"default"}'
-# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 207  (69 characters at 3 paise; calls are not metered)
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 247  (69 characters at 3 paise, plus 40 for one call)
 
 # Tuesday, a different list, the same sentence and voice
 curl https://api.tristack.tech/v1/cpaas/voice -H "Authorization: Bearer $TRISTACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"to":["+91YYYYYYYYYY"],"text":"Fees for term two are due on Friday. Please pay at the school office.","voice":"default"}'
-# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 0    (the recording is already yours)
+# -> audioId aud_9c11f0a5be7d2348e6c1044b, estimatedCostPaise 40   (the recording is already yours; only the call)
 ```
 
 So why keep the id at all? Because the automatic match is exact, and "exact" is a stricter
@@ -143,7 +150,7 @@ test than it looks.
   <Accordion title="What counts as the same recording" icon="equals">
     The wording, the voice, and the speech model behind that voice. Leading and trailing
     whitespace is trimmed before the comparison, so a stray newline at the end of a template
-    does not cost you anything.
+    does not cost you a new recording.
   </Accordion>
 
   <Accordion title="What counts as a different recording" icon="not-equal">
@@ -230,8 +237,9 @@ def send(to, audio_id, text, voice):
 
 ## What this is worth: 500 people, two ways
 
-One list of 500 mobile numbers, one thing to tell them. Speech is 3 paise per character, the
-calls are free, and both scenarios place exactly the same 500 calls.
+One list of 500 mobile numbers, one thing to tell them, and 340 people answer. Speech is 3
+paise per character, each answered call is 40 paise (every message here plays inside one
+30-second step), and both scenarios place exactly the same 500 calls.
 
 <Tabs>
   <Tab title="One broadcast">
@@ -242,12 +250,13 @@ calls are free, and both scenarios place exactly the same 500 calls.
     | Line | Working | Paise |
     |---|---|---:|
     | Speech, once | 65 chars x 3 paise | 195 |
-    | 500 calls | 500 x 0 | 0 |
-    | **Total** | | **195** |
+    | 340 answered calls | 340 x 40 | 13,600 |
+    | 160 unanswered calls | 160 x 0 | 0 |
+    | **Total** | | **13,795** |
 
-    **Rs 1.95** to reach five hundred people. Send the same message again next month, by
-    `audioId` or by sending the identical text, and it is **free**: the recording is already
-    yours and there is nothing else to charge.
+    **Rs 137.95** to reach 340 of five hundred people. Send the same message again next month,
+    by `audioId` or by sending the identical text, and the speech is not charged again: the
+    same 340 answers cost Rs 136.00, all of it calls.
   </Tab>
 
   <Tab title="500 personalized sends">
@@ -258,34 +267,36 @@ calls are free, and both scenarios place exactly the same 500 calls.
     | Line | Working | Paise |
     |---|---|---:|
     | Speech, 500 distinct recordings | 500 x 71 chars x 3 paise | 106,500 |
-    | 500 calls | 500 x 0 | 0 |
-    | **Total** | | **106,500** |
+    | 340 answered calls | 340 x 40 | 13,600 |
+    | 160 unanswered calls | 160 x 0 | 0 |
+    | **Total** | | **120,100** |
 
-    **Rs 1,065.00**, all of it speech. The calls are free here exactly as they are in the
+    **Rs 1,201.00**, of which Rs 1,065 is speech. The calls cost exactly what they cost in the
     broadcast. Every rupee of the difference bought 500 recordings of nearly the same
     sentence.
   </Tab>
 </Tabs>
 
-The broadcast is **Rs 1,063.05 cheaper for the same 500 calls**, or 546 times cheaper, and
-how many people answer changes neither figure by a paisa:
+The broadcast is **Rs 1,063.05 cheaper for the same 500 calls**, and how many people answer
+does not move that difference by a paisa:
 
 | Answered | One broadcast | 500 personalized |
 |---|---:|---:|
-| 500 of 500 | Rs 1.95 | Rs 1,065.00 |
-| 340 of 500 | Rs 1.95 | Rs 1,065.00 |
+| 500 of 500 | Rs 201.95 | Rs 1,265.00 |
+| 340 of 500 | Rs 137.95 | Rs 1,201.00 |
 | 0 of 500 | Rs 1.95 | Rs 1,065.00 |
 
-That is the part worth internalizing: **you are billed for what you said, not for who heard
-it.** Speech is paid for when it is prepared, whether or not a single phone gets picked up.
-Personalizing 500 messages commits you to Rs 1,065 before you know whether anybody will
-answer, and reaching nobody costs exactly the same as reaching everybody.
+That is the part worth internalizing: **the calls cost the same whichever way you write the
+message, and the speech is what you choose.** Speech is paid for when it is prepared, whether
+or not a single phone gets picked up. Personalizing 500 messages commits you to Rs 1,065 of
+speech before you know whether anybody will answer, and reaching nobody still costs that.
 
 ## Personalize the parts that need it
 
 Personalization is not wrong, it is priced. The useful question is how many **distinct
-recordings** a campaign really needs, because that number, not the number of recipients, is
-what you are paying for. At about 70 characters a message and 500 calls all answered:
+recordings** a campaign really needs, because the calls cost the same either way and that
+number is the part of the bill you choose. At about 70 characters a message (one 30-second
+step per call, 40 paise) and 500 calls all answered:
 
 | Distinct recordings | Speech | Calls | Total |
 |---:|---:|---:|---:|

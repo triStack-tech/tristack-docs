@@ -79,8 +79,8 @@ the same hold and settle.
 <Steps>
   <Step title="Estimate, before anything happens" icon="calculator">
     The request is priced at its worst realistic case: for Manifold, the input plus the whole
-    of `max_tokens`; for Voice, every recipient answering, plus any speech that has to
-    be synthesized.
+    of `max_tokens`; for Voice, any speech that has to be synthesized, plus every recipient
+    answering for as long as the recording plays.
   </Step>
   <Step title="Hold that estimate" icon="lock">
     The balance drops by the estimate immediately, in one conditional database update that
@@ -121,8 +121,12 @@ estimate = (input_tokens  x paisePer1KTokensIn  / 1000)
 
 ```text Voice
 estimate = characters of NEWLY synthesized speech x 3 paise
-           (the calls are not metered, so recipients do not appear)
-           a replay synthesizes nothing, costs nothing, and takes no hold at all
+         + recipients x 40 paise x started 30-second steps of the recording
+           (an existing recording or upload by its known length,
+            new text by an estimate from the length of the text)
+
+settled  = characters of NEWLY synthesized speech x 3 paise
+         + 40 paise x started 30-second steps of each ANSWERED call
 ```
 </CodeGroup>
 
@@ -135,7 +139,7 @@ Two practical consequences:
 - **Reusing a recording removes the synthesis half of the Voice estimate.** Replaying
   an `audioId`, or sending wording this account has already synthesized in the same voice,
   makes the character count zero: nothing is prepared, so nothing is charged for preparing
-  it. [Reusing audio →](/cpaas/voice/reusing-audio)
+  it. The calls are held and charged as usual. [Reusing audio →](/cpaas/voice/reusing-audio)
 
 The rates `GET /v1/manifold/models` reports are the rates you are charged. Use them as they
 stand: nothing is added on top of them at settlement.
@@ -228,8 +232,8 @@ balance is 3 paise, and all three rows share one `reference`.
 | `pay_…` | A wallet top-up |
 
 A Voice job produces its rows when the job finishes, not when it is accepted. A job
-still dialing shows only its `Hold`. A job that replayed an existing recording cost nothing
-and so produces no rows at all: it never touched the wallet.
+still dialing shows only its `Hold`. A job that replayed an existing recording has rows too,
+because its calls cost money.
 
 `description` is written for a person reading the ledger, so its wording can change: never
 parse it. On a CPaaS `Debit` it says what was charged, for example `SMS: one OTP` or

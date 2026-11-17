@@ -49,7 +49,7 @@ if response.status_code != 202:
     raise RuntimeError(f"{response.status_code} {failure['code']}: {failure['error']}")
 
 job = response.json()
-# Keep both: jobId to poll, audioId to replay this recording for free later.
+# Keep both: jobId to poll, audioId to replay this recording later with no recording charge.
 print(job["jobId"], job["audioId"], job["estimatedCostPaise"], "paise held")
 ```
 
@@ -189,9 +189,10 @@ console.log(job.jobId, job.audioId, job.estimatedCostPaise, "paise held");
   pulled back inside it, so a request that asks for `2.0` tells you the ceiling instead of
   sounding identical to `1.2`.
 
-  Tempo does not change the price. You are billed per character synthesised and per answered
-  call, and neither moves with speed, though a faster call does spend fewer seconds on the
-  line.
+  Tempo does not change the rates. The recording charge is per character synthesised and does
+  not move with speed. Answered calls are charged per started 30 seconds of their length, so
+  a slower tempo that pushes the recording past a 30-second boundary costs one more step on
+  every answered call, and a faster one can save one.
 </ParamField>
 
 <ParamField body="reference" type="string">
@@ -210,20 +211,24 @@ The wallet is held before anything is dialed and settled when the job finishes:
 
 | | Held up front | Settled at the end |
 |---|---|---|
-| Calls | Nothing | Nothing |
+| Calls | For every recipient, 40 paise per started 30 seconds of the recording's length | 40 paise per started 30 seconds of each answered call. Nothing for a call that was not answered |
 | Recording | 3 paise per character, only when this request is the one preparing a new recording | The same amount, once |
 
-Only the recording is metered, and its size is known before anything is dialed, so the held
-and settled figures are the same. How many people answered does not change either.
+The hold counts every recipient as answering, for as long as the recording plays: an existing
+recording or an upload by its known length, new text by an estimate from the length of the
+text. When the last call ends, the job is charged for what the answered calls actually took,
+and the rest of the hold is returned. Every call is limited to the recording's length plus
+30 seconds.
 
-A request that prepares no recording therefore costs nothing at all, and the wallet is not
-touched: no hold, no debit, no ledger row. Such a send works on an empty balance.
+A request that prepares no recording still holds and pays for its calls. It needs a balance
+that covers the hold, and it appears in the ledger like any other job.
 
 <Note>
   Preparing a recording is free whenever the recording already exists. That covers a replay by
   `audioId` and, automatically, re-sending wording your account has already synthesized in the
   same voice: the same words resolve to the same `audioId` and skip the charge. The explicit
-  id makes that guaranteed and visible rather than incidental.
+  id makes that guaranteed and visible rather than incidental. The calls are charged either
+  way.
 
   There is also a one-time ₹200 activation fee the first time Voice is switched on for a
   project, charged on the dashboard toggle rather than here. It pays for the project's place on
@@ -245,7 +250,7 @@ called, so a send to the older `/v1/relay/voice` gets `/v1/relay/voice/{jobId}`.
   "voice": "default",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 132,
+  "estimatedCostPaise": 212,
   "costPaise": 0,
   "reference": "order-4417",
   "error": null,
@@ -314,14 +319,15 @@ called, so a send to the older `/v1/relay/voice` gets `/v1/relay/voice/{jobId}`.
 
 <ResponseField name="estimatedCostPaise" type="integer">
   The amount held on the wallet: 3 paise per character if this request prepared a new
-  recording, and `0` if it replayed one. Because calls are free, this is the final bill rather
-  than a ceiling.
+  recording, plus, for every recipient, 40 paise per started 30 seconds of the recording's
+  length. It counts every recipient as answering, so it is the hold rather than the bill. The
+  example holds 132 for the 44-character recording and 40 for each of the two recipients.
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
   What has actually been charged. `0` until the job finishes, then the recording charge, if
-  this request is the one that prepared the recording. It ends equal to `estimatedCostPaise`,
-  since nothing about the calls can move it.
+  this request is the one that prepared the recording, plus the `costPaise` of every call. The
+  rest of the hold is returned.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -363,8 +369,8 @@ called, so a send to the older `/v1/relay/voice` gets `/v1/relay/voice/{jobId}`.
     </ResponseField>
 
     <ResponseField name="durationSeconds" type="integer | null">
-      How long the answered call lasted. `null` until the provider reports an outcome, and on
-      calls that were never answered.
+      How long the answered call lasted, from answer to hang-up, and the length it is charged
+      on. `null` until the provider reports an outcome, and on calls that were never answered.
     </ResponseField>
 
     <ResponseField name="error" type="string | null">
@@ -373,8 +379,9 @@ called, so a send to the older `/v1/relay/voice` gets `/v1/relay/voice/{jobId}`.
     </ResponseField>
 
     <ResponseField name="costPaise" type="integer">
-      What this one call cost: `0`. Calls are not metered, in any outcome. The recording
-      charge belongs to the job rather than to any one call.
+      What this one call cost: 40 paise per started 30 seconds of `durationSeconds` if it was
+      answered, and `0` otherwise. The recording charge belongs to the job rather than to any
+      one call.
     </ResponseField>
   </Expandable>
 </ResponseField>

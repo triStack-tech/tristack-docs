@@ -87,9 +87,10 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     dashboard through the checkout flow. The minimum top-up is 10000 paise (Rs 100), and
     your email has to be verified before you can add money.
 
-    Budget for the two charges you are about to incur: Rs 200 for activation, plus 3 paise
-    per character the first time each message is recorded. The calls themselves are free.
-    Rs 300 is a comfortable start for testing.
+    Budget for the charges you are about to incur: Rs 200 for activation, 3 paise per
+    character the first time each message is recorded, and 40 paise per started 30 seconds
+    of every answered call. Calls nobody answers cost nothing. Rs 300 is a comfortable start
+    for testing.
 
     ```bash Check the balance
     curl https://api.tristack.tech/api/v1/wallet \
@@ -199,7 +200,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "default",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 195,
+      "estimatedCostPaise": 315,
       "costPaise": 0,
       "reference": "diwali-notice-2026",
       "error": null,
@@ -221,8 +222,8 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
     | Field | Why you want it |
     |---|---|
     | `jobId` | The handle for every later read, and the reference in your wallet ledger. |
-    | `audioId` | Send this instead of `text` next time and the recording costs nothing to prepare. See [reusing a recording](/cpaas/voice/reusing-audio). |
-    | `estimatedCostPaise` | What is held right now: 65 characters at 3 paise, so 195. The calls add nothing, so this is also the final bill. |
+    | `audioId` | Send this instead of `text` next time and there is no recording charge, only the calls. See [reusing a recording](/cpaas/voice/reusing-audio). |
+    | `estimatedCostPaise` | What is held right now: 65 characters at 3 paise (195), plus 40 paise for each of the three recipients at the recording's length of about 6 seconds (120), so 315. The final bill is what the answered calls actually take. |
 
     No `voice` was sent, so the account default was used and reported back. To choose one,
     see [voices](/cpaas/voice/voices).
@@ -248,7 +249,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "default",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 195,
+      "estimatedCostPaise": 315,
       "costPaise": 0,
       "reference": "diwali-notice-2026",
       "error": null,
@@ -256,7 +257,7 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "completedAt": null,
       "calls": [
         { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
         { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "Dialing",
           "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
         { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Queued",
@@ -275,26 +276,26 @@ export TRISTACK_API_KEY="tsk_live_your_key_here"
       "voice": "default",
       "language": "en-IN",
       "recipients": 3,
-      "estimatedCostPaise": 195,
-      "costPaise": 195,
+      "estimatedCostPaise": 315,
+      "costPaise": 275,
       "reference": "diwali-notice-2026",
       "error": null,
       "createdAt": "2026-08-21T18:30:00Z",
       "completedAt": "2026-08-21T18:31:47Z",
       "calls": [
         { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
+          "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
         { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
           "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 },
         { "callId": "rvc_f34ed1167c718dcead072599", "to": "+91ZZZZZZZZZZ", "status": "Completed",
-          "attempts": 1, "durationSeconds": 12, "error": null, "costPaise": 0 }
+          "attempts": 1, "durationSeconds": 12, "error": null, "costPaise": 40 }
       ]
     }
     ```
 
-    Two people picked up, one did not, and it makes no difference to the bill: 195 paise for
-    the recording and nothing for the calls. `costPaise` equals what was held, because the
-    only charge was known before the first phone rang.
+    Two people picked up and one did not. The bill is 195 paise for the recording plus 40 paise
+    for each answered call, both inside one 30-second step, so 275. The unanswered call cost
+    nothing, and its 40 paise share of the 315 held went back to the wallet.
 
     <Warning>
       `"status": "Completed"` on the **job** means every call reached a terminal state. It

@@ -45,15 +45,15 @@ it, so you can point the same parser at both.
   "voice": "default",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 195,
-  "costPaise": 195,
+  "estimatedCostPaise": 275,
+  "costPaise": 235,
   "reference": "diwali-notice-2026",
   "error": null,
   "createdAt": "2026-08-21T18:30:00Z",
   "completedAt": "2026-08-21T18:31:47Z",
   "calls": [
     { "callId": "rvc_800aecacce6d294c6f4fe17c", "to": "+91XXXXXXXXXX", "status": "Completed",
-      "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 0 },
+      "attempts": 1, "durationSeconds": 11, "error": null, "costPaise": 40 },
     { "callId": "rvc_332316e97ffbd94ba0039bb9", "to": "+91YYYYYYYYYY", "status": "NoAnswer",
       "attempts": 1, "durationSeconds": null, "error": null, "costPaise": 0 }
   ]
@@ -71,7 +71,7 @@ it, so you can point the same parser at both.
 
 <ResponseField name="error" type="string | null">
   Set only when `status` is `Failed`: `audio_unavailable`, `interrupted` (the service
-  restarted mid-job; nothing is redialed, and since the calls were free there is nothing to refund),
+  restarted mid-job; nothing is redialed, and only the calls answered before it stopped are charged),
   `internal_error`, `account_disabled` (the account was disabled after the job was accepted) or
   `project_archived` (the project was archived after the job was accepted). The last two stop
   the job at its next dial; the calls not yet placed read `Cancelled`. See
@@ -80,8 +80,9 @@ it, so you can point the same parser at both.
 
 <ResponseField name="costPaise" type="integer">
   What you were actually charged, in paise: the recording charge, if this job made the
-  recording, and `0` if it replayed one. The calls are not metered, so this always equals
-  `estimatedCostPaise`.
+  recording, plus the `costPaise` of every call. `estimatedCostPaise` is what was held while
+  the calls were made, counting every recipient as answering; the rest of it went back to the
+  wallet.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -99,9 +100,9 @@ it, so you can point the same parser at both.
       `Completed` (answered), `Busy`, `NoAnswer`, `Failed` or `Cancelled`.
     </ResponseField>
     <ResponseField name="attempts" type="integer">Dial attempts made.</ResponseField>
-    <ResponseField name="durationSeconds" type="integer | null">Length of the answered call.</ResponseField>
+    <ResponseField name="durationSeconds" type="integer | null">Length of the answered call, from answer to hang-up. The call is charged on it.</ResponseField>
     <ResponseField name="error" type="string | null">A sentence about why this call did not connect.</ResponseField>
-    <ResponseField name="costPaise" type="integer">`0`. Calls are not metered, in any outcome.</ResponseField>
+    <ResponseField name="costPaise" type="integer">40 paise per started 30 seconds of `durationSeconds` on an answered call, and `0` on every other outcome.</ResponseField>
   </Expandable>
 </ResponseField>
 

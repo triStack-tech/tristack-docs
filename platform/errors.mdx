@@ -339,14 +339,16 @@ A Voice request or a Manifold embedding job can be accepted with `202` and still
 later, so those failures are read from the job rather than from a status code.
 
 - **`error` on a Voice job**: `audio_unavailable` (the recording vanished before dialing),
-  `interrupted` (the service restarted mid-job; nothing is redialed, and the calls were free),
-  `internal_error`, `account_disabled` or `project_archived`.
+  `interrupted` (the service restarted mid-job; nothing is redialed, and only the calls
+  answered before it stopped are charged), `internal_error`, `account_disabled` or
+  `project_archived`.
 - **`account_disabled` and `project_archived` on a Voice job**: the account was disabled, or
   the project archived, after the job was accepted. The job checks before every call it
   places, so the calls not yet placed end `Cancelled`, calls already ringing finish, and the
   job ends `Failed` with that code. It settles like any other finish: the speech charge stands,
-  because the recording was made, and the calls cost nothing. The key can no longer read the
-  job back once that has happened, so a `callbackUrl` is how you learn of it.
+  because the recording was made, the calls answered before the stop are charged, and the
+  calls never placed cost nothing. The key can no longer read the job back once that has
+  happened, so a `callbackUrl` is how you learn of it.
   [Job status →](/api-reference/cpaas/voice/job)
 - **`error` on a call**: why that one number failed, alongside its status.
 - **Call statuses that are not errors at all**: `Busy`, `NoAnswer` and `Cancelled` are normal
