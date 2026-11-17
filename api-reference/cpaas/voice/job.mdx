@@ -26,8 +26,8 @@ curl https://api.tristack.tech/v1/cpaas/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
   "voice": "default",
   "language": "en-IN",
   "recipients": 2,
-  "estimatedCostPaise": 132,
-  "costPaise": 132,
+  "estimatedCostPaise": 212,
+  "costPaise": 172,
   "reference": "order-4417",
   "error": null,
   "createdAt": "2026-08-20T18:30:00Z",
@@ -40,7 +40,7 @@ curl https://api.tristack.tech/v1/cpaas/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
       "attempts": 1,
       "durationSeconds": 9,
       "error": null,
-      "costPaise": 0
+      "costPaise": 40
     },
     {
       "callId": "rvc_2b8104ef3f2a17c9d0be45a7",
@@ -55,9 +55,10 @@ curl https://api.tristack.tech/v1/cpaas/voice/rvj_3f2a17c9d0be45a7104ef2b8 \
 }
 ```
 
-That job held 132 paise and was charged 132, all of it for preparing the 44-character
-recording. Both calls cost nothing, which is why the held and charged figures match: the
-recording was the whole bill, and it was known before a phone rang.
+That job held 212 paise: 132 for preparing the 44-character recording, and 40 for each of the
+two recipients at the recording's length. It was charged 172: the recording, plus one answered
+call of 9 seconds, which is one 30-second step. The unanswered call cost nothing, and its 40
+paise went back to the wallet.
 
 ## Response
 
@@ -89,14 +90,15 @@ recording was the whole bill, and it was known before a phone rang.
 </ResponseField>
 
 <ResponseField name="estimatedCostPaise" type="integer">
-  What was held on the wallet when the job was accepted. It never changes.
+  What was held on the wallet when the job was accepted: any new recording charge, plus every
+  recipient's call at the recording's length. It never changes.
 </ResponseField>
 
 <ResponseField name="costPaise" type="integer">
   What has actually been charged: `0` until the job finishes, then the one-off recording
-  charge, if this job is the one that prepared the recording. Calls are not metered, so this
-  is the whole bill and it does not move with how many people answered. A job that replayed
-  an existing recording finishes at `0`.
+  charge, if this job is the one that prepared the recording, plus the `costPaise` of every
+  call. A job that replayed an existing recording finishes at the sum of its calls, and one
+  that nobody answered finishes at the recording charge alone.
 </ResponseField>
 
 <ResponseField name="reference" type="string | null">
@@ -143,8 +145,9 @@ recording was the whole bill, and it was known before a phone rang.
     </ResponseField>
 
     <ResponseField name="durationSeconds" type="integer | null">
-      How long the answered call lasted, as the provider reported it. `null` on a call that
-      was never answered and while one is still in flight.
+      How long the answered call lasted, from answer to hang-up as the provider reported it.
+      This is the length the call is charged on. `null` on a call that was never answered and
+      while one is still in flight.
     </ResponseField>
 
     <ResponseField name="error" type="string | null">
@@ -156,9 +159,10 @@ recording was the whole bill, and it was known before a phone rang.
     </ResponseField>
 
     <ResponseField name="costPaise" type="integer">
-      `0`, in every state. Calls are not metered, so this column sums to nothing and the
-      whole of `costPaise` is the recording charge. It is still reported per call because the
-      rate is an operator's setting rather than a constant of the API.
+      40 paise per started 30 seconds of `durationSeconds` on an answered call (`Completed`),
+      and `0` on every other status. The rate and the step are an operator's setting rather
+      than constants of the API: `GET /v1/cpaas/voice/voices` reports them as
+      `pricePerCallPaise` and `callStepSeconds`.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -176,7 +180,7 @@ recording was the whole bill, and it was known before a phone rang.
   **`Completed` does not mean anyone answered.** It means nothing is still ringing.
 
   A job sent to 50 numbers where every single one went unanswered finishes as `Completed`,
-  with a `costPaise` that covers only the recording. The job status is about the dialing being
+  with a `costPaise` that covers only the recording, if it made one. The job status is about the dialing being
   over, not about the outcome.
 
   To find out what actually happened, count the calls:
@@ -188,8 +192,8 @@ recording was the whole bill, and it was known before a phone rang.
   ```
 
   `call.status === "Completed"` is the one status that means a person picked up and the
-  message played. It costs no more than the others, so this is a question about reach rather
-  than about your bill.
+  message played. It is also the only status that is charged, so this count is both your
+  reach and the calls on your bill.
 </Warning>
 
 ## Call status
@@ -208,13 +212,13 @@ sits in one of them.
 | `Failed` | The provider refused the call, it dropped before it was answered, or the provider never reported its outcome. `error` says which. Silence from the provider is recorded as failed rather than as an outcome nobody confirmed. | Yes |
 | `Cancelled` | Never dialed at all: the service was shutting down before its turn came, or the account was disabled or the project archived first (see [When a whole job fails](#when-a-whole-job-fails)). `error` says which. | Yes |
 
-None of them is a charge. The column that used to say which outcome you paid for is gone,
-because the answer is now none of them.
+Only `Completed` is a charge: 40 paise per started 30 seconds of `durationSeconds`. Every
+other status costs nothing.
 
 <Note>
   Nothing here is a delivery receipt for a human being. `Completed` means the call was
   answered and the audio played to whatever picked up, which includes voicemail and answering
-  machines. Voice does not detect them.
+  machines. Voice does not detect them, so such a call is charged as an answered call.
 </Note>
 
 ## When a whole job fails
@@ -224,10 +228,10 @@ already had your `202`:
 
 | `error` | What happened | What it costs |
 |---|---|---|
-| `audio_unavailable` | The recording vanished between being prepared and being dialed. Nobody is called rather than being called and played silence. | Nothing is charged for the calls. Send the `text` again to make a new recording. |
-| `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | Nothing to refund: the calls were free. If this job made the recording, that charge stands, since the recording was made. |
-| `internal_error` | Something on our side failed while the job was running. | Nothing to refund unless the recording was never made, in which case the hold is released in full. |
-| `account_disabled` | The account was disabled after the job was accepted. Checked before every dial, retries included. | The calls were free, so nothing is owed for them. If this job made the recording, that charge stands, since the recording was made. |
+| `audio_unavailable` | The recording vanished between being prepared and being dialed. Nobody is called rather than being called and played silence. | Nobody was called, so no call is charged. Send the `text` again to make a new recording. |
+| `interrupted` | The service restarted mid-job. Nothing is redialed, because the rows alone cannot say which recipients had already been rung. | Calls answered before the restart are charged as usual; calls closed out as `Cancelled` or `Failed` cost nothing. If this job made the recording, that charge stands, since the recording was made. The rest of the hold is returned. |
+| `internal_error` | Something on our side failed while the job was running. | Calls already answered are charged and the rest of the hold is returned. If the recording was never made, the hold is released in full. |
+| `account_disabled` | The account was disabled after the job was accepted. Checked before every dial, retries included. | Calls not yet placed are `Cancelled` and cost nothing. Calls answered before the stop, including those already ringing that finish as usual, are charged. If this job made the recording, that charge stands, since the recording was made. |
 | `project_archived` | The job's project was archived after the job was accepted. Checked before every dial, retries included. If the account was disabled too, the job reads `account_disabled`. | As for `account_disabled`. |
 
 Calls left unfinished by an interruption are closed out as `Cancelled` if they were never

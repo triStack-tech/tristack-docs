@@ -306,8 +306,9 @@ Archiving is the off switch for a whole project.
   <Step title="Queued Voice calls stop">
     A Voice job accepted before the archive checks before every call it places. The calls not
     yet placed end `Cancelled`, calls already ringing finish, and the job ends `Failed` with
-    `error: "project_archived"`. The speech charge stands, because the recording was made; the
-    calls cost nothing. A `callbackUrl` on the job still receives the final status.
+    `error: "project_archived"`. The speech charge stands, because the recording was made, and
+    so do the calls answered before the stop; the calls never placed cost nothing. A
+    `callbackUrl` on the job still receives the final status.
   </Step>
   <Step title="The project becomes read-only">
     In the dashboard and the dashboard API you can still read everything on an archived

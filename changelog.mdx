@@ -12,6 +12,41 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-17" description="Voice calls are charged per 30 seconds">
+
+  **Answered Voice calls now cost Rs 0.40 per started 30 seconds.** A call is measured from
+  answer to hang-up, as the carrier reports it: 1 to 30 seconds is 40 paise, 31 to 60 seconds
+  is 80 paise, 61 to 90 seconds is 120 paise, and so on. A call that is not answered, is busy,
+  fails or is cancelled still costs nothing.
+
+  What this changes for you:
+
+  - New speech is unchanged: 3 paise per character, once per recording. So are the Rs 200
+    activation per project and Rs 236 a month for a number of your own.
+  - Replaying a recording (by `audioId`, or by sending the same text in the same voice again)
+    and playing an uploaded MP3 still carry no recording charge, but their answered calls are
+    now charged. A replay takes a hold, settles and appears in the ledger like any other job,
+    so it no longer runs on an empty wallet.
+  - The hold before dialing covers the recording charge, if the request makes a new
+    recording, plus every recipient's call at the recording's length. When the job ends it is
+    charged for what the answered calls actually took, and the rest of the hold is returned.
+    `estimatedCostPaise` is that hold, and no longer the final bill. A wallet that cannot
+    cover it is refused with `402 insufficient_balance` and `requiredPaise`, before any call.
+  - `costPaise` on a call is 40 paise per started 30 seconds of `durationSeconds` when it was
+    answered, and `0` otherwise. The job's `costPaise` is its calls plus the recording charge.
+  - Every call is limited to the recording's length plus 30 seconds.
+  - `GET /v1/cpaas/voice/voices` reports `pricePerCallPaise` as `40`, which now means the price
+    of each started 30 seconds of an answered call, and a new field, `callStepSeconds` (`30`),
+    beside it.
+  - The dashboard's test call carries no recording charge, and its call is charged like any
+    answered call.
+
+  One 65-character message to 500 numbers with 340 answering now costs Rs 137.95: Rs 1.95 of
+  speech and Rs 136 of calls. Sent again by `audioId`, it costs the Rs 136 of calls.
+  [Voice pricing →](/cpaas/voice/pricing)
+
+</Update>
+
 <Update label="2026-11-17" description="A rented number is your caller id straight away">
 
   **A number you rent is now used as soon as it is paid for.** Calls from the project you rented

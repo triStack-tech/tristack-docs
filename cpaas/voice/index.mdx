@@ -1,12 +1,12 @@
 ---
 title: "Voice"
-description: "Send Indian mobile numbers and a line of text. Voice speaks it down a phone call to every one of them. You pay for the speech, once, and nothing for the calls."
+description: "Send Indian mobile numbers and a line of text. Voice speaks it down a phone call to every one of them. You pay for the speech once, and for each answered call by its length."
 ---
 
 Voice, a Tristack CPaaS channel, turns a line of text into a phone call. You POST a list of
 Indian mobile numbers and the words to say. It synthesizes the speech once and dials
-everybody. You pay for the speech, once, and nothing for the calls: see
-[pricing](/cpaas/voice/pricing).
+everybody. You pay for the speech, once, and 40 paise per started 30 seconds of each answered
+call: see [pricing](/cpaas/voice/pricing).
 
 <Note>
   The API still says `relay` in its fields, scopes and error codes (`relayVoiceEnabled`,
@@ -36,7 +36,7 @@ HTTP client should hold a socket open for that:
   "voice": "default",
   "language": "en-IN",
   "recipients": 3,
-  "estimatedCostPaise": 195,
+  "estimatedCostPaise": 315,
   "costPaise": 0,
   "reference": null,
   "error": null,
@@ -110,16 +110,16 @@ response, and send it to Voice as `text`.
 
     The recording gets an `audioId`, returned on every response. Send that id back instead of
     `text` next time and there is no synthesis and no synthesis charge. The same wording in
-    the same voice resolves to the same id automatically, so a repeat is already free.
-    [Reusing a recording](/cpaas/voice/reusing-audio) is the single biggest lever on your
-    bill.
+    the same voice resolves to the same id automatically, so a repeat is never recorded
+    twice. [Reusing a recording](/cpaas/voice/reusing-audio) is the biggest lever on your
+    speech bill.
   </Step>
 
-  <Step title="The wallet is held for the worst case">
-    A hold covering every recipient plus any new synthesis goes on the wallet before a
-    single number is dialed. If the balance cannot cover it, the answer is
-    `402 insufficient_balance` with `requiredPaise`, and nothing at all has been spent: no
-    provider was called, no phone rang.
+  <Step title="The wallet is held for every recipient answering">
+    A hold covering any new synthesis, plus every recipient's call at the recording's length,
+    goes on the wallet before a single number is dialed. If the balance cannot cover it, the
+    answer is `402 insufficient_balance` with `requiredPaise`, and nothing at all has been
+    spent: no provider was called, no phone rang.
   </Step>
 
   <Step title="You get a jobId and the dialing starts in the background">
@@ -130,12 +130,13 @@ response, and send it to Voice as `text`.
     [`callbackUrl`](/cpaas/voice/callbacks) and be told when the job is done.
   </Step>
 
-  <Step title="The bill was settled before the dialing started">
-    The recording is the only charge, and its size was known when the request was accepted,
-    so the held and settled figures are the same however the calls turn out. A request that
-    replayed an existing recording never touched the wallet at all.
+  <Step title="The bill settles when the last call ends">
+    The job is charged the recording, if it made one, plus 40 paise per started 30 seconds of
+    each answered call, and the rest of the hold goes back to the wallet. A call nobody
+    answered costs nothing. Every call is limited to the recording's length plus 30 seconds.
 
-    The job's `costPaise` is the final number, and it does not move as the calls report in.
+    Once the job is finished, its `costPaise` is the final number, and each call's own
+    `costPaise` says what that call took.
   </Step>
 </Steps>
 
@@ -161,7 +162,8 @@ Two statuses matter and they answer different questions.
 | `Failed` | The network or the provider refused it. | Yes |
 | `Cancelled` | Never placed: for example the service restarted mid-job, or the account was disabled or the project archived before its turn came. | Yes |
 
-No outcome here is a charge. Read these to know who you reached, not what you owe.
+Only `Completed` is a charge: an answered call costs 40 paise per started 30 seconds of its
+`durationSeconds`. Every other outcome costs nothing.
 
 <Warning>
   `Completed` on a job means the dialing finished, not that the message was heard. Count the
@@ -171,12 +173,14 @@ No outcome here is a charge. Read these to know who you reached, not what you ow
 
 ## What it costs, in one line
 
-3 paise per character of newly synthesized speech, charged once per recording, and a
-one-time Rs 200 the first time you switch Voice on for a project. The calls are free.
+3 paise per character of newly synthesized speech, charged once per recording, 40 paise per
+started 30 seconds of each answered call, and a one-time Rs 200 the first time you switch
+Voice on for a project. Calls nobody answers cost nothing.
 
-The 65-character message at the top of this page costs 195 paise to record, once, and then
-nothing to send, to those three phones or to five hundred. Full arithmetic on the
-[pricing page](/cpaas/voice/pricing).
+The 65-character message at the top of this page costs 195 paise to record, once, and plays
+in about 6 seconds, so each answered call costs 40 paise. Sent to those three phones with two
+answering, it costs 275 paise; sent to them again by `audioId`, only the 80 paise of calls.
+Full arithmetic on the [pricing page](/cpaas/voice/pricing).
 
 ## When to use it
 

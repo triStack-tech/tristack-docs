@@ -121,14 +121,15 @@ curl https://api.tristack.tech/v1/cpaas/voice/voices \
 </CodeGroup>
 
 Manifold answers with the models **this project** may call, which is the authoritative list
-for that key. Voice answers with the voice aliases and the per-call price. The example is
-the catalog as it ships; the voices on offer are set by configuration, so use the aliases
-your own response lists:
+for that key. Voice answers with the voice aliases and the price of an answered call per 30
+seconds. The example is the catalog as it ships; the voices on offer are set by
+configuration, so use the aliases your own response lists:
 
 ```json Voice voices
 {
   "defaultVoice": "default",
-  "pricePerCallPaise": 0,
+  "pricePerCallPaise": 40,
+  "callStepSeconds": 30,
   "voices": [
     { "voice": "default", "name": "Default voice", "language": "en-IN" }
   ]

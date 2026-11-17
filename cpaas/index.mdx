@@ -25,8 +25,8 @@ endpoint, its own request shape and its own price.
 <CardGroup cols={2}>
   <Card title="Voice" icon="phone" href="/cpaas/voice/index">
     **Available.** Turns a line of text into a phone call and dials a list of Indian mobile
-    numbers. Billed for the speech rather than the calls, so a phone that rings out, or a
-    thousand that answer, cost the same.
+    numbers. Billed for the speech, once, and for each answered call by its length, so a
+    phone that rings out costs nothing.
   </Card>
   <Card title="Email" icon="envelope" href="/cpaas/email/index">
     **Available.** Transactional email from a domain you verify. Billed per recipient.
@@ -61,9 +61,9 @@ own `..._disabled` code.
 Email will not send a transcript of a call. Text produced by one channel is just text to
 another, and passing it across is something your code does deliberately.
 
-**Prices are per channel and not comparable.** A voice call is priced by the characters it speaks, an
-email per recipient, a WhatsApp or SMS code per code sent. There is no shared unit, and a rupee
-buys a different amount of each.
+**Prices are per channel and not comparable.** A voice call is priced by the characters it speaks
+and the seconds it is answered for, an email per recipient, a WhatsApp or SMS code per code
+sent. There is no shared unit, and a rupee buys a different amount of each.
 
 **WhatsApp has a second bill that the others do not.** You hold the Meta relationship, so
 Meta bills you separately for WhatsApp messages, on top of what Tristack charges. Voice, Email
