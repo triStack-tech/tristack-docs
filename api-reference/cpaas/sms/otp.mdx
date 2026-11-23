@@ -34,7 +34,8 @@ Requires the `relay-sms:send` scope.
   [One-time code length](/platform/projects-and-keys#one-time-code-length).
 
   Anything that is not a whole number from 4 to 10 is refused with `invalid_code_length`, and
-  nothing is charged.
+  nothing is charged. A length at which the message would need more SMS than with 6 digits is
+  refused with `code_too_long_for_template`, also before anything is charged.
 </ParamField>
 
 Any other field is **refused**, by name, rather than ignored. A misspelled field that bound
@@ -118,6 +119,7 @@ silently would mean being charged for a message different from the one you asked
 | --- | --- | --- | --- |
 | 400 | `invalid_phone_number` | `to` is not a mobile number: a typo, a landline, or a premium-rate, toll-free or shared-cost number | Fix the number. A number abroad needs its country code |
 | 400 | `invalid_code_length` | `codeLength` is not a whole number from 4 to 10 | Send 4 to 10, or leave it out to use the project's code length. Nothing was charged |
+| 400 | `code_too_long_for_template` | At this code length the message would need more SMS than with 6 digits, on your template or on the text sent abroad. `error` names the longest length that fits | Ask for that length or fewer, or set a shorter code length on the project. [Why](/platform/projects-and-keys#a-code-must-fit-the-sms-template). Nothing was charged |
 | 400 | `sms_country_unavailable` | The number is in a country Tristack cannot send to yet, because it needs a sender registration | Reach the person another way. [The list](/cpaas/sms/countries#countries-not-available-yet) |
 | 400 | `unsupported_field` | The body carried a field this endpoint does not accept | Remove it. The message is named in `error` |
 | 400 | `no_sender_identity` | Neither your own header nor a Tristack header is available here | Register your own on the project's SMS tab, or contact support |

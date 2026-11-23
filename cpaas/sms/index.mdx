@@ -250,6 +250,14 @@ number from 4 to 10 is refused with `400 invalid_code_length`, and nothing is ch
 length costs the same. A shorter code is easier to guess: with five attempts, a 4-digit code is
 guessed 1 time in 2,000 and a 6-digit code 1 time in 200,000.
 
+A longer code also makes a longer message, and every template and price assumes 6 digits. A
+length at which the message would need more SMS than with 6 digits, on your template in India or
+on the text sent abroad, is refused with `400 code_too_long_for_template` before anything is
+charged. Its `error` names the longest length that fits. Lengths of 4 to 6 always fit, the
+project's OTP tab shows the longest its template fits, and the previews on the SMS tab show the
+code at the project's length. See
+[A code must fit the SMS template](/platform/projects-and-keys#a-code-must-fit-the-sms-template).
+
 ## Verifying it
 
 ```bash

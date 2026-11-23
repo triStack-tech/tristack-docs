@@ -119,9 +119,11 @@ curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
 ```
 
 Send `0` to clear it and follow the platform default again, and leave the field out to leave
-it alone. Any other value outside 4 to 10 is refused with `400 invalid_otp_code_length`. The
-project reads back `otpCodeLength`, which is `null` while it follows the default, beside
-`otpCodeLengthDefault`. A change applies to the next code sent.
+it alone. Any other value outside 4 to 10 is refused with `400 invalid_otp_code_length`, and a
+length the project's SMS template cannot fit with `400 code_too_long_for_template` (see
+[A code must fit the SMS template](#a-code-must-fit-the-sms-template)). The project reads back
+`otpCodeLength`, which is `null` while it follows the default, beside `otpCodeLengthDefault`. A
+change applies to the next code sent.
 
 What the length changes:
 
@@ -135,9 +137,32 @@ What the length changes:
   not a 6-digit code.", naming the code's own length.
 - **A resend keeps the code it has.** `POST /v1/cpaas/otp/{id}/send` does not take `codeLength`.
 - **Every length costs the same.**
+- **Previews follow it.** The message previews on the project's SMS and OTP tabs show the code at
+  the project's length.
 
 Every code allows five attempts, so a 4-digit code is guessed 1 time in 2,000 and a 6-digit code
 1 time in 200,000. That is why 6 is the default.
+
+To try a length before choosing it, pick one in the **Code length** list of **Try it** on the
+project's OTP tab, or run `tristack otp test send --code-length 4`. Either sends one real code of
+that length, charged like any send.
+
+### A code must fit the SMS template
+
+A longer code makes a longer SMS. Every template and price assumes 6 digits, so a code is refused
+when its message would need more SMS than the same message with 6 digits: on the project's
+template in India, or on the text sent abroad. The refusal is `400 code_too_long_for_template`,
+before anything is charged, and its `error` names the longest length that fits. Lengths of 4 to 6
+always fit.
+
+It applies wherever a code goes out by SMS: `POST /v1/cpaas/sms/otp`, OTP on SMS (the start, and
+`POST /v1/cpaas/otp/{id}/send` when it sends by SMS), the dashboard's Try it and
+`tristack otp test send`. Setting the project's `otpCodeLength` to a length its template cannot
+fit is refused the same way. WhatsApp, voice and email codes are not affected.
+
+The project's OTP tab says the longest length the template fits, and offers nothing longer. The
+dashboard API reports it as `maxCodeLength` on `GET /api/v1/projects/{id}/sms-template`: a number
+from 6 to 10, or `null` when the project has no SMS template.
 
 ## Wallet top-up settings
 
