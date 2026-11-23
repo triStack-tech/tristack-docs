@@ -283,6 +283,32 @@ charges are in the ledger only.
 One thing it does not include: the Voice activation fee. That is account spend rather
 than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.
 
+### Where a one-time code went
+
+`GET /api/v1/usage/events` lists the charges behind those totals, one row each, newest first,
+and the dashboard's **Usage** page shows the same rows. SMS and OTP rows say where the code went,
+masked, in `to`:
+
+| Recipient | `to` |
+|---|---|
+| A phone number | `+91 98•••••321`: the country code, the first two digits and the last three |
+| An email address | `an•••@example.com`: the first two characters and the whole domain |
+| A code sent before 23 Nov 2026 | `null`, shown as **Not recorded** |
+
+The full number or address is never stored, only a hash of it, so the masked form is all
+that exists after the send. To find the codes sent to one recipient, pass the whole number with
+its country code, or the whole address, as `recipient`:
+
+```bash
+curl "https://api.tristack.tech/api/v1/usage/events?recipient=%2B919876543210" \
+  -H "Authorization: Bearer $JWT"
+```
+
+It matches the hash, so part of a number finds nothing. A value that is neither a phone number
+nor an email address is refused with `400 invalid_recipient`. On the Usage page, the same search
+is the **Find sends to a number or email** box, and the **To** column shows `to`. With the CLI:
+`tristack usage events --recipient +919876543210`.
+
 ## Other ways to add money
 
 <CardGroup cols={2}>

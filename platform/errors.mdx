@@ -6,6 +6,13 @@ description: "The error envelope, what each HTTP status means on this API, and e
 Every failure from Manifold AI and from every Tristack CPaaS channel answers with the same
 JSON envelope, so one handler covers the whole API.
 
+<Tip>
+  **Look at the project's API logs first.** The **API logs** tab on each project in the
+  dashboard lists every request its keys made in the last 30 days, with the status, the `code`
+  and the `error` sentence each one was answered with, so a failure your own logs missed is still
+  there to read. [API logs](/platform/projects-and-keys#api-logs)
+</Tip>
+
 ```json
 {
   "error": "The wallet balance cannot cover the estimated cost of this request.",

@@ -131,7 +131,11 @@ What the length changes:
   the length it was sent with, whatever the setting says later.
 - **Asking again inside the one-minute resend window reuses the live code only if it has the
   length asked for.** Otherwise a new code of that length is sent and charged, and it replaces
-  the live one.
+  the live one. On OTP this covers a start too: `POST /v1/cpaas/otp` for the same recipient, by
+  the same channel and at the same length, within a minute of the live code's last delivery,
+  returns the same verification, with the same `id` and `reused: true`, and sends and charges
+  nothing. A different channel or length starts a new verification. A normal start answers
+  `reused: false`.
 - **A guess with the wrong number of digits cannot be the code**, so it uses no attempt. SMS and
   WhatsApp answer `reason: "wrong_length"`; OTP's check answers `400 wrong_code` with "That is
   not a 6-digit code.", naming the code's own length.
@@ -364,6 +368,34 @@ request to create a key without scopes is refused with `scopes_required`. It app
 a key is created: keys already issued keep working exactly as they are, because a setting that
 retroactively narrowed a live integration would be an outage wearing the clothes of a policy.
 
+## API logs
+
+Every request a project's API keys make is listed on the project's **API logs** tab in the
+dashboard, newest first, for 30 days. It is the first place to look when an integration
+misbehaves: a request your server sent twice, a key that stopped working, or a refusal your own
+logs did not keep.
+
+Each request records:
+
+- when it arrived, its method and path, the status it was answered with, and how long it took;
+- the API key that made it, by name;
+- the client's IP address and user agent;
+- on a refusal, the `code` and the `error` sentence it was answered with;
+- the id of what it made or read, such as `sms_…` or `ver_…`, when it has one.
+
+**Request and response bodies are never stored**, so the log says what was called and how it
+ended, never what was sent. Each request is kept for 30 days.
+
+The tab filters by all requests or errors only, by method, by part of the path, by API key and
+by time. **Load more** reads older requests, and **Refresh** reads the newest again. Open a
+request to see every field, with the resource id ready to copy.
+
+The dashboard API serves the same list at `GET /api/v1/projects/{id}/request-logs`. It takes
+`status` (`errors` for every 4xx and 5xx, or one code such as `401`), `method`, `path` (part of
+it), `keyId`, `from` and `to` (ISO times), and `cursor` and `limit` (50 by default, at most 200),
+and answers `{ "items": [...], "nextCursor": "..." }`. Pass `nextCursor` back as `cursor` for the
+next, older page.
+
 ## Archiving a project
 
 Archiving is the off switch for a whole project.
@@ -454,5 +486,6 @@ rate limited to 10 requests per minute per caller IP; the signed-in routes are n
 | `/api/v1/projects/{id}/keys/{keyId}` | `DELETE` | Revoke a key |
 | `/api/v1/projects/{id}/models` | `GET` | The allowlist, with every catalog row and its price |
 | `/api/v1/projects/{id}/models` | `PUT` | Replace it: `{ "aliases": ["nova-lite"] }`. `[]` clears it, which restores allow-all |
+| `/api/v1/projects/{id}/request-logs` | `GET` | The project's API requests over the last 30 days, newest first. See [API logs](#api-logs) |
 
 A project id belonging to another account answers `404`, never that account's data.

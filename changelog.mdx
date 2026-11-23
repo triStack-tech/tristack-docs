@@ -12,7 +12,7 @@ live.
   recognise.
 </Info>
 
-<Update label="2026-11-23" description="Choose how many digits a one-time code has">
+<Update label="2026-11-23" description="Choose a one-time code's length, see where codes went, and read your API logs">
 
   **One-time codes can now have 4 to 10 digits.** They stay at 6 unless you choose otherwise,
   and every length costs the same.
@@ -46,6 +46,25 @@ live.
     code at the project's length, and the responses that carry them say `codeLength`.
   - **Try another length.** Try it on the OTP tab has a Code length list, and
     `POST /api/v1/projects/{id}/verify-test` takes `codeLength`.
+  - **An OTP start reuses a live code.** `POST /v1/cpaas/otp` for the same recipient, by the
+    same channel and at the same length, within a minute of the live code's last delivery,
+    returns the same verification: the same `id`, `reused: true`, and nothing sent or charged.
+    Until now a second start a second later sent and charged a second SMS, and the first code
+    stopped working. A different channel or length still starts a new verification, and Try it
+    in the dashboard follows the same rule.
+  - **See where each code went.** SMS and OTP rows of `GET /api/v1/usage/events` carry `to`, the
+    recipient masked (`+91 98•••••321`, `an•••@example.com`), or `null` for codes sent before
+    today. `recipient` finds the codes sent to one whole number or address, matched by hash
+    because the full number is never stored, and a value that is neither answers
+    `400 invalid_recipient`. The Usage page has a **To** column and a **Find sends to a number or
+    email** box, and the CLI takes `--recipient`.
+    [Where a one-time code went →](/platform/wallet#where-a-one-time-code-went)
+  - **API logs.** Each project has an **API logs** tab listing every request its keys made in the
+    last 30 days: time, method, path, status, duration, key, IP address, user agent, and the
+    error code and sentence of a refusal. Filter by errors, method, path, key and time, and open
+    a request for every field. Request bodies are never stored. The dashboard API serves the
+    same list at `GET /api/v1/projects/{id}/request-logs`.
+    [API logs →](/platform/projects-and-keys#api-logs)
 
   Every code allows five attempts, so a 4-digit code is guessed 1 time in 2,000 and a 6-digit
   code 1 time in 200,000.
