@@ -24,12 +24,15 @@ Never charged, however many attempts.
 </ResponseField>
 
 <ResponseField name="reason" type="string | null">
-  Why not, when `verified` is false. One of `incorrect`, `expired`, `exhausted`,
-  `superseded`, `already_verified`.
+  Why not, when `verified` is false. One of `incorrect`, `wrong_length`, `expired`,
+  `exhausted`, `superseded`, `already_verified`.
+
+  `wrong_length` means `code` does not have as many digits as the code that was sent (its
+  `codeLength`), so it cannot be right. It uses no attempt.
 </ResponseField>
 
 <ResponseField name="attemptsRemaining" type="number | null">
-  Guesses left, on `incorrect`. Zero on `exhausted`. Null otherwise.
+  Guesses left, on `incorrect` and `wrong_length`. Zero on `exhausted`. Null otherwise.
 </ResponseField>
 
 ```json 200 OK
@@ -38,6 +41,10 @@ Never charged, however many attempts.
 
 ```json 200 OK, wrong code
 { "verified": false, "reason": "incorrect", "attemptsRemaining": 4 }
+```
+
+```json 200 OK, too few or too many digits
+{ "verified": false, "reason": "wrong_length", "attemptsRemaining": 4 }
 ```
 
 ## The attempt cap consumes the code

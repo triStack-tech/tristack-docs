@@ -73,7 +73,8 @@ curl https://api.tristack.tech/v1/cpaas/whatsapp/otp \
   "id": "otp_55ee1a65a6374e983b0a6dbd",
   "expiresAt": "2026-08-27T09:10:18Z",
   "costPaise": 20,
-  "reused": false
+  "reused": false,
+  "codeLength": 6
 }
 ```
 
@@ -83,6 +84,13 @@ the recipient, which is the whole property this exists to provide.
 
 `to` is an international number. Spaces, hyphens and brackets are fine, and a leading `00` is
 read as a `+`, so `+91 98765 43210` and `00919876543210` are the same number.
+
+A code has 6 digits unless the project chooses 4 to 10 on its **OTP** tab under **CPaaS**, one
+setting for WhatsApp, SMS and OTP codes alike. See
+[One-time code length](/platform/projects-and-keys#one-time-code-length). One send can ask for
+its own length with `"codeLength": 4`, from 4 to 10, and `codeLength` in the response says how
+many digits went out. Every length costs the same, and every length fits Meta's authentication
+templates, which take codes of up to 15 characters.
 
 ## Verifying it
 
@@ -97,11 +105,12 @@ curl https://api.tristack.tech/v1/cpaas/whatsapp/otp/verify \
 { "verified": true }
 ```
 
-A failure says which of four things went wrong, so your own screen can say something useful:
+A failure says what went wrong, so your own screen can say something useful:
 
 | `reason` | What happened | What to tell the person |
 | --- | --- | --- |
 | `incorrect` | Wrong code, and `attemptsRemaining` says how many guesses are left | "That code is not right." |
+| `wrong_length` | Not as many digits as the code has, so it cannot be right. No attempt is used | Ask for all of its digits |
 | `expired` | The code timed out | Offer to send a new one |
 | `exhausted` | The attempt cap was reached and **the code is now dead** | Offer to send a new one |
 | `superseded` | A newer code was sent to this number | Ask for the most recent code |
@@ -118,10 +127,12 @@ they prevent lands on **your** Meta bill rather than ours.
 <AccordionGroup>
   <Accordion title="Five wrong guesses kill the code, they do not merely fail" icon="shield">
     At the fifth wrong attempt the code is consumed. The right code, entered afterwards, is
-    refused. An attacker therefore gets five guesses at a million, not an unlimited number.
+    refused. An attacker therefore gets five guesses, not an unlimited number: a 6-digit code is
+    guessed 1 time in 200,000, and a 4-digit code 1 time in 2,000.
 
-    This is the actual defence. A six-digit code is a million possibilities, and no way of
-    storing it survives someone who can guess without limit.
+    This is the actual defence. A 6-digit code is one of a million, and no way of storing it
+    survives someone who can guess without limit. A guess with the wrong number of digits is
+    answered `wrong_length` and does not count as an attempt.
   </Accordion>
 
   <Accordion title="Only one code is live per number at a time" icon="layers">
@@ -139,6 +150,9 @@ they prevent lands on **your** Meta bill rather than ours.
     This is deliberately not a refusal. A refusal teaches every integration to build its own
     retry loop, and the person is waiting for the code they were already sent. Wire your
     "resend" button straight to this endpoint.
+
+    Only a live code of the length asked for is reused. Asking for another length sends a new
+    code, which is charged and replaces the live one.
   </Accordion>
 
   <Accordion title="Three codes per number per hour, ten per day" icon="gauge">

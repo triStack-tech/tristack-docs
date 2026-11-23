@@ -17,6 +17,15 @@ The code is **never returned**: the `id` is your only handle on it.
   Between 8 and 15 digits after the country code. Not restricted to India.
 </ParamField>
 
+<ParamField body="codeLength" type="integer">
+  How many digits this one code has, from 4 to 10. Leave it out to use the project's code
+  length, which is 6 unless the project chose another. See
+  [One-time code length](/platform/projects-and-keys#one-time-code-length).
+
+  Anything that is not a whole number from 4 to 10 is refused with `invalid_code_length`, and
+  nothing is charged.
+</ParamField>
+
 ## Response
 
 <ResponseField name="id" type="string">
@@ -38,7 +47,15 @@ The code is **never returned**: the `id` is your only handle on it.
   window, so the existing code's id is returned and **nothing was sent**. False when a new
   code went out.
 
+  Only a live code of the length asked for is reused. Asking for another length sends a new code,
+  which is charged and replaces the live one.
+
   Worth reading rather than ignoring: it is the difference between a charge and no charge.
+</ResponseField>
+
+<ResponseField name="codeLength" type="number">
+  How many digits the code has: `codeLength` from the request, else the project's code length,
+  else 6.
 </ResponseField>
 
 ```json 200 OK
@@ -46,7 +63,8 @@ The code is **never returned**: the `id` is your only handle on it.
   "id": "otp_55ee1a65a6374e983b0a6dbd",
   "expiresAt": "2026-08-27T09:10:18Z",
   "costPaise": 20,
-  "reused": false
+  "reused": false,
+  "codeLength": 6
 }
 ```
 
@@ -55,6 +73,7 @@ The code is **never returned**: the `id` is your only handle on it.
 | Status | `code` | Means | What to do |
 | --- | --- | --- | --- |
 | 400 | `invalid_phone_number` | `to` is not an international number | Fix the number |
+| 400 | `invalid_code_length` | `codeLength` is not a whole number from 4 to 10 | Send 4 to 10, or leave it out to use the project's code length. Nothing was charged |
 | 400 | `whatsapp_not_configured` | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |
 | 402 | `insufficient_balance` | The wallet cannot cover the send. `requiredPaise` is included | Top up. Nothing was sent |
 | 403 | `relay_whatsapp_disabled` | Not switched on for this project | Turn it on. No new key needed |

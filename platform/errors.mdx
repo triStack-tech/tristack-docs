@@ -64,6 +64,7 @@ Two fields ride along on specific failures:
 | `code` | Status | Product | What happened | What to do |
 |---|:---:|---|---|---|
 | `invalid_text` | 400 | Dashboard API | A text field held a NUL character (U+0000), which cannot be stored. `field` names it. Nothing was saved | Remove the character. It usually comes from text read out of a binary file |
+| `invalid_otp_code_length` | 400 | Dashboard API | `otpCodeLength` on a project is not a whole number from 4 to 10, or `0` to clear it. Nothing was saved | Send 4 to 10, or `0` to go back to the platform default. [Code length](/platform/projects-and-keys#one-time-code-length) |
 | `invalid_api_key` | 401 | All | Missing, malformed, unknown or revoked key. Unknown and revoked answer identically, so a leaked token cannot be confirmed as real | Check the header spelling and the value. If it was revoked, create a new key |
 | `account_disabled` | 403 | All | Tristack has disabled the account that owns the key. Every key the account owns is refused, before the project and product checks, so this is the answer even on an archived project. The dashboard refuses the account's sign-in the same way | Write to hello@tristack.tech. A new key will not help: it belongs to the same account |
 | `insufficient_scope` | 403 | All | The key is real but was not granted this capability. `requiredScope` names the one it needs | Create a key with that scope. Scopes cannot be changed after creation |
@@ -170,6 +171,7 @@ Two fields ride along on specific failures:
 | `sms_country_unavailable` | 400 | SMS | The number is in a country Tristack cannot send to yet, because it needs a sender registration. Refused before the hold | Reach the person another way. [The list](/cpaas/sms/countries#countries-not-available-yet) |
 | `recipient_opted_out` | 502 | SMS | The recipient abroad replied STOP to an earlier message. The hold is released | Do not retry. Reach the person another way |
 | `otp_not_found` | 404 | SMS, WhatsApp | No code with that id for this project. Another project's id answers identically | Check the id came from this project's send |
+| `invalid_code_length` | 400 | SMS, WhatsApp, OTP | `codeLength` on a send is not a whole number from 4 to 10. Refused before anything is charged | Send 4 to 10, or leave it out to use the project's code length. [Code length](/platform/projects-and-keys#one-time-code-length) |
 | `relay_whatsapp_disabled` | 403 | WhatsApp | WhatsApp is not switched on for this project | Turn it on. No new key needed |
 | `relay_whatsapp_unavailable` | 503 | WhatsApp | WhatsApp is off, or half-configured, on this deployment | Contact support |
 | `whatsapp_not_configured` | 400 | WhatsApp | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |

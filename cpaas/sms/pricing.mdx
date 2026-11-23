@@ -43,6 +43,8 @@ the endpoint rather than hardcoding a price.
 - **Verifying.** Unlimited within the attempt cap, and free.
 - **A resend inside the window.** Asking again for the same number within a minute returns the
   existing code and sends nothing, so nothing is charged. The response says `"reused": true`.
+  Asking for a different [code length](/platform/projects-and-keys#one-time-code-length) is a
+  new code, and is charged.
 - **A refused send.** If the message is not accepted for delivery, the hold is released whole
   and you are not charged. `costPaise` in the response is what you actually paid.
 - **A refusal before sending.** An invalid number, a rate limit, a template that cannot be

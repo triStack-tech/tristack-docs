@@ -202,7 +202,7 @@ tristack account profile
 | Command | What it does |
 |---|---|
 | `projects list` | List your projects |
-| `projects get <id\|name>` | Show one project and its product switches |
+| `projects get <id\|name>` | Show one project, its product switches and its settings (such as the OTP code length) |
 | `projects create <name>` | Create a project |
 | `projects update <id\|name>` | Rename a project or switch its products on and off |
 | `projects archive <id\|name>` | Archive a project (it stops serving and becomes read-only; restore undoes it) |
@@ -211,8 +211,10 @@ tristack account profile
 `projects update` changes only the flags given: `--name`, `--manifold`, `--sms`, `--otp`,
 `--voice`, `--email` and `--whatsapp` (each `on` or `off`), `--require-scoped-keys on|off`,
 `--wallet-topup on|off`, `--topup-origins a,b` (replaces the list; `""` clears it),
-`--voice-speed 0.7-1.2` (0 restores the default) and `--notify-email <address>` (`""` sends
-reports to the account owner). There is no delete: archive a project instead.
+`--voice-speed 0.7-1.2` (0 restores the default), `--otp-code-length 4-10|default` (the digits
+in every SMS, WhatsApp and OTP code; `default` goes back to the platform's, 6) and
+`--notify-email <address>` (`""` sends reports to the account owner). There is no delete:
+archive a project instead.
 
 The project can also be given as `--project <id|name>` (`-p`), and the new project's name as
 `--name`. Give it once: an argument and a flag that disagree are refused, and nothing is sent.
@@ -300,6 +302,15 @@ switches, prices and limits, and is charged like any send.
 
 ```bash
 tristack otp test send --project "My app" --to +919876543210 --yes
+```
+
+Its code has the project's code length, the length your users get. To send one code of another
+length, call the API with a project key and `codeLength`. It is a real send, charged the same
+way:
+
+```bash
+TRISTACK_API_KEY=tsk_live_... tristack api POST /v1/cpaas/otp \
+  -f channel=sms -f phone=+919876543210 -F codeLength=4
 ```
 
 ### Email

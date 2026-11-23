@@ -93,6 +93,52 @@ mint a new one after flipping one.
 The project record also carries SMS and OTP switches. They are stored so a preference set
 today survives, and nothing reads them yet: no endpoint is gated on either.
 
+## One-time code length
+
+Every one-time code has **6 digits** unless the project chooses otherwise. A project can choose
+any length from **4 to 10**, and that one setting covers every product that sends codes:
+[SMS](/cpaas/sms/index), [WhatsApp](/cpaas/whatsapp/index) and OTP, on every channel OTP sends
+on (SMS, WhatsApp, a voice call or email).
+
+The first one that is set wins:
+
+| Where | Applies to | How |
+|---|---|---|
+| The request | One code | `codeLength` on `POST /v1/cpaas/sms/otp`, `POST /v1/cpaas/whatsapp/otp` or `POST /v1/cpaas/otp` |
+| The project | Every code from that project | The project's **OTP** tab, under **CPaaS**, or `otpCodeLength` on the project |
+| The platform | Everything else | 6 digits, reported on the project as `otpCodeLengthDefault` |
+
+Set it on the project's OTP tab (the SMS and WhatsApp tabs link to it), with
+`tristack projects update "My app" --otp-code-length 8`, or through the dashboard API:
+
+```bash
+curl -X PATCH https://api.tristack.tech/api/v1/projects/$PROJECT_ID \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{ "otpCodeLength": 8 }'
+```
+
+Send `0` to clear it and follow the platform default again, and leave the field out to leave
+it alone. Any other value outside 4 to 10 is refused with `400 invalid_otp_code_length`. The
+project reads back `otpCodeLength`, which is `null` while it follows the default, beside
+`otpCodeLengthDefault`. A change applies to the next code sent.
+
+What the length changes:
+
+- **Every send response carries `codeLength`**, the number of digits in that code. A code keeps
+  the length it was sent with, whatever the setting says later.
+- **Asking again inside the one-minute resend window reuses the live code only if it has the
+  length asked for.** Otherwise a new code of that length is sent and charged, and it replaces
+  the live one.
+- **A guess with the wrong number of digits cannot be the code**, so it uses no attempt. SMS and
+  WhatsApp answer `reason: "wrong_length"`; OTP's check answers `400 wrong_code` with "That is
+  not a 6-digit code.", naming the code's own length.
+- **A resend keeps the code it has.** `POST /v1/cpaas/otp/{id}/send` does not take `codeLength`.
+- **Every length costs the same.**
+
+Every code allows five attempts, so a 4-digit code is guessed 1 time in 2,000 and a 6-digit code
+1 time in 200,000. That is why 6 is the default.
+
 ## Wallet top-up settings
 
 Two more per-project settings, and neither is a product switch. They decide whether this
@@ -377,7 +423,7 @@ rate limited to 10 requests per minute per caller IP; the signed-in routes are n
 | `/api/v1/projects` | `GET` | List your projects |
 | `/api/v1/projects` | `POST` | Create one: `{ "name": "…" }` |
 | `/api/v1/projects/{id}` | `GET` | Read one |
-| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `relayVoiceSpeed`, `relayEmailEnabled`, `relayWhatsAppEnabled`, `requireScopedKeys`, `walletTopUpEnabled`, `topUpAllowedOrigins`, `archived`. Omitted fields are unchanged, and `topUpAllowedOrigins` replaces the whole list rather than merging |
+| `/api/v1/projects/{id}` | `PATCH` | `name`, `manifoldEnabled`, `relaySmsEnabled`, `relayOtpEnabled`, `relayVoiceEnabled`, `relayVoiceSpeed`, `relayEmailEnabled`, `relayWhatsAppEnabled`, `requireScopedKeys`, `walletTopUpEnabled`, `topUpAllowedOrigins`, `otpCodeLength`, `archived`. Omitted fields are unchanged, `0` clears `relayVoiceSpeed` and `otpCodeLength` back to the platform default, and `topUpAllowedOrigins` replaces the whole list rather than merging |
 | `/api/v1/projects/{id}/keys` | `POST` | Create a key: `{ "name": "…", "mode": "live" }` |
 | `/api/v1/projects/{id}/keys` | `GET` | List keys, without tokens |
 | `/api/v1/projects/{id}/keys/{keyId}` | `DELETE` | Revoke a key |
