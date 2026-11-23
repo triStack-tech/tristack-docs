@@ -31,7 +31,9 @@ The balance is held before anything reaches WhatsApp. If it cannot be covered yo
 ## What is not charged
 
 - **A resend inside the resend window.** It returns the live code's `id` with
-  `costPaise: 0`, because nothing was sent, by us or by Meta.
+  `costPaise: 0`, because nothing was sent, by us or by Meta. Asking for a different
+  [code length](/platform/projects-and-keys#one-time-code-length) is a new code, and is
+  charged.
 - **A send WhatsApp refused.** An unapproved template, an unreachable number, a token that
   no longer works: the hold is released whole and you pay nothing. This applies to every
   `502` from this endpoint.

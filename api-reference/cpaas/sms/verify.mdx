@@ -28,13 +28,16 @@ front end that checks codes needs this one and not the one that spends money.
 </ResponseField>
 
 <ResponseField name="reason" type="string">
-  Absent when `verified` is true. Otherwise one of `incorrect`, `expired`, `exhausted`,
-  `superseded` or `already_verified`.
+  Absent when `verified` is true. Otherwise one of `incorrect`, `wrong_length`, `expired`,
+  `exhausted`, `superseded` or `already_verified`.
+
+  `wrong_length` means `code` does not have as many digits as the code that was sent (its
+  `codeLength`), so it cannot be right. It uses no attempt.
 </ResponseField>
 
 <ResponseField name="attemptsRemaining" type="number">
-  Present on `incorrect`. Guesses left before the code is consumed. It reaches `0` with
-  `exhausted`, at which point even the right digits will not verify.
+  Present on `incorrect` and `wrong_length`. Guesses left before the code is consumed. It
+  reaches `0` with `exhausted`, at which point even the right digits will not verify.
 </ResponseField>
 
 ```json 200 OK
@@ -43,6 +46,10 @@ front end that checks codes needs this one and not the one that spends money.
 
 ```json 200 OK
 { "verified": false, "reason": "incorrect", "attemptsRemaining": 3 }
+```
+
+```json 200 OK, too few or too many digits
+{ "verified": false, "reason": "wrong_length", "attemptsRemaining": 3 }
 ```
 
 ## A wrong code is a 200, not an error

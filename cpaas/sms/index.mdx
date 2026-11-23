@@ -207,7 +207,8 @@ curl https://api.tristack.tech/v1/cpaas/sms/otp \
   "costPaise": 40,
   "header": "TRISTK",
   "reused": false,
-  "country": "IN"
+  "country": "IN",
+  "codeLength": 6
 }
 ```
 
@@ -225,9 +226,29 @@ country's price and no DLT header:
   "costPaise": 1550,
   "header": null,
   "reused": false,
-  "country": "DE"
+  "country": "DE",
+  "codeLength": 6
 }
 ```
+
+### Code length
+
+A code has 6 digits unless the project chooses 4 to 10 on its **OTP** tab under **CPaaS**, one
+setting for SMS, WhatsApp and OTP codes alike. See
+[One-time code length](/platform/projects-and-keys#one-time-code-length). One send can ask for
+its own length with `codeLength`:
+
+```bash
+curl https://api.tristack.tech/v1/cpaas/sms/otp \
+  -H "Authorization: Bearer $TRISTACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "to": "+91 xxxxxxxxxx", "codeLength": 4 }'
+```
+
+`codeLength` in the response is the number of digits the code has. A value that is not a whole
+number from 4 to 10 is refused with `400 invalid_code_length`, and nothing is charged. Every
+length costs the same. A shorter code is easier to guess: with five attempts, a 4-digit code is
+guessed 1 time in 2,000 and a 6-digit code 1 time in 200,000.
 
 ## Verifying it
 
@@ -242,12 +263,13 @@ curl https://api.tristack.tech/v1/cpaas/sms/otp/verify \
 { "verified": true }
 ```
 
-A failure says which of four things went wrong, because they need four different things said
-to the person waiting:
+A failure says what went wrong, because each needs something different said to the person
+waiting:
 
 | `reason` | Means |
 | --- | --- |
 | `incorrect` | Wrong digits. `attemptsRemaining` says how many guesses are left. |
+| `wrong_length` | Not as many digits as the code has (its `codeLength`), so it cannot be right. No attempt is used. |
 | `expired` | Past `expiresAt`. Send a new one. |
 | `exhausted` | The attempt cap was reached and the code is dead, even for the right digits. |
 | `superseded` | A newer code was issued for this number, so this one stopped being valid. |
@@ -305,8 +327,8 @@ the switch off answers `403 international_sms_disabled`, and costs nothing.
 - **A reply of STOP is honoured.** A recipient abroad who replied STOP to an earlier message
   is refused with `502 recipient_opted_out`, and nothing is charged.
 
-Everything else is the same: six digits, ten minutes, five attempts, one live code per number,
-the resend window, and the same verify call.
+Everything else is the same: the code length, ten minutes, five attempts, one live code per
+number, the resend window, and the same verify call.
 
 A number abroad is checked in this order, and each refusal is decided before any money moves:
 the number itself (`invalid_phone_number`), the project's switch
@@ -317,12 +339,13 @@ the number itself (`invalid_phone_number`), the project's switch
 
 ## What protects the code
 
-Not the fact that it is stored hashed, and it is worth being plain about that. Six digits is a
-million possibilities; a hash buys very little against anyone who has the table. What actually
+Not the fact that it is stored hashed, and it is worth being plain about that. A 6-digit code
+is one of a million; a hash buys very little against anyone who has the table. What actually
 protects a code is:
 
 - **Five wrong guesses consume it.** Not "the attempt fails": the code dies, so an attacker
-  gets five tries at a million rather than unlimited.
+  gets five tries rather than unlimited ones. A 6-digit code is guessed 1 time in 200,000 and a
+  4-digit code 1 time in 2,000, which is why 6 is the default.
 - **One live code per number.** Asking for a new one invalidates the previous, so nobody can
   accumulate a pool of valid codes to guess against.
 - **Ten minutes**, exactly, matching what the message itself promises the recipient.
@@ -332,6 +355,10 @@ protects a code is:
 
 A second request for the same number inside a minute returns the **existing** code's id,
 sends nothing, and charges nothing. `reused` is `true`.
+
+Only a live code of the length asked for is reused. Ask for another length, with `codeLength` or
+after the project's setting changed, and a new code of that length is sent and charged, and it
+replaces the live one.
 
 This is deliberate rather than a refusal: refusing would teach every integration to build a
 retry loop, and the person is waiting for the code they already received. Because nothing is

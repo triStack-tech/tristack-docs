@@ -12,6 +12,36 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-23" description="Choose how many digits a one-time code has">
+
+  **One-time codes can now have 4 to 10 digits.** They stay at 6 unless you choose otherwise,
+  and every length costs the same.
+
+  - **For a project:** choose the length on the project's **OTP** tab, under **CPaaS**, or send
+    `otpCodeLength` on `PATCH /api/v1/projects/{id}` (4 to 10, or `0` to go back to the
+    default). One setting covers SMS, WhatsApp and OTP codes, on every channel OTP sends on. The
+    project reads back `otpCodeLength` (`null` while it follows the default) and
+    `otpCodeLengthDefault`. The SMS and WhatsApp tabs link to it.
+  - **For one code:** send `codeLength` (4 to 10) on `POST /v1/cpaas/sms/otp`,
+    `POST /v1/cpaas/whatsapp/otp` or `POST /v1/cpaas/otp`. It wins over the project's setting.
+    `POST /v1/cpaas/otp/{id}/send` does not take it: a resend carries the code it already has.
+  - **Send responses carry `codeLength`**, the number of digits in the code.
+  - **Asking again inside the resend window** returns the live code only if it has the length
+    asked for. Otherwise a new code is sent and charged, and it replaces the live one.
+  - **A guess with the wrong number of digits** uses no attempt. SMS and WhatsApp answer
+    `reason: "wrong_length"`, and OTP's check answers `400 wrong_code` with "That is not a
+    6-digit code.", naming the code's own length.
+  - A bad `codeLength` is refused with `400 invalid_code_length`, and nothing is charged. A bad
+    `otpCodeLength` is refused with `400 invalid_otp_code_length`.
+  - In the CLI, `tristack projects update --otp-code-length 4-10|default` sets the project's
+    length.
+
+  Every code allows five attempts, so a 4-digit code is guessed 1 time in 2,000 and a 6-digit
+  code 1 time in 200,000.
+  [One-time code length →](/platform/projects-and-keys#one-time-code-length)
+
+</Update>
+
 <Update label="2026-11-17" description="Voice calls are charged per 30 seconds">
 
   **Answered Voice calls now cost Rs 0.40 per started 30 seconds.** A call is measured from
