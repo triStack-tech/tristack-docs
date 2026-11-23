@@ -44,7 +44,9 @@ The balance is held before anything reaches WhatsApp. If it cannot be covered yo
 
 Each send carries `costPaise` in its own response, and the wallet ledger records the charge
 against the same `otp_…` id, so a line on an invoice can be traced to the exact request that
-made it. WhatsApp appears in **Usage** alongside Manifold AI and the other channels.
+made it. Each send is also a line on the **Usage** page and in `GET /api/v1/usage/events`, as
+product `relay_whatsapp` beside Manifold AI and the other channels, with the number it went to,
+masked. The ledger and usage show the same charge; it is taken once.
 
 <Note>
   The rate is recorded on every send as it stood at that moment, so a price that changes later

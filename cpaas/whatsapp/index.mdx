@@ -92,6 +92,12 @@ its own length with `"codeLength": 4`, from 4 to 10, and `codeLength` in the res
 many digits went out. Every length costs the same, and every length fits Meta's authentication
 templates, which take codes of up to 15 characters.
 
+Every send that is charged is a line on the dashboard's **Usage** page and in
+`GET /api/v1/usage/events`, as product `relay_whatsapp`: its `id`, the project, the cost, and
+the number it went to, masked (`+91 98•••••321`), or `null` for a send made before 23 Nov 2026.
+Find every code sent to one number with `recipient`. See
+[Where a one-time code went](/platform/wallet#where-a-one-time-code-went).
+
 ## Verifying it
 
 ```bash

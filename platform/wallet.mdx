@@ -273,12 +273,15 @@ Its `product=` filter takes exactly these values:
 | `relay_voice` | Voice, counted in calls placed |
 | `relay_email` | Email, counted in recipients |
 | `relay_sms` | SMS, counted in messages sent |
+| `relay_whatsapp` | WhatsApp, counted in messages sent, one per code |
 | `verify` | Verify, counted in deliveries, one per channel a code was sent on |
 | `all`, or no `product` | Every product |
 
 Case and surrounding spaces are ignored. A value not on this list is not an error: it
-reports every product, the same as `all`. WhatsApp does not appear in usage at all; its
-charges are in the ledger only.
+reports every product, the same as `all`.
+
+WhatsApp is in usage from 23 Nov 2026, earlier sends included. Each send is in the ledger too,
+as it always was: one charge, shown in both places and taken once.
 
 One thing it does not include: the Voice activation fee. That is account spend rather
 than product consumption, so it appears in the ledger as a `Debit` and nowhere in usage.
@@ -286,8 +289,8 @@ than product consumption, so it appears in the ledger as a `Debit` and nowhere i
 ### Where a one-time code went
 
 `GET /api/v1/usage/events` lists the charges behind those totals, one row each, newest first,
-and the dashboard's **Usage** page shows the same rows. SMS and OTP rows say where the code went,
-masked, in `to`:
+and the dashboard's **Usage** page shows the same rows. SMS, WhatsApp and OTP rows say where the
+code went, masked, in `to`:
 
 | Recipient | `to` |
 |---|---|
@@ -308,6 +311,10 @@ It matches the hash, so part of a number finds nothing. A value that is neither 
 nor an email address is refused with `400 invalid_recipient`. On the Usage page, the same search
 is the **Find sends to a number or email** box, and the **To** column shows `to`. With the CLI:
 `tristack usage events --recipient +919876543210`.
+
+A WhatsApp row (`relay_whatsapp`) is one code sent, its `eventId` the send's `otp_…` id. Its
+`status` is always `sent`: WhatsApp accepted the message, and no delivery report comes back,
+so filtering on `failed` never lists one.
 
 ## Other ways to add money
 

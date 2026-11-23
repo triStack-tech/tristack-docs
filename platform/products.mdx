@@ -107,7 +107,8 @@ because Voice will refuse text longer than that rather than truncate it.
     Wallet rows from both sit in the same ledger, told apart by the `reference` field:
     `mfr_…` for a Manifold request, `rvj_…` for a Voice job. `GET /api/v1/usage` reports
     both, with a `product=` filter that takes `manifold`, `manifold_embeddings`,
-    `manifold_images`, `relay_voice`, `relay_email`, `relay_sms`, `verify` or `all`.
+    `manifold_images`, `relay_voice`, `relay_email`, `relay_sms`, `relay_whatsapp`, `verify`
+    or `all`.
 
     A Voice row counts calls placed and a Manifold row counts requests, so the two are never
     added into one number.
