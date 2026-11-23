@@ -59,6 +59,12 @@ live.
     `400 invalid_recipient`. The Usage page has a **To** column and a **Find sends to a number or
     email** box, and the CLI takes `--recipient`.
     [Where a one-time code went →](/platform/wallet#where-a-one-time-code-went)
+  - **WhatsApp codes are in usage.** `GET /api/v1/usage/events` and `GET /api/v1/usage` list
+    every WhatsApp code sent, earlier ones included, as product `relay_whatsapp`: its `otp_…`
+    id, project, cost, `status: "sent"` and `to`, masked, or `null` before today. The `product`
+    filter and the `recipient` search take it, the Usage and Analytics pages show it, and the CLI
+    takes `--product whatsapp`. Until now these charges were only in the wallet ledger. They are
+    still there: the same money, not a second charge.
   - **API logs.** Each project has an **API logs** tab listing every request its keys made in the
     last 30 days: time, method, path, status, duration, key, IP address, user agent, and the
     error code and sentence of a refusal. Filter by errors, method, path, key and time, and open
