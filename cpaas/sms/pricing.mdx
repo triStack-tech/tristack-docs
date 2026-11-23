@@ -7,6 +7,13 @@ icon: "indian-rupee-sign"
 **40 paise per message to an Indian number.** Every other country has a price of its own,
 listed on [SMS prices by country](/cpaas/sms/countries).
 
+<Warning>
+  **From 1 December 2026:** a message on your own DLT template is charged **per SMS segment**,
+  40 paise each; every country outside India is **about 7% dearer**; and the codes that confirm
+  the account's SMS test numbers are charged at the SMS OTP rate, 40 paise each. See
+  [What changes on 1 December 2026](#what-changes-on-1-december-2026).
+</Warning>
+
 Charged from the same wallet as Manifold AI and the other CPaaS channels, with no subscription, no minimum and no
 per-project fee.
 
@@ -14,6 +21,10 @@ per-project fee.
 
 **40 paise per message sent.** One flat rate, whether the message goes out under your own
 header or under Tristack's.
+
+From 1 December 2026, a message on your own DLT template is charged **40 paise per SMS segment**,
+so a template long enough to need two segments costs 80 paise. Tristack's templates fit one
+segment, so a code under Tristack's header stays 40 paise.
 
 ## Outside India
 
@@ -37,6 +48,19 @@ fixed for each request, and `costPaise` on the response is what that message cos
 The live list at today's rate is in the dashboard, on the project's **SMS** tab under
 **CPaaS**, and at [`GET /v1/cpaas/sms/countries`](/api-reference/cpaas/sms/countries). Read
 the endpoint rather than hardcoding a price.
+
+## What changes on 1 December 2026
+
+| What | Until 30 November 2026 | From 1 December 2026 |
+| --- | --- | --- |
+| A code under Tristack's header, to an Indian number | 40 paise | 40 paise, unchanged |
+| A code on your own DLT template | 40 paise a message | 40 paise per SMS segment |
+| A code to a number outside India | That country's price | About 7% more in every country |
+| A code that confirms an SMS test number | Not charged | The SMS OTP rate, 40 paise |
+
+The dashboard, [`GET /v1/cpaas/sms/countries`](/api-reference/cpaas/sms/countries) and
+`GET /api/v1/usage/rates` switch to the new prices at midnight in India on 1 December 2026, and
+`GET /api/v1/pricing/changes` lists every price that changes, now and after.
 
 ## What is not charged
 

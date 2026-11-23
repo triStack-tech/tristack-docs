@@ -19,7 +19,8 @@ no charge for listing voices.
 
 <Note>
   Renting a phone number of your own is separate, optional, and the only recurring charge on
-  the platform: Rs 200 plus Rs 36 GST per number per month. See
+  the platform: Rs 200 plus Rs 36 GST per number per month. **From 1 December 2026: Rs 260 plus
+  Rs 46.80 GST (Rs 306.80)**, for new rentals and for every renewal from that day. See
   [phone numbers](/cpaas/voice/numbers). Until a project rents a number of its own, its calls
   go out from a shared Tristack number, which has no rental charge. Its calls are charged like
   any other.
@@ -252,10 +253,10 @@ each answered call is one 30-second step.
     once. `recipients` on the response tells you how many the request really had.
   </Accordion>
 
-  <Accordion title="Reading jobs, listing voices, playing samples" icon="magnifying-glass">
-    `GET /v1/cpaas/voice/{jobId}` and `GET /v1/cpaas/voice/voices` are free and unmetered,
-    poll them as often as you like. The dashboard's in-browser voice samples are free too.
-    Its test call is not: the call is charged like any answered call.
+  <Accordion title="Reading jobs and listing voices" icon="magnifying-glass">
+    `GET /v1/cpaas/voice/{jobId}` and `GET /v1/cpaas/voice/voices` are reads, not sends: they
+    are not metered, so poll them as often as you like. The dashboard's test call is a real call
+    and is charged like any answered call.
   </Accordion>
 
   <Accordion title="The calls of a job we could not finish" icon="rotate">
@@ -282,7 +283,7 @@ each answered call is one 30-second step.
   Estimating a campaign before you run it: `characters x 3`, once per **distinct** message,
   plus `40 x started 30-second steps` for each call you expect to be answered, plus `20000`
   if the project has never had Voice switched on, plus `23600` a month for each number you
-  rent. Calls nobody answers add nothing. The wallet still has to cover the hold, which counts
+  rent (`30680` from 1 December 2026). Calls nobody answers add nothing. The wallet still has to cover the hold, which counts
   every recipient as answering.
 </Tip>
 
@@ -294,6 +295,6 @@ each answered call is one 30-second step.
   </Card>
 
   <Card title="Rent a number" icon="phone" href="/cpaas/voice/numbers">
-    Rent your own number for Rs 236 a month. The project you rent it on calls from it straight away.
+    Rent your own number for Rs 236 a month, Rs 306.80 from 1 December 2026. The project you rent it on calls from it straight away.
   </Card>
 </CardGroup>

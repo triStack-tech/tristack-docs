@@ -12,13 +12,24 @@ nothing is charged by the request: you pay for the tokens a call actually used, 
 model's own rate, and the response tells you what that came to. Image generation is the one
 surface priced differently, per image: see [Images](#images).
 
+<Warning>
+  **From 1 December 2026 the per-model prices go up**, for text, embedding and image models. Every
+  model's price now and from that day is listed at `GET /api/v1/pricing/changes`, which needs no
+  key, and on the dashboard's **Price changes** page. From the same day, cached input tokens are
+  charged, and so is the output a stream delivered before the provider failed. The prices on this
+  page and at [`GET /v1/manifold/models`](/manifold/models) are today's, and the endpoint switches
+  at midnight in India that day.
+</Warning>
+
 ## The short version
 
 - One **prepaid wallet per account**, shared by every project and by Tristack CPaaS.
 - Everything is an **integer in paise**. Rs 1 is `100`. No rupee floats anywhere.
 - Before a call, an **estimate is held**. After it, the **real usage is settled** and the
   rest of the hold comes back.
-- A failed call costs **nothing**, with exactly one exception: a stream you abort part-way.
+- A failed call costs **nothing**, with one exception: a stream you abort part-way, and from
+  1 December 2026 also a stream the provider cuts off part-way. Both are charged for the output
+  that reached you.
 - `cost.paise` on every response is the settled amount, not the estimate.
 - An **image** is priced per image, not per token, and charged only when one comes back.
 
@@ -182,18 +193,19 @@ amount actually taken. On a funded wallet the two always agree.
 | `provider_throttled`, `provider_rejected`, `model_access_denied`, `provider_error` | 0. The hold is released in full. |
 | `model_busy`, from an image model whose one-a-minute slot is taken | 0. Refused before the hold. |
 | `content_filtered`, an image prompt or image the safety filter blocked | 0. The hold is released in full. |
-| A stream that fails mid-way with an `error` event | 0. The hold is released in full. |
+| A stream that fails mid-way with an `error` event | Until 30 November 2026: 0, the hold is released in full. From 1 December 2026: the output that reached you, billed as for an abort below. |
 | You aborted before any output arrived | 0. The hold is released in full. |
 | You aborted after part of a stream arrived | Your whole input at 4 characters per token, plus the output that reached you, also at 4 characters per token and capped at `max_tokens`. |
 | Success | The real token cost. |
 
-The single exception exists so that hanging up one delta before the end is not repeatable
-free inference. A provider failure is not your doing and costs you nothing; discarding output
-that was generated and delivered does. [The detail is on the streaming
+Output that reached you is billed, so hanging up one delta before the end does not buy
+repeatable inference. From 1 December 2026 the same goes for a stream the provider cuts off: the
+model generated that output and the provider bills it, so the text that reached you is charged
+at the same estimate as an abort. [The detail is on the streaming
 page](/manifold/streaming#what-an-abort-costs).
 
-Retrying a failed call is therefore free apart from latency. Retry `429 provider_throttled`
-and `502 provider_error` with backoff, without worrying about paying twice. Retry
+A failure before any output, such as `429 provider_throttled` or `502 provider_error`, releases
+the hold in full, so a retry does not pay twice. Retry those with backoff, and retry
 `429 model_busy` after the seconds its `Retry-After` header gives.
 
 ## Images
