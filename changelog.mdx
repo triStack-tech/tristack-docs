@@ -12,6 +12,41 @@ live.
   recognise.
 </Info>
 
+<Update label="2026-11-23" description="Price changes from 1 December 2026">
+
+  **Some prices change at 00:00 India time on 1 December 2026.** Until then every charge is at
+  today's price. The dashboard shows a notice with a link to its **Price changes** page, which
+  lists every price that changes, now and after, and `GET /api/v1/pricing/changes` returns the
+  same list with no key. The rate reads (`GET /api/v1/usage/rates`, `GET /v1/manifold/models`,
+  `GET /v1/cpaas/sms/countries`) switch to the new prices at that instant.
+
+  | What | Until 30 November 2026 | From 1 December 2026 |
+  | --- | --- | --- |
+  | Manifold AI, every model | Today's rate per model | A higher rate per model. Each model's old and new rate is at `GET /api/v1/pricing/changes` |
+  | Manifold AI, cached input tokens | Not charged | Charged |
+  | Manifold AI, a stream the provider cuts off | Not charged | The output that reached you, as for a stream you stop |
+  | Email, per recipient | 1.5 paise | 2.5 paise |
+  | Email, attachments | Not charged | 2 paise per started MB above 100 KB, per recipient |
+  | OTP by email | 2 paise a delivery | 3 paise a delivery |
+  | A Voice phone number, a month | Rs 236 (Rs 200 + Rs 36 GST) | Rs 306.80 (Rs 260 + Rs 46.80 GST), for new rentals and for every renewal from that day |
+  | SMS on your own DLT template | 40 paise a message | 40 paise per SMS segment |
+  | SMS outside India | Each country's price | About 7% more in every country |
+  | A code that confirms an SMS test number | Not charged | The SMS OTP rate, 40 paise |
+
+  **Unchanged:** SMS OTP to an Indian number under Tristack's header, 40 paise; WhatsApp OTP,
+  20 paise; Voice, 40 paise per started 30 seconds of an answered call and 3 paise per character
+  of new speech; the Rs 200 Voice activation per project; and OTP by voice, 40 paise a delivery.
+
+  A request is priced when it is made: a stream or a Voice job that starts before midnight on
+  30 November is charged at the old prices even if it ends after it.
+
+  **From today, an OTP voice call is limited to 30 seconds.**
+
+  [Email pricing →](/cpaas/email/pricing) [SMS pricing →](/cpaas/sms/pricing)
+  [Voice numbers →](/cpaas/voice/numbers) [Manifold AI pricing →](/manifold/pricing)
+
+</Update>
+
 <Update label="2026-11-23" description="Choose a one-time code's length, see where codes went, and read your API logs">
 
   **One-time codes can now have 4 to 10 digits.** They stay at 6 unless you choose otherwise,
@@ -399,7 +434,13 @@ live.
 
 </Update>
 
-<Update label="2026-08-31" description="Relay Voice calls are free, and you can rent your own number">
+<Update label="2026-08-31" description="Relay Voice calls are free (superseded on 17 November 2026), and you can rent your own number">
+
+  <Warning>
+    **Superseded.** Voice calls have been charged since 17 November 2026: 40 paise per started
+    30 seconds of an answered call. A call nobody answers still costs nothing. The call prices
+    below no longer apply; see [Voice pricing](/cpaas/voice/pricing).
+  </Warning>
 
   **Calls are no longer metered.** `pricePerCallPaise` is `0`. Every call, in every outcome,
   now costs nothing, and speech is the only per-use charge Relay Voice has: 3 paise per

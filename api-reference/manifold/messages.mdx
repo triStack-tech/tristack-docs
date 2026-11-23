@@ -574,8 +574,10 @@ with requests.post(
 
 <AccordionGroup>
   <Accordion title="The model fails part way through" icon="triangle-exclamation">
-    You get an `error` event instead of `message_delta` and `message_stop`, and the whole hold
-    is released. The call costs nothing, even though you already received text.
+    You get an `error` event instead of `message_delta` and `message_stop`. Until 30 November
+    2026 the whole hold is released. From 1 December 2026 the text that already reached you is
+    charged, at the same estimate as a stream you hang up on, because the provider bills the
+    output it generated before failing.
   </Accordion>
 
   <Accordion title="You hang up part way through" icon="plug-circle-xmark">

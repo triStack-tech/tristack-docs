@@ -1,16 +1,23 @@
 ---
 title: "Email pricing"
-description: "1.5 paise per recipient, charged when the message is accepted. What counts as a recipient, why a single email settles at 2 paise, and what a failure costs."
+description: "1.5 paise per recipient until 30 November 2026, then 2.5 paise plus 2 paise per started MB of attachments above 100 KB. What counts as a recipient, how a send is rounded, and what a failure costs."
 ---
 
 **1.5 paise per recipient.** No monthly fee, no minimum, no charge for verifying a domain or
 for turning the product on.
 
+<Warning>
+  **From 1 December 2026: 2.5 paise per recipient, plus 2 paise per started MB of attachments
+  above 100 KB, per recipient.** A single-recipient email then settles at 3 paise. See
+  [Attachments, from 1 December 2026](#attachments-from-1-december-2026) and the
+  [price changes](/changelog).
+</Warning>
+
 <Note>
   A wallet holds whole paise and cannot be debited a fraction of one, so the total for a
   message is rounded **up** to the next paise. A single-recipient email therefore settles at
   **2 paise**, and larger sends average out to the true rate: ten recipients cost 15 paise,
-  a hundred cost 150.
+  a hundred cost 150. From 1 December 2026: 3 paise, 25 paise and 250 paise.
 </Note>
 
 ## Per recipient, not per message
@@ -21,12 +28,12 @@ fifty people is fifty deliveries and costs fifty times one email to one person.
 `To`, `Cc` and `Bcc` all count the same. An address that appears in more than one of them is
 one delivery and is counted once.
 
-| What you send | Recipients | Cost |
-| --- | --- | --- |
-| One address in `to` | 1 | 2 paise (1.5, rounded up) |
-| Ten in `to` | 10 | 15 paise |
-| Five in `to`, three in `cc` | 8 | 12 paise |
-| One address in both `to` and `cc` | 1 | 2 paise |
+| What you send | Recipients | Cost | From 1 December 2026 |
+| --- | --- | --- | --- |
+| One address in `to` | 1 | 2 paise (1.5, rounded up) | 3 paise (2.5, rounded up) |
+| Ten in `to` | 10 | 15 paise | 25 paise |
+| Five in `to`, three in `cc` | 8 | 12 paise | 20 paise |
+| One address in both `to` and `cc` | 1 | 2 paise | 3 paise |
 
 Every response tells you what it charged and over how many recipients, so you can always check
 the arithmetic:
@@ -58,14 +65,29 @@ message in it, at the same rate. A batch is a convenience, not a discount.
 The rounding is applied once to the batch total rather than once per message, so a batch is
 never dearer than the same messages sent one at a time:
 
-| What you send | Recipients | Cost |
-| --- | --- | --- |
-| Three single-recipient messages, separately | 3 | 6 paise (2 + 2 + 2) |
-| The same three as one batch | 3 | 5 paise (4.5, rounded up) |
+| What you send | Recipients | Cost | From 1 December 2026 |
+| --- | --- | --- | --- |
+| Three single-recipient messages, separately | 3 | 6 paise (2 + 2 + 2) | 9 paise (3 + 3 + 3) |
+| The same three as one batch | 3 | 5 paise (4.5, rounded up) | 8 paise (7.5, rounded up) |
 
 Only the messages that were accepted are billed. A message that failed inside a batch costs
 nothing, and the balance for the whole batch is held before any of it is sent: if it cannot be
 covered, nothing goes out.
+
+## Attachments, from 1 December 2026
+
+Until 30 November 2026 attachments are not billed. From 1 December 2026, a message whose
+attachments come to more than 100 KB adds **2 paise per started MB above the first 100 KB, for
+each recipient**, and the send's total is rounded up once, as before:
+
+| What you send | From 1 December 2026 |
+| --- | --- |
+| One recipient, a 60 KB attachment | 3 paise (2.5, rounded up) |
+| One recipient, 1.5 MB of attachments | 7 paise: 2.5 + 2 x 2 started MB, 6.5 rounded up |
+| Four recipients, 1.5 MB of attachments | 26 paise: 4 x (2.5 + 2 x 2) |
+
+The [send response](/api-reference/cpaas/email/send) says what each send cost, so the arithmetic
+can always be checked.
 
 ## Rate limits
 

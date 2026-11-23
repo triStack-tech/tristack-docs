@@ -394,7 +394,8 @@ tristack numbers available --prefix 9180
 |---|---|
 | `usage summary` | Totals per project, product and day |
 | `usage events` | The line items behind the totals, newest first |
-| `usage rates` | Every rate currently charged |
+| `usage rates` | Every rate currently charged, and any price change ahead |
+| `pricing changes` | The next price change: every price that changes, now and after (needs no sign-in) |
 | `logs` | Request log: every billable event, newest first (same as `usage events`) |
 
 `usage summary`, `usage events` and `logs` filter with `--project`, `--product` (`sms`,
@@ -414,6 +415,13 @@ with its country code, or the whole address. See
 ```bash
 tristack logs --project "My app" --status failed --page-size 20
 tristack usage events --product otp --recipient +919876543210
+```
+
+`usage rates` adds `priceChange` while prices are about to change, and for two weeks after they
+do: the same list `pricing changes` prints, each item with `currentPaise` and `nextPaise`.
+
+```bash
+tristack pricing changes
 ```
 
 These list charges. The requests a project's keys made, including the ones that were refused,

@@ -294,9 +294,11 @@ A stream breaks in one of two places, and they look nothing alike on the wire.
     data: {"error":"The model provider failed mid-stream.","code":"provider_error"}
     ```
 
-    You are left holding partial text and no usage figures. **The hold is released in full
-    and the call costs nothing**: the failure was not yours, so you do not pay for the
-    fragment that arrived.
+    You are left holding partial text and no usage figures. Until 30 November 2026 the hold is
+    released in full. **From 1 December 2026 the fragment that arrived is charged**, at the same
+    estimate as a stream you hang up on: input characters and delivered output characters divided
+    by four, capped at `max_tokens`, because the provider bills the output it generated before
+    failing.
 
     The HTTP status is still `200`, because it was sent before anything went wrong. Status
     codes cannot be revised mid-body, which is exactly why the rule above matters: judge a
