@@ -305,6 +305,9 @@ switches, prices and limits, and is charged like any send.
 tristack otp test send --project "My app" --to +919876543210 --yes
 ```
 
+Sending again to the same recipient by the same channel and at the same length within a minute
+returns the live verification with `reused: true`, and nothing is sent or charged.
+
 Its code has the project's code length, the length your users get, unless `--code-length`
 asks for another for this one send. A length the project's SMS template cannot fit is refused
 with `code_too_long_for_template`, and nothing is charged.
@@ -403,9 +406,19 @@ and `--search`. An unknown `--product`, `--status` or `--window` is refused (exi
 `invalid_value`) rather than quietly read as a default. WhatsApp is not in the usage report;
 its charges are in `tristack wallet ledger`.
 
+SMS and OTP rows in `usage events` and `logs` carry `to`, where the code went, masked
+(`+91 98•••••321`), or `null` for a code sent before 23 Nov 2026. `--recipient` finds the codes
+sent to one phone number or email address. Only a hash of it is stored, so give the whole number
+with its country code, or the whole address. See
+[Where a one-time code went](/platform/wallet#where-a-one-time-code-went).
+
 ```bash
 tristack logs --project "My app" --status failed --page-size 20
+tristack usage events --product otp --recipient +919876543210
 ```
+
+These list charges. The requests a project's keys made, including the ones that were refused,
+are on the project's **API logs** tab in the dashboard: see [API logs](/platform/projects-and-keys#api-logs).
 
 ## Anything else: tristack api
 
