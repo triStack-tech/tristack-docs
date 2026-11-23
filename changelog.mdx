@@ -34,7 +34,18 @@ live.
   - A bad `codeLength` is refused with `400 invalid_code_length`, and nothing is charged. A bad
     `otpCodeLength` is refused with `400 invalid_otp_code_length`.
   - In the CLI, `tristack projects update --otp-code-length 4-10|default` sets the project's
-    length.
+    length, and `tristack otp test send --code-length 4-10` sends one test code of another length.
+  - **A code must fit the SMS template.** A length at which an OTP SMS would need more messages
+    than with 6 digits is refused with `400 code_too_long_for_template` before anything is
+    charged, and `error` names the longest length that fits. This applies to
+    `POST /v1/cpaas/sms/otp`, OTP on SMS (the start and `/v1/cpaas/otp/{id}/send`), the
+    dashboard's Try it and the text sent abroad, and to setting `otpCodeLength`.
+    `GET /api/v1/projects/{id}/sms-template` reports the longest as `maxCodeLength`, and the
+    Code length card offers nothing longer.
+  - **Previews follow the length.** The SMS previews on the project's SMS and OTP tabs show the
+    code at the project's length, and the responses that carry them say `codeLength`.
+  - **Try another length.** Try it on the OTP tab has a Code length list, and
+    `POST /api/v1/projects/{id}/verify-test` takes `codeLength`.
 
   Every code allows five attempts, so a 4-digit code is guessed 1 time in 2,000 and a 6-digit
   code 1 time in 200,000.

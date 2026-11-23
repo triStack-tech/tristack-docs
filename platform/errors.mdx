@@ -172,6 +172,7 @@ Two fields ride along on specific failures:
 | `recipient_opted_out` | 502 | SMS | The recipient abroad replied STOP to an earlier message. The hold is released | Do not retry. Reach the person another way |
 | `otp_not_found` | 404 | SMS, WhatsApp | No code with that id for this project. Another project's id answers identically | Check the id came from this project's send |
 | `invalid_code_length` | 400 | SMS, WhatsApp, OTP | `codeLength` on a send is not a whole number from 4 to 10. Refused before anything is charged | Send 4 to 10, or leave it out to use the project's code length. [Code length](/platform/projects-and-keys#one-time-code-length) |
+| `code_too_long_for_template` | 400 | SMS, OTP, Dashboard API | At this code length the SMS would need more messages than with 6 digits, on the project's template or on the text sent abroad. `error` names the longest length that fits. A send is refused before anything is charged; a project's `otpCodeLength` is not saved | Use that length or fewer, in `codeLength` or in the project's code length, or a template with a shorter text. [Why](/platform/projects-and-keys#a-code-must-fit-the-sms-template) |
 | `relay_whatsapp_disabled` | 403 | WhatsApp | WhatsApp is not switched on for this project | Turn it on. No new key needed |
 | `relay_whatsapp_unavailable` | 503 | WhatsApp | WhatsApp is off, or half-configured, on this deployment | Contact support |
 | `whatsapp_not_configured` | 400 | WhatsApp | The project has no WhatsApp credentials | Add them on the project's WhatsApp tab |

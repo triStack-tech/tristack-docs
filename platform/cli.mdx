@@ -212,7 +212,8 @@ tristack account profile
 `--voice`, `--email` and `--whatsapp` (each `on` or `off`), `--require-scoped-keys on|off`,
 `--wallet-topup on|off`, `--topup-origins a,b` (replaces the list; `""` clears it),
 `--voice-speed 0.7-1.2` (0 restores the default), `--otp-code-length 4-10|default` (the digits
-in every SMS, WhatsApp and OTP code; `default` goes back to the platform's, 6) and
+in every SMS, WhatsApp and OTP code; `default` goes back to the platform's, 6, and a length the
+project's SMS template cannot fit is refused with `code_too_long_for_template`) and
 `--notify-email <address>` (`""` sends reports to the account owner). There is no delete:
 archive a project instead.
 
@@ -294,7 +295,7 @@ tristack sms app-name set --project "My app" "Acme" --link https://acme.com
 | Command | What it does |
 |---|---|
 | `otp enable` / `otp disable --project <p>` | Switch OTP on or off for a project |
-| `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice] --yes` | Send one real code to a phone number or email address (charged to the wallet) |
+| `otp test send --project <p> --to <phone\|email> [--channel sms\|whatsapp\|email\|voice] [--code-length 4-10] --yes` | Send one real code to a phone number or email address (charged to the wallet) |
 | `otp test check --project <p> <verification id> <code>` | Check the code a test verification received |
 
 `otp test send` goes through the same path as `POST /v1/cpaas/otp`, with the project's
@@ -304,13 +305,12 @@ switches, prices and limits, and is charged like any send.
 tristack otp test send --project "My app" --to +919876543210 --yes
 ```
 
-Its code has the project's code length, the length your users get. To send one code of another
-length, call the API with a project key and `codeLength`. It is a real send, charged the same
-way:
+Its code has the project's code length, the length your users get, unless `--code-length`
+asks for another for this one send. A length the project's SMS template cannot fit is refused
+with `code_too_long_for_template`, and nothing is charged.
 
 ```bash
-TRISTACK_API_KEY=tsk_live_... tristack api POST /v1/cpaas/otp \
-  -f channel=sms -f phone=+919876543210 -F codeLength=4
+tristack otp test send --project "My app" --to +919876543210 --code-length 4 --yes
 ```
 
 ### Email
